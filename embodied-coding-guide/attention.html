@@ -1,0 +1,278 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="具身岗 Attention 手撕代码：Self-Attention、Cross-Attention、Multi-Head、位置编码和 KV Cache。">
+  <meta name="theme-color" content="#0f1715">
+  <title>Attention 手撕专题｜具身岗面试</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="scroll-progress"><span id="scroll-progress-bar"></span></div>
+  <header class="topbar">
+    <a class="brand" href="index.html"><span class="brand-mark">AT</span><span class="brand-copy"><strong>Attention 手撕专题</strong><small>Shapes First</small></span></a>
+    <nav class="topnav"><a href="index.html">总览</a><a href="vla-interview.html">VLA</a><a href="tactile-interview.html">触觉</a><a href="pi-series.html">π 系列</a><a class="active" href="attention.html">Attention</a><a href="vla-loss.html">Loss</a><a href="rl.html">RL</a><a href="leetcode.html">算法题</a></nav>
+    <div class="top-actions"><button class="top-button" id="focus-toggle" type="button">专注阅读</button><a class="top-button strong" href="#minimal">直接看代码 ↓</a></div>
+  </header>
+
+  <div class="page-shell">
+    <aside class="sidebar">
+      <p class="eyebrow">ATTENTION PATH</p>
+      <ol class="side-nav">
+        <li><a href="#overview"><span>01</span>核心公式</a></li>
+        <li><a href="#shapes"><span>02</span>尺寸推导</a></li>
+        <li><a href="#minimal"><span>03</span>多头实现</a></li>
+        <li><a href="#self-cross"><span>04</span>Self / Cross</a></li>
+        <li><a href="#mask"><span>05</span>Mask</a></li>
+        <li><a href="#position"><span>06</span>位置编码</a></li>
+        <li><a href="#cache"><span>07</span>KV Cache</a></li>
+        <li><a href="#practice"><span>08</span>默写练习</a></li>
+        <li><a href="#quiz"><span>09</span>快速自测</a></li>
+      </ol>
+      <div class="sidebar-card"><strong>本页过关标准</strong><p>15 分钟内从零写出 MHA；不看资料写出正弦位置编码；能画出 KV Cache 的 shape。</p></div>
+    </aside>
+
+    <main>
+      <section class="hero compact reveal visible" id="overview">
+        <div>
+          <p class="kicker">Module 01 · Highest Priority</p>
+          <h1>Attention<br><em>先写尺寸，再写代码</em></h1>
+          <p class="hero-lead">核心只有四步：相似度、缩放、归一化、加权求和。多头注意力真正容易错的是维度变换、mask 语义和合并 heads。</p>
+          <div class="hero-actions"><a class="primary-button" href="#shapes">从尺寸开始 ↓</a><a class="ghost-button" href="#practice">直接默写</a></div>
+          <div class="hero-stats"><div><strong>O(L²)</strong><span>时间与注意力矩阵</span></div><div><strong>√dₕ</strong><span>缩放因子</span></div><div><strong>4</strong><span>核心步骤</span></div></div>
+        </div>
+        <div class="hero-board">
+          <div class="terminal-head"><span class="terminal-dots"><i></i><i></i><i></i></span><span>scaled_dot_product.py</span></div>
+          <div class="formula large" style="margin-top:38px">Attention(Q,K,V) = softmax(QK<sup>T</sup>/√d<sub>k</sub>)V</div>
+          <div class="shape-flow" style="margin-top:25px">
+            <div class="shape-node"><b>相似度</b><code>Q @ Kᵀ</code></div><span class="shape-arrow">→</span>
+            <div class="shape-node"><b>缩放</b><code>/ √dₕ</code></div><span class="shape-arrow">→</span>
+            <div class="shape-node"><b>概率</b><code>softmax</code></div><span class="shape-arrow">→</span>
+            <div class="shape-node"><b>聚合</b><code>@ V</code></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section reveal" id="shapes">
+        <div class="section-heading"><p class="section-index">02 · SHAPE CONTRACT</p><h2>多头注意力的尺寸主线</h2><p>约定输入 layout 为 batch-first：<code>[B, L, D]</code>，头数为 <code>H</code>，每头维度 <code>Dₕ=D/H</code>。</p></div>
+        <div class="shape-flow">
+          <div class="shape-node"><b>输入 x</b><code>[B,L,D]</code></div><span class="shape-arrow">→</span>
+          <div class="shape-node"><b>线性投影</b><code>[B,L,D]</code></div><span class="shape-arrow">→</span>
+          <div class="shape-node"><b>拆分 heads</b><code>[B,H,L,Dₕ]</code></div><span class="shape-arrow">→</span>
+          <div class="shape-node"><b>scores</b><code>[B,H,Lq,Lk]</code></div><span class="shape-arrow">→</span>
+          <div class="shape-node"><b>每头输出</b><code>[B,H,Lq,Dₕ]</code></div><span class="shape-arrow">→</span>
+          <div class="shape-node"><b>合并 heads</b><code>[B,Lq,D]</code></div>
+        </div>
+        <div class="calculator" id="attention-calculator" style="margin-top:18px">
+          <div class="card-label">交互尺寸检查器</div>
+          <div class="input-row" style="margin-top:14px">
+            <div class="input-field"><label>Batch B</label><input id="calc-b" type="number" min="1" value="8"></div>
+            <div class="input-field"><label>序列长度 L</label><input id="calc-l" type="number" min="1" value="16"></div>
+            <div class="input-field"><label>模型维度 D</label><input id="calc-d" type="number" min="1" value="512"></div>
+            <div class="input-field"><label>头数 H</label><input id="calc-h" type="number" min="1" value="8"></div>
+          </div>
+          <div class="calc-result" id="attention-result"></div>
+        </div>
+        <div class="callout warning"><strong>最高频错误：直接 view 后忘记 transpose</strong><p><code>view(B,L,H,Dh)</code> 后必须交换序列和头维，得到 <code>[B,H,L,Dh]</code>，才能让每个 head 独立计算序列注意力。</p></div>
+      </section>
+
+      <section class="section reveal" id="minimal">
+        <div class="section-heading split-heading"><div><p class="section-index">03 · MINIMAL IMPLEMENTATION</p><h2>从零实现 Multi-Head Attention</h2></div><p>这里约定布尔 mask 中 <code>True=允许关注</code>，shape 能广播到 <code>[B,H,Lq,Lk]</code>。</p></div>
+        <div class="code-card">
+          <div class="code-head"><div><i></i><strong id="mha-code">minimal_mha.py</strong></div><button class="copy-button" data-copy="mha-source">复制代码</button></div>
+          <pre id="mha-source">import math
+import torch
+import torch.nn as nn
+
+class MultiHeadAttention(nn.Module):
+    def __init__(self, d_model: int, num_heads: int, dropout: float = 0.0):
+        super().__init__()
+        assert d_model % num_heads == 0
+        self.num_heads = num_heads
+        self.head_dim = d_model // num_heads
+
+        self.q_proj = nn.Linear(d_model, d_model)
+        self.k_proj = nn.Linear(d_model, d_model)
+        self.v_proj = nn.Linear(d_model, d_model)
+        self.out_proj = nn.Linear(d_model, d_model)
+        self.dropout = nn.Dropout(dropout)
+
+    def _split_heads(self, x):
+        # [B, L, D] -> [B, H, L, Dh]
+        B, L, _ = x.shape
+        x = x.view(B, L, self.num_heads, self.head_dim)
+        return x.transpose(1, 2)
+
+    def forward(self, query, key, value, mask=None):
+        B, Lq, _ = query.shape
+
+        q = self._split_heads(self.q_proj(query))
+        k = self._split_heads(self.k_proj(key))
+        v = self._split_heads(self.v_proj(value))
+
+        scores = q @ k.transpose(-2, -1)
+        scores = scores / math.sqrt(self.head_dim)
+
+        if mask is not None:
+            # 约定 True 表示可见；使用有限最小值避免 dtype 问题
+            scores = scores.masked_fill(~mask, torch.finfo(scores.dtype).min)
+
+        attn = torch.softmax(scores, dim=-1)
+        attn = self.dropout(attn)
+        out = attn @ v                       # [B,H,Lq,Dh]
+
+        out = out.transpose(1, 2).contiguous()  # [B,Lq,H,Dh]
+        out = out.view(B, Lq, -1)               # [B,Lq,D]
+        return self.out_proj(out), attn</pre>
+        </div>
+        <div class="line-explain">
+          <article><span>WHY SCALE</span><strong>除以 √Dₕ</strong><p>Dₕ增大时点积方差随之增大，softmax 容易饱和；缩放使其量级更稳定。</p></article>
+          <article><span>WHY CONTIGUOUS</span><strong>转置后整理内存</strong><p><code>transpose</code> 只改变 stride；在 <code>view</code> 前调用 contiguous 最直观可靠。</p></article>
+          <article><span>WHY OUT PROJ</span><strong>混合不同 heads</strong><p>拼接只把各头并排放置；输出投影进一步学习不同子空间的线性组合。</p></article>
+        </div>
+        <div class="interview-card" style="margin-top:15px"><strong>30 秒面试表达</strong><p>输入先分别线性投影成 Q、K、V，再拆成多个 head。每个 head 计算缩放点积注意力，经过 mask 和 softmax 后对 V 加权；最后把 heads 合并并做输出投影。多头的意义是在不同表示子空间并行建模不同关系。</p></div>
+      </section>
+
+      <section class="section reveal" id="self-cross">
+        <div class="section-heading"><p class="section-index">04 · SELF VS CROSS</p><h2>代码相同，输入来源不同</h2><p>不要把 Self-Attention 简化成“Q=K=V 的数值完全相同”：它们来自同一个输入，但经过不同投影层。</p></div>
+        <div class="compare-grid">
+          <article class="compare-card good"><h3>Self-Attention</h3><div class="formula">Q=XW<sub>Q</sub>, K=XW<sub>K</sub>, V=XW<sub>V</sub></div><ul><li>Q/K/V 的来源都是同一序列 X</li><li>用于序列内部元素之间的信息交互</li><li>Decoder 自回归时通常加 causal mask</li></ul></article>
+          <article class="compare-card"><h3>Cross-Attention</h3><div class="formula">Q=X<sub>query</sub>W<sub>Q</sub>, K/V=X<sub>context</sub>W<sub>K/V</sub></div><ul><li>Q 来自待更新序列，K/V 来自条件序列</li><li>允许两种模态或 encoder/decoder 交互</li><li>Lq 与 Lk 可以不同</li></ul></article>
+        </div>
+        <div class="code-card">
+          <div class="code-head"><div><i></i><strong>调用方式</strong></div><button class="copy-button" data-copy="self-cross-code">复制代码</button></div>
+          <pre id="self-cross-code"># Self-Attention：同源输入，不同线性投影
+self_out, self_map = mha(x, x, x, mask=self_mask)
+
+# Cross-Attention：动作 token 查询视觉 / 语言条件
+cross_out, cross_map = mha(
+    query=action_tokens,       # [B, La, D]
+    key=context_tokens,        # [B, Lc, D]
+    value=context_tokens,      # [B, Lc, D]
+    mask=cross_mask,
+)</pre>
+        </div>
+      </section>
+
+      <section class="section reveal" id="mask">
+        <div class="section-heading"><p class="section-index">05 · MASK SEMANTICS</p><h2>Mask 先约定语义，再写代码</h2></div>
+        <div class="card-grid">
+          <article class="formula-card"><span class="card-label">Padding Mask</span><h3>屏蔽补齐位置</h3><p>常见基础 shape 为 <code>[B,Lk]</code>，扩成 <code>[B,1,1,Lk]</code> 后广播给所有 head 和 query。</p><div class="code-card"><pre>valid = token_ids != pad_id       # [B,Lk]
+mask = valid[:, None, None, :]    # [B,1,1,Lk]</pre></div></article>
+          <article class="formula-card"><span class="card-label">Causal Mask</span><h3>不能偷看未来</h3><p>下三角为 True，shape 为 <code>[1,1,L,L]</code>，允许位置 i 只关注 <code>j≤i</code>。</p><div class="code-card"><pre>mask = torch.ones(L, L, dtype=torch.bool)
+mask = torch.tril(mask)[None, None, :, :]
+mask = mask.to(x.device)</pre></div></article>
+        </div>
+        <div class="callout error"><strong>全行都被 mask 时，softmax 可能产生 NaN 或无意义的均匀值</strong><p>真实工程中应保证每个 query 至少有一个有效 key，或在 softmax 后再次清零并重新归一化。面试时主动指出这一边界会加分。</p></div>
+      </section>
+
+      <section class="section reveal" id="position">
+        <div class="section-heading split-heading"><div><p class="section-index">06 · POSITIONAL ENCODING</p><h2>正弦位置编码从头写</h2></div><p>Self-Attention 对输入排列本身不敏感，位置编码负责注入顺序信息。</p></div>
+        <div class="formula large">PE(pos,2i)=sin(pos/10000<sup>2i/D</sup>)<br>PE(pos,2i+1)=cos(pos/10000<sup>2i/D</sup>)</div>
+        <div class="code-card">
+          <div class="code-head"><div><i></i><strong>sinusoidal_pe.py</strong></div><button class="copy-button" data-copy="pe-code">复制代码</button></div>
+          <pre id="pe-code">import math
+import torch
+import torch.nn as nn
+
+class SinusoidalPE(nn.Module):
+    def __init__(self, d_model: int, max_len: int = 5000):
+        super().__init__()
+        assert d_model % 2 == 0
+
+        position = torch.arange(max_len).float().unsqueeze(1)  # [L,1]
+        div_term = torch.exp(
+            torch.arange(0, d_model, 2).float()
+            * (-math.log(10000.0) / d_model)
+        )                                                     # [D/2]
+
+        pe = torch.zeros(max_len, d_model)
+        pe[:, 0::2] = torch.sin(position * div_term)
+        pe[:, 1::2] = torch.cos(position * div_term)
+        self.register_buffer("pe", pe.unsqueeze(0))           # [1,L,D]
+
+    def forward(self, x):
+        # x: [B,L,D]；buffer 会随模型迁移 device，但不参与优化
+        return x + self.pe[:, :x.size(1)].to(dtype=x.dtype)</pre>
+        </div>
+        <div class="line-explain">
+          <article><span>FREQUENCY</span><strong>不同维度对应不同频率</strong><p>低维变化更快，高维变化更慢，使模型同时表示局部与长距离位置关系。</p></article>
+          <article><span>BUFFER</span><strong>register_buffer</strong><p>PE 不是可训练参数，但需要保存进 state_dict，并在 <code>.to(device)</code> 时一起迁移。</p></article>
+          <article><span>SLICING</span><strong>只取当前序列长度</strong><p>预先生成最大长度，forward 时使用 <code>:L</code>，再依靠 batch 维广播。</p></article>
+        </div>
+      </section>
+
+      <section class="section reveal" id="cache">
+        <div class="section-heading"><p class="section-index">07 · AUTOREGRESSIVE INFERENCE</p><h2>KV Cache：缓存过去，当前只算一次</h2><p>自回归生成第 t 个 token 时，过去 token 的 K/V 不会改变，因此每层只计算新 token 的 K/V，并拼到缓存末尾。</p></div>
+        <div class="shape-flow">
+          <div class="shape-node"><b>旧缓存</b><code>K,V [B,H,t−1,Dh]</code></div><span class="shape-arrow">＋</span>
+          <div class="shape-node"><b>新 token</b><code>Knew,Vnew [B,H,1,Dh]</code></div><span class="shape-arrow">→</span>
+          <div class="shape-node"><b>新缓存</b><code>[B,H,t,Dh]</code></div><span class="shape-arrow">→</span>
+          <div class="shape-node"><b>单步 scores</b><code>[B,H,1,t]</code></div>
+        </div>
+        <div class="code-card">
+          <div class="code-head"><div><i></i><strong>single_step_with_cache.py</strong></div><button class="copy-button" data-copy="cache-code">复制代码</button></div>
+          <pre id="cache-code">def forward_step(self, x_new, cache=None):
+    # x_new: [B,1,D]；以下省略输出投影
+    q = self._split_heads(self.q_proj(x_new))  # [B,H,1,Dh]
+    k_new = self._split_heads(self.k_proj(x_new))
+    v_new = self._split_heads(self.v_proj(x_new))
+
+    if cache is None:
+        k, v = k_new, v_new
+    else:
+        k = torch.cat([cache["k"], k_new], dim=2)
+        v = torch.cat([cache["v"], v_new], dim=2)
+
+    scores = q @ k.transpose(-2, -1) / math.sqrt(self.head_dim)
+    attn = scores.softmax(dim=-1)
+    out = attn @ v                             # [B,H,1,Dh]
+
+    new_cache = {"k": k, "v": v}
+    return out, new_cache</pre>
+        </div>
+        <div class="compare-grid">
+          <article class="compare-card"><h3>不使用 Cache</h3><ul><li>每一步重新计算整个前缀的 Q/K/V</li><li>单步注意力矩阵不断增大</li><li>完整逐 token 生成存在大量重复计算</li></ul></article>
+          <article class="compare-card good"><h3>使用 KV Cache</h3><ul><li>旧 K/V 直接复用，只投影新 token</li><li>每层缓存 shape 随序列长度线性增长</li><li>以显存换推理速度；训练阶段通常不使用</li></ul></article>
+        </div>
+        <div class="interview-card" style="margin-top:14px"><strong>一句话回答</strong><p>KV Cache 缓存每层历史 token 的 Key 和 Value；生成新 token 时只计算新增 K/V，并让新 Query 查询完整缓存，从而去掉对历史 K/V 的重复投影，代价是缓存显存随序列长度线性增长。</p></div>
+      </section>
+
+      <section class="section reveal" id="practice">
+        <div class="section-heading"><p class="section-index">08 · CLOSED-BOOK PRACTICE</p><h2>遮住答案再写一次</h2></div>
+        <div class="card-grid">
+          <article class="practice-card"><span class="card-label">练习 A · 10 分钟</span><h3>实现单头 Cross-Attention</h3><p class="prompt">输入 <code>q:[B,Lq,D]</code>、<code>context:[B,Lc,D]</code>，返回 <code>[B,Lq,D]</code>。要求包含缩放与可选 mask。</p><button class="reveal-button" data-reveal="solution-cross">查看参考实现</button><div class="solution" id="solution-cross"><div class="code-card"><pre>def cross_attention(q, context, mask=None):
+    d = q.size(-1)
+    scores = q @ context.transpose(-2, -1) / math.sqrt(d)
+    if mask is not None:
+        scores = scores.masked_fill(~mask, torch.finfo(q.dtype).min)
+    weights = scores.softmax(dim=-1)
+    return weights @ context</pre></div></div></article>
+          <article class="practice-card"><span class="card-label">练习 B · 12 分钟</span><h3>实现 Causal Self-Attention</h3><p class="prompt">给定 <code>x:[B,L,D]</code>，构造下三角 mask，保证第 i 个 token 看不到未来位置。</p><button class="reveal-button" data-reveal="solution-causal">查看参考实现</button><div class="solution" id="solution-causal"><div class="code-card"><pre>def causal_attention(q, k, v):
+    L = q.size(-2)
+    mask = torch.tril(
+        torch.ones(L, L, dtype=torch.bool, device=q.device)
+    )
+    scores = q @ k.transpose(-2, -1) / math.sqrt(q.size(-1))
+    scores = scores.masked_fill(~mask, torch.finfo(q.dtype).min)
+    return scores.softmax(dim=-1) @ v</pre></div></div></article>
+        </div>
+      </section>
+
+      <section class="section reveal" id="quiz">
+        <div class="section-heading"><p class="section-index">09 · QUICK CHECK</p><h2>四题确认是否真的掌握</h2></div>
+        <div class="quiz-list">
+          <article class="quiz-item" data-answer="1"><strong>1. 输入为 [B,L,D]，拆成 H 个 head 后正确 shape 是？</strong><div class="quiz-options"><button>[B,L,H,D/H]</button><button>[B,H,L,D/H]</button><button>[H,B,D,L]</button><button>[B,H,D,L/H]</button></div><p class="quiz-note">标准计算布局是 [B,H,L,Dh]，让倒数两维完成序列点积。</p></article>
+          <article class="quiz-item" data-answer="2"><strong>2. 为什么除以 √Dₕ？</strong><div class="quiz-options"><button>减少参数量</button><button>让输出均值为 0</button><button>控制点积方差，避免 softmax 饱和</button><button>保证注意力对称</button></div><p class="quiz-note">若 q/k 各维方差约为 1，点积方差约为 Dₕ，除以 √Dₕ 后恢复到稳定量级。</p></article>
+          <article class="quiz-item" data-answer="0"><strong>3. Cross-Attention 中哪项正确？</strong><div class="quiz-options"><button>Q 与 K/V 可以来自不同序列</button><button>Lq 必须等于 Lk</button><button>不能使用 mask</button><button>V 必须等于 Q</button></div><p class="quiz-note">Q 决定“查询什么”，K/V 提供被查询的上下文，两个序列长度可以不同。</p></article>
+          <article class="quiz-item" data-answer="3"><strong>4. KV Cache 的缓存维度通常是？</strong><div class="quiz-options"><button>[B,L,D]</button><button>[L,B,H]</button><button>[B,D,H,L]</button><button>[B,H,L,Dh]</button></div><p class="quiz-note">每一层分别缓存 K 和 V，常见布局为 [batch, heads, sequence, head_dim]。</p></article>
+        </div>
+      </section>
+
+      <footer class="footer"><span>Module 01 · Attention</span><nav class="footer-links"><a href="index.html">← 总览</a><a href="vla-loss.html">下一模块：VLA 与 Loss →</a></nav></footer>
+    </main>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>

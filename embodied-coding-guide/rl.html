@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="具身岗强化学习手撕专题：DQN、Double DQN、SAC Actor Loss 与重参数化采样。">
+  <meta name="theme-color" content="#0f1715">
+  <title>强化学习手撕专题｜具身岗面试</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="scroll-progress"><span id="scroll-progress-bar"></span></div>
+  <header class="topbar">
+    <a class="brand" href="index.html"><span class="brand-mark">RL</span><span class="brand-copy"><strong>强化学习手撕专题</strong><small>Targets & Gradients</small></span></a>
+    <nav class="topnav"><a href="index.html">总览</a><a href="vla-interview.html">VLA</a><a href="tactile-interview.html">触觉</a><a href="pi-series.html">π 系列</a><a href="attention.html">Attention</a><a href="vla-loss.html">Loss</a><a class="active" href="rl.html">RL</a><a href="leetcode.html">算法题</a></nav>
+    <div class="top-actions"><button class="top-button" id="focus-toggle" type="button">专注阅读</button><a class="top-button strong" href="#dqn">直接看 DQN ↓</a></div>
+  </header>
+
+  <div class="page-shell">
+    <aside class="sidebar">
+      <p class="eyebrow">RL PATH</p>
+      <ol class="side-nav">
+        <li><a href="#overview"><span>01</span>核心主线</a></li>
+        <li><a href="#dqn"><span>02</span>DQN Loss</a></li>
+        <li><a href="#double"><span>03</span>Double DQN</a></li>
+        <li><a href="#compare"><span>04</span>Target 对比</a></li>
+        <li><a href="#reparam"><span>05</span>重参数化</a></li>
+        <li><a href="#sac"><span>06</span>SAC Actor</a></li>
+        <li><a href="#practice"><span>07</span>默写练习</a></li>
+        <li><a href="#quiz"><span>08</span>快速自测</a></li>
+      </ol>
+      <div class="sidebar-card"><strong>本页过关标准</strong><p>能不看资料写出 DQN 与 Double DQN target；说清 no_grad；正确推导 SAC Actor loss 和 tanh log-prob 修正。</p></div>
+    </aside>
+
+    <main>
+      <section class="hero compact reveal visible" id="overview">
+        <div>
+          <p class="kicker">Module 03 · Reinforcement Learning</p>
+          <h1>强化学习<br><em>先盯住 Target</em></h1>
+          <p class="hero-lead">手撕强化学习最容易错的不是网络结构，而是：谁选动作、谁评价、哪里停止梯度。把这三件事标在代码旁边，DQN、Double DQN 和 SAC 就会清晰很多。</p>
+          <div class="hero-actions"><a class="primary-button" href="#dqn">从 DQN 开始 ↓</a><a class="ghost-button" href="#sac">直接看 SAC</a></div>
+          <div class="hero-stats"><div><strong>argmax</strong><span>离散动作选择</span></div><div><strong>detach</strong><span>Target 不反传</span></div><div><strong>rsample</strong><span>可导随机采样</span></div></div>
+        </div>
+        <div class="hero-board">
+          <div class="terminal-head"><span class="terminal-dots"><i></i><i></i><i></i></span><span>target_rules.py</span></div>
+          <div class="hero-code"><span class="cm"># DQN</span><br>a_star = target_q(next_s).<span class="fn">argmax</span>()<br>value = target_q(next_s)[a_star]<br><br><span class="cm"># Double DQN</span><br>a_star = online_q(next_s).<span class="fn">argmax</span>()<br>value = target_q(next_s)[a_star]<br><br><span class="cm"># SAC actor</span><br>loss = (alpha * log_pi - min_q).mean()</div>
+          <div class="hero-track"><span>谁选择？</span><span>谁评价？</span><span>梯度流向哪里？</span></div>
+        </div>
+      </section>
+
+      <section class="section reveal" id="dqn">
+        <div class="section-heading split-heading"><div><p class="section-index">02 · DQN</p><h2>Forward + TD Loss 最小实现</h2></div><p>Q 网络输出所有离散动作的价值 <code>[B,A]</code>；训练时只取数据中实际执行动作对应的 Q。</p></div>
+        <div class="formula large">y = r + γ(1−done) max<sub>a′</sub>Q<sub>target</sub>(s′,a′)<br>L = Huber(Q<sub>online</sub>(s,a), y)</div>
+        <div class="code-card">
+          <div class="code-head"><div><i></i><strong>minimal_dqn.py</strong></div><button class="copy-button" data-copy="dqn-code">复制代码</button></div>
+          <pre id="dqn-code">import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
+class QNetwork(nn.Module):
+    def __init__(self, obs_dim, num_actions, hidden=256):
+        super().__init__()
+        self.net = nn.Sequential(
+            nn.Linear(obs_dim, hidden), nn.ReLU(),
+            nn.Linear(hidden, hidden), nn.ReLU(),
+            nn.Linear(hidden, num_actions),
+        )
+
+    def forward(self, obs):
+        return self.net(obs)                         # [B,A]
+
+def dqn_loss(online_q, target_q, batch, gamma=0.99):
+    obs, action, reward, next_obs, done = batch
+
+    all_q = online_q(obs)                            # [B,A]
+    q_sa = all_q.gather(1, action[:, None]).squeeze(1) # [B]
+
+    with torch.no_grad():
+        next_q = target_q(next_obs).max(dim=1).values # [B]
+        td_target = reward + gamma * (1.0 - done.float()) * next_q
+
+    return F.smooth_l1_loss(q_sa, td_target)</pre>
+        </div>
+        <div class="line-explain">
+          <article><span>GATHER</span><strong>取实际动作的 Q</strong><p><code>action[:,None]</code> shape 为 [B,1]，在动作维逐行索引，最后 squeeze 为 [B]。</p></article>
+          <article><span>DONE MASK</span><strong>终止状态不 bootstrap</strong><p>若回合已经终止，未来回报项乘 0，target 只剩即时奖励 r。</p></article>
+          <article><span>NO GRAD</span><strong>Target 是固定监督信号</strong><p>阻止梯度通过 next Q 回传，否则优化目标会随当前梯度共同移动。</p></article>
+        </div>
+        <div class="callout warning"><strong><code>terminated</code> 与时间上限截断 <code>truncated</code> 可能语义不同</strong><p>理论上的 bootstrap mask 应针对真正终止状态。若只是达到 time limit，很多实现仍允许 bootstrap；面试时可以先说明采用的数据接口约定。</p></div>
+      </section>
+
+      <section class="section reveal" id="double">
+        <div class="section-heading"><p class="section-index">03 · DOUBLE DQN</p><h2>Online 选动作，Target 算价值</h2><p>普通 DQN 的 max 同时负责选择和评价，容易放大估计噪声。Double DQN 把两个角色拆开。</p></div>
+        <div class="formula large">a* = argmax<sub>a′</sub>Q<sub>online</sub>(s′,a′)<br>y = r + γ(1−done)Q<sub>target</sub>(s′,a*)</div>
+        <div class="code-card">
+          <div class="code-head"><div><i></i><strong>double_dqn_target.py</strong></div><button class="copy-button" data-copy="double-code">复制代码</button></div>
+          <pre id="double-code">def double_dqn_loss(online_q, target_q, batch, gamma=0.99):
+    obs, action, reward, next_obs, done = batch
+    q_sa = online_q(obs).gather(1, action[:, None]).squeeze(1)
+
+    with torch.no_grad():
+        # 1. online 网络只负责选动作
+        next_action = online_q(next_obs).argmax(dim=1, keepdim=True) # [B,1]
+
+        # 2. target 网络评价被选中的动作
+        next_q = target_q(next_obs).gather(1, next_action).squeeze(1) # [B]
+        td_target = reward + gamma * (1.0 - done.float()) * next_q
+
+    return F.smooth_l1_loss(q_sa, td_target)</pre>
+        </div>
+        <div class="interview-card"><strong>一句话区分</strong><p>DQN 直接取 target 网络输出的最大 Q；Double DQN 用 online 网络的 argmax 选择动作，再从 target 网络取该动作的 Q，从而降低“同一估计误差既影响选择又影响评价”带来的过估计。</p></div>
+      </section>
+
+      <section class="section reveal" id="compare">
+        <div class="section-heading"><p class="section-index">04 · INTERACTIVE TARGET</p><h2>同一组 Q 值，两种 target 不同</h2></div>
+        <div class="calculator" id="dqn-demo">
+          <div class="tab-list" style="padding:0 0 15px;border:0"><button data-dqn-mode="dqn">DQN</button><button data-dqn-mode="double">Double DQN</button></div>
+          <table class="shape-table"><thead><tr><th>动作</th><th>a=0</th><th>a=1</th><th>a=2</th></tr></thead><tbody><tr><td>Online Q(s′)</td><td>2.1</td><td>4.8</td><td>4.2</td></tr><tr><td>Target Q(s′)</td><td>2.4</td><td>3.1</td><td>4.5</td></tr></tbody></table>
+          <div class="calc-result"><code id="dqn-choice"></code><code id="dqn-value"></code><span id="dqn-explain"></span></div>
+        </div>
+      </section>
+
+      <section class="section reveal" id="reparam">
+        <div class="section-heading split-heading"><div><p class="section-index">05 · REPARAMETERIZATION</p><h2>把随机性移到输入 ε</h2></div><p>直接从参数化分布 <code>z~N(μ,σ)</code> 采样难以对 μ、σ 反传；重参数化写成确定性变换。</p></div>
+        <div class="formula large">ε ~ N(0,I), &nbsp; z = μ + σ⊙ε</div>
+        <div class="compare-grid">
+          <article class="compare-card"><h3>不可导式调用</h3><div class="code-card"><pre>dist = torch.distributions.Normal(mu, std)
+z = dist.sample()   # 样本不保留到参数的路径</pre></div><ul><li>随机采样节点截断路径梯度</li><li>不适合训练 SAC actor 或 VAE encoder</li></ul></article>
+          <article class="compare-card good"><h3>重参数化采样</h3><div class="code-card"><pre>dist = torch.distributions.Normal(mu, std)
+z = dist.rsample()  # 内部等价于 mu + std * eps</pre></div><ul><li>随机性来自与参数无关的 ε</li><li>z 对 μ、σ 是可微的确定性函数</li></ul></article>
+        </div>
+        <div class="code-card">
+          <div class="code-head"><div><i></i><strong>vae_reparameterize.py</strong></div><button class="copy-button" data-copy="vae-reparam">复制代码</button></div>
+          <pre id="vae-reparam">def reparameterize(mu, log_var):
+    # log_var 比直接预测方差更容易保证合法范围
+    std = torch.exp(0.5 * log_var)
+    eps = torch.randn_like(std)
+    return mu + std * eps</pre>
+        </div>
+      </section>
+
+      <section class="section reveal" id="sac">
+        <div class="section-heading"><p class="section-index">06 · SAC ACTOR</p><h2>既追求高 Q，也保留策略熵</h2><p>连续动作使用 tanh-squashed Gaussian。Actor 最小化 <code>α logπ(a|s) − Q(s,a)</code>：第一项鼓励熵，第二项鼓励高价值动作。</p></div>
+        <div class="formula large">J<sub>π</sub> = E<sub>s,ε</sub>[ α logπ(a|s) − min(Q₁(s,a),Q₂(s,a)) ]</div>
+        <div class="code-card">
+          <div class="code-head"><div><i></i><strong>sac_actor.py</strong></div><button class="copy-button" data-copy="sac-code">复制代码</button></div>
+          <pre id="sac-code">import torch
+import torch.nn as nn
+
+LOG_STD_MIN, LOG_STD_MAX = -20.0, 2.0
+
+class GaussianActor(nn.Module):
+    def __init__(self, backbone, mean_head, log_std_head):
+        super().__init__()
+        self.backbone = backbone
+        self.mean_head = mean_head
+        self.log_std_head = log_std_head
+
+    def sample(self, obs):
+        h = self.backbone(obs)
+        mean = self.mean_head(h)
+        log_std = self.log_std_head(h).clamp(LOG_STD_MIN, LOG_STD_MAX)
+        std = log_std.exp()
+
+        dist = torch.distributions.Normal(mean, std)
+        pre_tanh = dist.rsample()                   # 可导采样
+        action = torch.tanh(pre_tanh)               # 限制到 [-1,1]
+
+        # 变量变换修正：log π(a) = log N(u) - log|da/du|
+        log_prob = dist.log_prob(pre_tanh)
+        log_prob -= torch.log(1.0 - action.pow(2) + 1e-6)
+        log_prob = log_prob.sum(dim=-1, keepdim=True)
+        return action, log_prob
+
+def sac_actor_loss(actor, q1, q2, obs, alpha):
+    action, log_prob = actor.sample(obs)            # [B,A], [B,1]
+    min_q = torch.minimum(q1(obs, action), q2(obs, action))
+    return (alpha * log_prob - min_q).mean()</pre>
+        </div>
+        <div class="line-explain">
+          <article><span>RSAMPLE</span><strong>动作梯度回到 Actor</strong><p>Q 对 action 的梯度可以沿 <code>action→pre_tanh→μ,σ</code> 回传。</p></article>
+          <article><span>TWIN Q</span><strong>取 min 抑制过估计</strong><p>两个 critic 中选择较保守估计，减少策略利用单个 Q 的高估误差。</p></article>
+          <article><span>JACOBIAN</span><strong>tanh 后修正 log_prob</strong><p>tanh 改变了概率密度，若不减 Jacobian 项，熵和 loss 都不正确。</p></article>
+        </div>
+        <div class="callout error"><strong>不要把 <code>action.detach()</code> 后再送入 Q</strong><p>Actor 更新依赖 Q 对动作的梯度。Critic 参数可以临时冻结以节省梯度，但从 Q 输出到 action 的计算图必须保留。</p></div>
+      </section>
+
+      <section class="section reveal" id="practice">
+        <div class="section-heading"><p class="section-index">07 · CLOSED-BOOK PRACTICE</p><h2>把 target 和梯度写对</h2></div>
+        <div class="card-grid three">
+          <article class="practice-card"><span class="card-label">练习 A · 12 分钟</span><h3>DQN Loss</h3><p class="prompt">输入完整 transition batch。要求使用 gather、done mask、target network 和 no_grad。</p><button class="reveal-button" data-reveal="sol-dqn">查看检查点</button><div class="solution" id="sol-dqn"><p style="font-size:11px;color:var(--muted)">检查：<code>Q(s,a)</code> 是 [B]；target 是 [B]；终止状态不含未来 Q；target 分支无梯度。</p></div></article>
+          <article class="practice-card"><span class="card-label">练习 B · 8 分钟</span><h3>改成 Double DQN</h3><p class="prompt">只能修改 next Q 的计算：明确 online 的 argmax 与 target 的 gather。</p><button class="reveal-button" data-reveal="sol-ddqn">查看核心两行</button><div class="solution" id="sol-ddqn"><div class="code-card"><pre>a = online(next_s).argmax(1, keepdim=True)
+next_q = target(next_s).gather(1, a).squeeze(1)</pre></div></div></article>
+          <article class="practice-card"><span class="card-label">练习 C · 15 分钟</span><h3>SAC Actor Loss</h3><p class="prompt">写出 μ/logσ、rsample、tanh、log_prob 修正以及 twin-Q min。</p><button class="reveal-button" data-reveal="sol-sac">查看检查点</button><div class="solution" id="sol-sac"><p style="font-size:11px;color:var(--muted)">检查：log_std 有范围；使用 rsample；log_prob 对动作维求和；减去 <code>log(1-a²+eps)</code>；loss 符号为 <code>αlogπ−minQ</code>。</p></div></article>
+        </div>
+      </section>
+
+      <section class="section reveal" id="quiz">
+        <div class="section-heading"><p class="section-index">08 · QUICK CHECK</p><h2>五题快速自测</h2></div>
+        <div class="quiz-list">
+          <article class="quiz-item" data-answer="1"><strong>1. Q 网络输出 [B,A]，action 为 [B]，怎样取 Q(s,a)？</strong><div class="quiz-options"><button>q[action]</button><button>q.gather(1, action[:,None]).squeeze(1)</button><button>q.max(1)</button><button>q.mean(1)</button></div><p class="quiz-note">需要为 batch 中每一行选择对应动作列。</p></article>
+          <article class="quiz-item" data-answer="2"><strong>2. Double DQN 中 next action 由谁选择？</strong><div class="quiz-options"><button>Target 网络</button><button>两个网络平均</button><button>Online 网络</button><button>Replay Buffer</button></div><p class="quiz-note">Online 选，Target 评。</p></article>
+          <article class="quiz-item" data-answer="0"><strong>3. TD target 为什么放在 no_grad 中？</strong><div class="quiz-options"><button>把 target 当固定监督信号，避免梯度进入 next-Q 分支</button><button>节省 replay buffer</button><button>让 reward 可导</button><button>防止 action 越界</button></div><p class="quiz-note">Bootstrap target 用于监督当前 Q，不应参与本次反向传播。</p></article>
+          <article class="quiz-item" data-answer="3"><strong>4. SAC 中为何使用 rsample 而不是 sample？</strong><div class="quiz-options"><button>减少动作维度</button><button>保证动作离散</button><button>固定随机种子</button><button>允许梯度经随机动作回到分布参数</button></div><p class="quiz-note">rsample 使用重参数化技巧保留路径梯度。</p></article>
+          <article class="quiz-item" data-answer="1"><strong>5. SAC Actor loss 的正确符号是？</strong><div class="quiz-options"><button>−αlogπ−Q</button><button>αlogπ−Q</button><button>αlogπ+Q</button><button>Q−αlogπ</button></div><p class="quiz-note">最小化 αlogπ−Q 等价于兼顾最大化 Q 与策略熵。</p></article>
+        </div>
+      </section>
+
+      <footer class="footer"><span>Module 03 · Reinforcement Learning</span><nav class="footer-links"><a href="vla-loss.html">← VLA 与 Loss</a><a href="leetcode.html">下一模块：算法题 →</a></nav></footer>
+    </main>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>

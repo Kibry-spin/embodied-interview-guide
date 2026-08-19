@@ -1,0 +1,10 @@
+# Local QA and temporary artifacts
+tmp/
+
+# Editor and operating-system files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+Desktop.ini
+

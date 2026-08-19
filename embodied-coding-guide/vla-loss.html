@@ -1,0 +1,288 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="具身岗 VLA 与 Loss 手撕专题：稳定交叉熵、MSE、Flow Matching、Temporal Ensemble 和 Action Chunk。">
+  <meta name="theme-color" content="#0f1715">
+  <title>VLA 与 Loss 手撕专题｜具身岗面试</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="scroll-progress"><span id="scroll-progress-bar"></span></div>
+  <header class="topbar">
+    <a class="brand" href="index.html"><span class="brand-mark">VL</span><span class="brand-copy"><strong>VLA 与 Loss</strong><small>Training & Execution</small></span></a>
+    <nav class="topnav"><a href="index.html">总览</a><a href="vla-interview.html">VLA</a><a href="tactile-interview.html">触觉</a><a href="pi-series.html">π 系列</a><a href="attention.html">Attention</a><a class="active" href="vla-loss.html">Loss</a><a href="rl.html">RL</a><a href="leetcode.html">算法题</a></nav>
+    <div class="top-actions"><button class="top-button" id="focus-toggle" type="button">专注阅读</button><a class="top-button strong" href="#losses">开始学习 ↓</a></div>
+  </header>
+
+  <div class="page-shell">
+    <aside class="sidebar">
+      <p class="eyebrow">VLA / LOSS PATH</p>
+      <ol class="side-nav">
+        <li><a href="#overview"><span>01</span>模块总览</a></li>
+        <li><a href="#losses"><span>02</span>CE 与 MSE</a></li>
+        <li><a href="#flow"><span>03</span>Flow Matching</a></li>
+        <li><a href="#flow-code"><span>04</span>训练与采样</a></li>
+        <li><a href="#chunk"><span>05</span>Action Chunk</a></li>
+        <li><a href="#ensemble"><span>06</span>Temporal Ensemble</a></li>
+        <li><a href="#practice"><span>07</span>默写练习</a></li>
+        <li><a href="#quiz"><span>08</span>快速自测</a></li>
+      </ol>
+      <div class="sidebar-card"><strong>本页过关标准</strong><p>能手写稳定 CE 和 Flow Matching loss；能解释动作 chunk 的训练窗口、推理切片和时序融合。</p></div>
+    </aside>
+
+    <main>
+      <section class="hero compact reveal visible" id="overview">
+        <div>
+          <p class="kicker">Module 02 · VLA Building Blocks</p>
+          <h1>VLA 与 Loss<br><em>从监督到执行</em></h1>
+          <p class="hero-lead">具身策略不只要“预测动作”，还要定义动作表示、训练目标和闭环执行方式。本页把 token 分类、连续回归、生成式动作和 chunk 执行放到同一条主线上。</p>
+          <div class="hero-actions"><a class="primary-button" href="#losses">从基础 Loss 开始 ↓</a><a class="ghost-button" href="#flow">直接看 Flow Matching</a></div>
+          <div class="hero-stats"><div><strong>3</strong><span>核心损失</span></div><div><strong>[B,H,D]</strong><span>动作块常见尺寸</span></div><div><strong>2</strong><span>时序执行策略</span></div></div>
+        </div>
+        <div class="hero-board">
+          <div class="terminal-head"><span class="terminal-dots"><i></i><i></i><i></i></span><span>policy_objectives.py</span></div>
+          <div class="hero-code"><span class="cm"># 离散动作 token</span><br>loss_ce = <span class="fn">cross_entropy</span>(logits, target)<br><br><span class="cm"># 连续动作回归</span><br>loss_mse = ((pred - action) ** <span class="num">2</span>).mean()<br><br><span class="cm"># 生成式连续动作</span><br>loss_fm = ((velocity - (action - noise)) ** <span class="num">2</span>).mean()</div>
+          <div class="hero-track"><span>表示决定 Loss</span><span>Loss 决定学习目标</span><span>执行决定闭环性能</span></div>
+        </div>
+      </section>
+
+      <section class="section reveal" id="losses">
+        <div class="section-heading"><p class="section-index">02 · BASIC LOSSES</p><h2>交叉熵与 MSE 从头写</h2><p>先判断输出是什么：离散 token 用交叉熵，连续向量直接回归常用 MSE。</p></div>
+        <div class="concept-board" data-tabs>
+          <div class="tab-list"><button class="active" data-tab="ce">稳定交叉熵</button><button data-tab="mse">MSE</button><button data-tab="compare">怎么选择</button></div>
+          <div class="tab-panel active" data-panel="ce">
+            <div class="formula large">CE = −log softmax(logits)<sub>target</sub></div>
+            <div class="code-card">
+              <div class="code-head"><div><i></i><strong>cross_entropy_from_scratch.py</strong></div><button class="copy-button" data-copy="ce-code">复制代码</button></div>
+              <pre id="ce-code">import torch
+
+def stable_cross_entropy(logits, target, reduction="mean"):
+    """
+    logits: [N,C]，target: [N]，每项是类别索引
+    """
+    # logsumexp 内部使用减最大值技巧，避免 exp 溢出
+    log_probs = logits - torch.logsumexp(logits, dim=-1, keepdim=True)
+    target_log_prob = log_probs.gather(1, target[:, None]).squeeze(1)
+    loss = -target_log_prob
+
+    if reduction == "none":
+        return loss
+    if reduction == "sum":
+        return loss.sum()
+    return loss.mean()
+
+# 如果面试官明确要求“softmax + log”版本：
+def ce_with_clamp(logits, target, eps=1e-8):
+    probs = torch.softmax(logits, dim=-1)
+    probs = probs.clamp(min=eps)  # 防止 log(0)
+    p_target = probs.gather(1, target[:, None]).squeeze(1)
+    return (-torch.log(p_target)).mean()</pre>
+            </div>
+            <div class="callout"><strong>优先写 logsumexp / log_softmax 版本</strong><p><code>clamp</code> 能防止 <code>log(0)</code>，但直接在概率域计算仍可能先发生 softmax 的上溢或下溢。PyTorch 实际使用时直接调用 <code>F.cross_entropy</code>。</p></div>
+          </div>
+          <div class="tab-panel" data-panel="mse">
+            <div class="formula large">MSE = (1/N) Σ(ŷ<sub>i</sub>−y<sub>i</sub>)²</div>
+            <div class="code-card"><div class="code-head"><div><i></i><strong>mse_from_scratch.py</strong></div><button class="copy-button" data-copy="mse-code">复制代码</button></div><pre id="mse-code">def mse_loss(pred, target, mask=None):
+    # pred / target: [B,H,D]
+    error = (pred - target).pow(2)
+
+    if mask is None:
+        return error.mean()
+
+    # mask: [B,H]，True 表示有效动作；扩一维后广播到 D
+    weight = mask.unsqueeze(-1).to(error.dtype)
+    valid_elements = weight.sum() * error.size(-1)
+    return (error * weight).sum() / valid_elements.clamp(min=1)</pre></div>
+            <div class="line-explain"><article><span>SHAPE</span><strong>逐元素平方</strong><p>先保留完整 <code>[B,H,D]</code> 误差，最后再聚合，便于加权或 mask。</p></article><article><span>MASK</span><strong>不要平均 padding</strong><p>变长轨迹补齐后，分母必须只统计有效元素。</p></article><article><span>GRADIENT</span><strong>梯度正比于误差</strong><p>异常值会产生更大梯度；必要时可考虑 Huber loss。</p></article></div>
+          </div>
+          <div class="tab-panel" data-panel="compare">
+            <table class="shape-table"><thead><tr><th>动作表示</th><th>网络输出</th><th>常用 Loss</th><th>关键点</th></tr></thead><tbody><tr><td>离散 action token</td><td>[B,L,V]</td><td>Cross Entropy</td><td>类别维是词表 V；目标为整数索引</td></tr><tr><td>连续单峰动作</td><td>[B,H,D]</td><td>MSE / Huber</td><td>简单直接，但多模态行为可能被平均</td></tr><tr><td>生成式连续动作</td><td>速度 / 噪声 / score</td><td>FM / diffusion objective</td><td>从随机噪声表达多种合理动作模式</td></tr></tbody></table>
+          </div>
+        </div>
+      </section>
+
+      <section class="section reveal" id="flow">
+        <div class="section-heading split-heading"><div><p class="section-index">03 · FLOW MATCHING</p><h2>在噪声与动作之间学速度</h2></div><p>定义真实动作轨迹 <code>a</code>、高斯噪声 <code>ε</code> 和时间 <code>t∈[0,1]</code>。</p></div>
+        <div class="formula large">x<sub>t</sub>=(1−t)ε+ta &nbsp;&nbsp;→&nbsp;&nbsp; u<sub>t</sub>=dx<sub>t</sub>/dt=a−ε</div>
+        <div class="calculator" style="margin-top:17px">
+          <div class="card-label">拖动 t 理解插值权重</div>
+          <input id="flow-slider" type="range" min="0" max="100" value="35" style="width:100%;margin:20px 0 10px;accent-color:var(--mint)">
+          <div style="height:5px;position:relative;background:linear-gradient(90deg,var(--blue),var(--mint));border-radius:9px"><i id="flow-marker" style="position:absolute;top:50%;width:14px;height:14px;border-radius:50%;background:var(--text);transform:translate(-50%,-50%)"></i></div>
+          <div class="calc-result"><code>t = <span id="flow-t">0.35</span></code> <code>噪声权重 = <span id="flow-noise-weight">0.65</span></code> <code>动作权重 = <span id="flow-action-weight">0.35</span></code></div>
+        </div>
+        <div class="memory-strip" style="margin-top:17px">
+          <article><span>t = 0</span><strong>纯噪声 ε</strong><p>生成过程的起点，尚未包含真实动作结构。</p></article>
+          <article><span>0 &lt; t &lt; 1</span><strong>中间状态 xₜ</strong><p>同一整段动作轨迹共享一个 t。</p></article>
+          <article><span>TARGET</span><strong>速度 a−ε</strong><p>直线路径对时间求导，目标与 t 无关。</p></article>
+          <article><span>t = 1</span><strong>真实动作 a</strong><p>训练路径终点，也是推理希望得到的分布。</p></article>
+        </div>
+      </section>
+
+      <section class="section reveal" id="flow-code">
+        <div class="section-heading"><p class="section-index">04 · TRAIN & SAMPLE</p><h2>Flow Matching 最小训练与 Euler 采样</h2><p>动作 <code>a</code>、噪声 <code>ε</code>、中间状态 <code>x_t</code> 和预测速度形状都为 <code>[B,H,D]</code>。</p></div>
+        <div class="code-card">
+          <div class="code-head"><div><i></i><strong>flow_matching_loss.py</strong></div><button class="copy-button" data-copy="flow-loss-code">复制代码</button></div>
+          <pre id="flow-loss-code">def flow_matching_loss(velocity_net, action, cond):
+    # action: [B,H,D]，cond: [B,C]
+    B = action.size(0)
+    noise = torch.randn_like(action)                  # [B,H,D]
+    t = torch.rand(B, device=action.device)           # [B]
+    t3 = t[:, None, None]                             # [B,1,1]
+
+    x_t = (1.0 - t3) * noise + t3 * action            # [B,H,D]
+    target_velocity = action - noise                  # [B,H,D]
+    pred_velocity = velocity_net(x_t, t, cond)        # [B,H,D]
+
+    return (pred_velocity - target_velocity).pow(2).mean()</pre>
+        </div>
+        <div class="code-card">
+          <div class="code-head"><div><i></i><strong>euler_sample.py</strong></div><button class="copy-button" data-copy="flow-sample-code">复制代码</button></div>
+          <pre id="flow-sample-code">@torch.no_grad()
+def sample_action(velocity_net, cond, shape, num_steps=100):
+    x = torch.randn(shape, device=cond.device)         # t=0: [B,H,D]
+    dt = 1.0 / num_steps
+
+    for i in range(num_steps):
+        t = torch.full(
+            (shape[0],), i / num_steps,
+            device=x.device, dtype=x.dtype,
+        )                                             # [B]
+        velocity = velocity_net(x, t, cond)            # [B,H,D]
+        x = x + dt * velocity                          # 显式 Euler
+
+    return x                                           # t≈1 的动作块</pre>
+        </div>
+        <div class="line-explain"><article><span>TRAIN</span><strong>随机覆盖所有时间</strong><p>每条 batch 样本独立采样 t，让网络学习整条运输路径上的速度。</p></article><article><span>INFERENCE</span><strong>从噪声积分</strong><p>每一步用当前状态、当前 t 和条件重新预测局部速度。</p></article><article><span>CONDITION</span><strong>决定生成什么动作</strong><p>视觉、语言、本体和触觉通常先编码为条件 c，再注入速度网络。</p></article></div>
+        <div class="callout warning"><strong><code>t3=t[:,None,None]</code> 是为了广播，不是第三个时间</strong><p>原始 t 为 <code>[B]</code>，网络时间编码器使用它；与三维动作轨迹运算时扩成 <code>[B,1,1]</code>，在 H 和 D 上自动广播。</p></div>
+      </section>
+
+      <section class="section reveal" id="chunk">
+        <div class="section-heading"><p class="section-index">05 · ACTION CHUNK</p><h2>一次预测一段动作</h2><p>相比单步动作，chunk 联合建模短期时序并降低模型调用频率；代价是块内反馈滞后，需要在执行长度与闭环频率间折中。</p></div>
+        <div class="shape-flow">
+          <div class="shape-node"><b>观测窗口</b><code>[B,S,...]</code></div><span class="shape-arrow">→</span>
+          <div class="shape-node"><b>策略生成</b><code>[B,H,D]</code></div><span class="shape-arrow">→</span>
+          <div class="shape-node"><b>截取执行</b><code>[B,K,D]</code></div><span class="shape-arrow">→</span>
+          <div class="shape-node"><b>逐步出队</b><code>[B,D]</code></div><span class="shape-arrow">→</span>
+          <div class="shape-node"><b>队列耗尽</b><code>重新规划</code></div>
+        </div>
+        <div class="concept-board" data-tabs style="margin-top:17px">
+          <div class="tab-list"><button class="active" data-tab="window">训练滑窗</button><button data-tab="padding">尾部 Padding</button><button data-tab="queue">推理队列</button></div>
+          <div class="tab-panel active" data-panel="window">
+            <div class="code-card"><div class="code-head"><div><i></i><strong>sliding_action_chunks.py</strong></div><button class="copy-button" data-copy="window-code">复制代码</button></div><pre id="window-code">def sliding_chunks(actions, horizon, stride=1):
+    """actions: [T,D] -> chunks: [N,H,D]"""
+    T = actions.size(0)
+    starts = range(0, T - horizon + 1, stride)
+    chunks = [actions[s:s + horizon] for s in starts]
+    return torch.stack(chunks, dim=0)
+
+# T=100, H=16, stride=1 -> N=85
+# 第0块: action[0:16]；第1块: action[1:17]</pre></div>
+          </div>
+          <div class="tab-panel" data-panel="padding">
+            <div class="code-card"><div class="code-head"><div><i></i><strong>chunks_with_valid_mask.py</strong></div><button class="copy-button" data-copy="padding-code">复制代码</button></div><pre id="padding-code">import torch.nn.functional as F
+
+def chunks_with_padding(actions, horizon, stride=1):
+    T, D = actions.shape
+    chunks, masks = [], []
+
+    for start in range(0, T, stride):
+        chunk = actions[start:min(start + horizon, T)]
+        valid = chunk.size(0)
+        chunk = F.pad(chunk, (0, 0, 0, horizon - valid))
+        mask = torch.arange(horizon, device=actions.device) < valid
+        chunks.append(chunk)
+        masks.append(mask)
+
+    return torch.stack(chunks), torch.stack(masks)
+    # [N,H,D], [N,H]</pre></div>
+          </div>
+          <div class="tab-panel" data-panel="queue">
+            <div class="code-card"><div class="code-head"><div><i></i><strong>action_queue.py</strong></div><button class="copy-button" data-copy="queue-code">复制代码</button></div><pre id="queue-code">from collections import deque
+
+class ChunkExecutor:
+    def __init__(self, policy, execute_steps):
+        self.policy = policy
+        self.execute_steps = execute_steps
+        self.queue = deque()
+
+    @torch.no_grad()
+    def select_action(self, observation):
+        if not self.queue:
+            chunk = self.policy(observation)          # [1,H,D]
+            selected = chunk[0, :self.execute_steps]  # [K,D]
+            self.queue.extend(selected.unbind(0))
+
+        return self.queue.popleft()                   # [D]</pre></div>
+          </div>
+        </div>
+        <div class="interview-card" style="margin-top:15px"><strong>为什么 H 和 K 可以不同？</strong><p>H 是模型联合建模的预测 horizon，K 是每次真正开环执行的步数。保留较长 H 可以学习动作结构，使用较短 K 可以更快结合新观测重新规划。</p></div>
+      </section>
+
+      <section class="section reveal" id="ensemble">
+        <div class="section-heading split-heading"><div><p class="section-index">06 · TEMPORAL ENSEMBLE</p><h2>融合重叠 chunk 对同一时刻的预测</h2></div><p>每个控制时刻都可重新预测完整 chunk，因此当前动作会拥有来自不同历史时刻的多个候选值。</p></div>
+        <div class="formula large">â<sub>t</sub> = Σ<sub>i</sub>w<sub>i</sub>â<sub>t</sub><sup>(i)</sup> / Σ<sub>i</sub>w<sub>i</sub>, &nbsp; w<sub>i</sub>=exp(−ki)</div>
+        <div class="calculator" id="ensemble-calculator" style="margin-top:17px">
+          <div class="card-label">交互融合示例（候选按“最新 → 最旧”排列）</div>
+          <div class="input-row" style="margin-top:14px">
+            <div class="input-field"><label>最新预测 a₀</label><input data-action type="number" step="0.1" value="0.8"></div>
+            <div class="input-field"><label>次新预测 a₁</label><input data-action type="number" step="0.1" value="0.4"></div>
+            <div class="input-field"><label>更早预测 a₂</label><input data-action type="number" step="0.1" value="-0.1"></div>
+            <div class="input-field"><label>衰减系数 k</label><input id="ensemble-decay" type="number" min="0" step="0.1" value="0.5"></div>
+          </div>
+          <div class="calc-result" id="ensemble-result"></div>
+        </div>
+        <div class="code-card">
+          <div class="code-head"><div><i></i><strong>temporal_ensemble.py</strong></div><button class="copy-button" data-copy="ensemble-code">复制代码</button></div>
+          <pre id="ensemble-code">def temporal_ensemble(candidates, decay=0.01):
+    """
+    candidates: [N,D]，明确约定第 0 行最新，第 N-1 行最旧
+    """
+    N = candidates.size(0)
+    age = torch.arange(N, device=candidates.device, dtype=candidates.dtype)
+    weights = torch.exp(-decay * age)                 # [N]
+    weights = weights / weights.sum()
+    return (candidates * weights[:, None]).sum(dim=0) # [D]
+
+# 维护预测表时：第 s 次推理得到 chunk[s:s+H]
+# 执行时收集所有覆盖当前全局时刻 t 的预测，再按新旧融合。</pre>
+        </div>
+        <div class="callout warning"><strong>权重方向必须结合数组顺序说明</strong><p>不要只背 <code>exp(-ki)</code>。如果候选数组按“最旧→最新”存储，就需要反转 age 或候选顺序，才能保证你想强调的预测获得更大权重。</p></div>
+      </section>
+
+      <section class="section reveal" id="practice">
+        <div class="section-heading"><p class="section-index">07 · CLOSED-BOOK PRACTICE</p><h2>三道默写题</h2></div>
+        <div class="card-grid three">
+          <article class="practice-card"><span class="card-label">练习 A · 8 分钟</span><h3>稳定交叉熵</h3><p class="prompt">不能调用 <code>F.cross_entropy</code> 或 <code>F.log_softmax</code>，输入 [N,C] 和 [N]。</p><button class="reveal-button" data-reveal="sol-ce">查看参考实现</button><div class="solution" id="sol-ce"><div class="code-card"><pre>def ce(logits, target):
+    log_z = torch.logsumexp(logits, -1)
+    chosen = logits.gather(1, target[:, None]).squeeze(1)
+    return (log_z - chosen).mean()</pre></div></div></article>
+          <article class="practice-card"><span class="card-label">练习 B · 10 分钟</span><h3>Flow Matching Loss</h3><p class="prompt">写清 t 和 t3 的 shape、插值公式与监督目标。</p><button class="reveal-button" data-reveal="sol-fm">查看参考实现</button><div class="solution" id="sol-fm"><div class="code-card"><pre>def fm_loss(net, a, c):
+    B = a.size(0)
+    eps = torch.randn_like(a)
+    t = torch.rand(B, device=a.device)
+    t3 = t[:, None, None]
+    xt = (1-t3)*eps + t3*a
+    return (net(xt,t,c) - (a-eps)).pow(2).mean()</pre></div></div></article>
+          <article class="practice-card"><span class="card-label">练习 C · 10 分钟</span><h3>Chunk 滑动窗口</h3><p class="prompt">输入 [T,D]，支持 horizon、stride，并为末尾不完整块返回 valid mask。</p><button class="reveal-button" data-reveal="sol-window">查看参考实现</button><div class="solution" id="sol-window"><p style="font-size:11px;color:var(--muted)">参考本页“尾部 Padding”标签页。先独立写出循环、pad 和 mask，再回看答案。</p></div></article>
+        </div>
+      </section>
+
+      <section class="section reveal" id="quiz">
+        <div class="section-heading"><p class="section-index">08 · QUICK CHECK</p><h2>五题快速自测</h2></div>
+        <div class="quiz-list">
+          <article class="quiz-item" data-answer="2"><strong>1. 手写交叉熵时，数值最稳定的实现是？</strong><div class="quiz-options"><button>先 exp 再除以和</button><button>直接 log(softmax)</button><button>使用 logsumexp 构造 log probability</button><button>把 logits clamp 到 [0,1]</button></div><p class="quiz-note">logsumexp 使用减最大值技巧，避免概率域的上溢和下溢。</p></article>
+          <article class="quiz-item" data-answer="1"><strong>2. Flow Matching 直线路径的目标速度是？</strong><div class="quiz-options"><button>ε−a</button><button>a−ε</button><button>xₜ−a</button><button>t(a−ε)</button></div><p class="quiz-note">对 xₜ=(1−t)ε+ta 求导得到 a−ε。</p></article>
+          <article class="quiz-item" data-answer="3"><strong>3. t:[B] 扩成 t[:,None,None] 的目的？</strong><div class="quiz-options"><button>产生三个时间值</button><button>复制数据</button><button>送入位置编码</button><button>与 [B,H,D] 正确广播</button></div><p class="quiz-note">t3 shape 是 [B,1,1]，同一样本的整条轨迹共享一个 t。</p></article>
+          <article class="quiz-item" data-answer="0"><strong>4. Action Chunk 中减小执行步数 K，通常意味着？</strong><div class="quiz-options"><button>反馈更频繁，但模型调用开销增加</button><button>模型 horizon 自动减小</button><button>不再需要动作队列</button><button>训练 loss 变成 CE</button></div><p class="quiz-note">K 控制开环执行长度；更小的 K 能更快利用新观测重新规划。</p></article>
+          <article class="quiz-item" data-answer="2"><strong>5. Temporal Ensemble 最容易出现的实现错误是？</strong><div class="quiz-options"><button>使用指数函数</button><button>对候选求和</button><button>没有明确新旧顺序，导致权重方向反了</button><button>输出维度仍为 D</button></div><p class="quiz-note">公式里的索引 i 必须与候选的时间新旧顺序一致。</p></article>
+        </div>
+      </section>
+
+      <footer class="footer"><span>Module 02 · VLA & Loss</span><nav class="footer-links"><a href="attention.html">← Attention</a><a href="rl.html">下一模块：强化学习 →</a></nav></footer>
+    </main>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>

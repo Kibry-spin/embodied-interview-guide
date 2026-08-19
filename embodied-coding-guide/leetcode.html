@@ -1,0 +1,265 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="具身岗高频算法题：矩阵 BFS、岛屿 DFS、完全平方数、LCS 和回文字符串。">
+  <meta name="theme-color" content="#0f1715">
+  <title>高频算法题｜具身岗面试</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="scroll-progress"><span id="scroll-progress-bar"></span></div>
+  <header class="topbar">
+    <a class="brand" href="index.html"><span class="brand-mark">LC</span><span class="brand-copy"><strong>高频算法题</strong><small>Patterns Before Problems</small></span></a>
+    <nav class="topnav"><a href="index.html">总览</a><a href="vla-interview.html">VLA</a><a href="tactile-interview.html">触觉</a><a href="pi-series.html">π 系列</a><a href="attention.html">Attention</a><a href="vla-loss.html">Loss</a><a href="rl.html">RL</a><a class="active" href="leetcode.html">算法题</a></nav>
+    <div class="top-actions"><button class="top-button" id="focus-toggle" type="button">专注阅读</button><a class="top-button strong" href="#bfs">开始刷题 ↓</a></div>
+  </header>
+
+  <div class="page-shell">
+    <aside class="sidebar">
+      <p class="eyebrow">ALGORITHM PATH</p>
+      <ol class="side-nav">
+        <li><a href="#overview"><span>01</span>题型地图</a></li>
+        <li><a href="#bfs"><span>02</span>矩阵最短路</a></li>
+        <li><a href="#dfs"><span>03</span>岛屿数量</a></li>
+        <li><a href="#squares"><span>04</span>完全平方数</a></li>
+        <li><a href="#lcs"><span>05</span>最长公共子序列</a></li>
+        <li><a href="#palindrome"><span>06</span>回文字符串</a></li>
+        <li><a href="#templates"><span>07</span>模板对比</a></li>
+        <li><a href="#practice"><span>08</span>模拟练习</a></li>
+        <li><a href="#quiz"><span>09</span>快速自测</a></li>
+      </ol>
+      <div class="sidebar-card"><strong>本页过关标准</strong><p>看到“最短步数”想到 BFS；看到“连通块”想到 DFS/BFS；能定义 DP 状态、转移、初始化与遍历顺序。</p></div>
+    </aside>
+
+    <main>
+      <section class="hero compact reveal visible" id="overview">
+        <div>
+          <p class="kicker">Module 04 · Algorithm Patterns</p>
+          <h1>算法题<br><em>先识别套路</em></h1>
+          <p class="hero-lead">具身岗算法题通常不是主战场，但基础模板必须稳定。先把题意翻译成“图搜索、动态规划或双指针”，再写边界与复杂度。</p>
+          <div class="hero-actions"><a class="primary-button" href="#bfs">从矩阵 BFS 开始 ↓</a><a class="ghost-button" href="#practice">进入模拟练习</a></div>
+          <div class="hero-stats"><div><strong>BFS</strong><span>无权图最短路</span></div><div><strong>DFS</strong><span>连通块遍历</span></div><div><strong>DP</strong><span>最优子结构</span></div></div>
+        </div>
+        <div class="hero-board">
+          <div class="terminal-head"><span class="terminal-dots"><i></i><i></i><i></i></span><span>pattern_router.py</span></div>
+          <div class="hero-code"><span class="kw">if</span> question == <span class="fn">"最少步数"</span>:<br>&nbsp;&nbsp;pattern = BFS<br><br><span class="kw">elif</span> question == <span class="fn">"连通区域数量"</span>:<br>&nbsp;&nbsp;pattern = DFS_or_BFS<br><br><span class="kw">elif</span> question == <span class="fn">"最优值/方案数"</span>:<br>&nbsp;&nbsp;pattern = DP<br><br><span class="kw">elif</span> question == <span class="fn">"首尾关系"</span>:<br>&nbsp;&nbsp;pattern = Two_Pointers</div>
+          <div class="hero-track"><span>识别状态</span><span>选择数据结构</span><span>验证边界</span></div>
+        </div>
+      </section>
+
+      <section class="section reveal" id="bfs">
+        <div class="section-heading split-heading"><div><p class="section-index">02 · BFS</p><h2>二进制矩阵中的最短路径</h2></div><p>无权图的最短步数优先使用 BFS；第一次到达终点时就是最短路径。</p></div>
+        <div class="memory-strip">
+          <article><span>STATE</span><strong>(row, col, dist)</strong><p>队列中保存当前位置与到达距离。</p></article>
+          <article><span>MOVE</span><strong>8 个方向</strong><p>横、竖、对角均可移动到值为 0 的格子。</p></article>
+          <article><span>VISITED</span><strong>入队时标记</strong><p>避免同一格被多次加入队列。</p></article>
+          <article><span>EDGE</span><strong>起终点先检查</strong><p>任一为 1 时直接返回 −1。</p></article>
+        </div>
+        <div class="code-card">
+          <div class="code-head"><div><i></i><strong>shortest_path_binary_matrix.py</strong></div><button class="copy-button" data-copy="bfs-code">复制代码</button></div>
+          <pre id="bfs-code">from collections import deque
+
+def shortestPathBinaryMatrix(grid):
+    n = len(grid)
+    if n == 0 or grid[0][0] != 0 or grid[n-1][n-1] != 0:
+        return -1
+
+    directions = [
+        (-1,-1), (-1,0), (-1,1),
+        ( 0,-1),          ( 0,1),
+        ( 1,-1), ( 1,0), ( 1,1),
+    ]
+    queue = deque([(0, 0, 1)])
+    grid[0][0] = 1                         # 入队即标记 visited
+
+    while queue:
+        r, c, dist = queue.popleft()
+        if r == n - 1 and c == n - 1:
+            return dist
+
+        for dr, dc in directions:
+            nr, nc = r + dr, c + dc
+            if 0 <= nr < n and 0 <= nc < n and grid[nr][nc] == 0:
+                grid[nr][nc] = 1
+                queue.append((nr, nc, dist + 1))
+
+    return -1</pre>
+        </div>
+        <div class="line-explain"><article><span>WHY BFS</span><strong>按距离分层扩展</strong><p>队列保证距离 d 的节点全部先于 d+1 处理，所以首次到终点最短。</p></article><article><span>WHEN VISIT</span><strong>入队而非出队标记</strong><p>否则同一节点可能被多个邻居重复入队，增加时间和空间开销。</p></article><article><span>COMPLEXITY</span><strong>时间 O(n²)，空间 O(n²)</strong><p>每个格子最多入队一次，每次最多检查 8 个邻居。</p></article></div>
+      </section>
+
+      <section class="section reveal" id="dfs">
+        <div class="section-heading"><p class="section-index">03 · DFS / CONNECTED COMPONENTS</p><h2>岛屿数量</h2><p>每遇到一块未访问陆地，岛屿计数加一，并通过 DFS 把整个连通块“淹没”。</p></div>
+        <div class="code-card">
+          <div class="code-head"><div><i></i><strong>number_of_islands.py</strong></div><button class="copy-button" data-copy="dfs-code">复制代码</button></div>
+          <pre id="dfs-code">def numIslands(grid):
+    if not grid:
+        return 0
+    rows, cols = len(grid), len(grid[0])
+
+    def dfs(r, c):
+        if not (0 <= r < rows and 0 <= c < cols):
+            return
+        if grid[r][c] != "1":
+            return
+
+        grid[r][c] = "0"                    # 标记已访问
+        dfs(r - 1, c)
+        dfs(r + 1, c)
+        dfs(r, c - 1)
+        dfs(r, c + 1)
+
+    count = 0
+    for r in range(rows):
+        for c in range(cols):
+            if grid[r][c] == "1":
+                count += 1
+                dfs(r, c)
+    return count</pre>
+        </div>
+        <div class="callout warning"><strong>递归深度可能溢出</strong><p>Python 面对超大连通块时可改用显式栈或 BFS。面试中先写清晰递归版，再主动说明迭代替代方案。</p></div>
+        <div class="compare-grid">
+          <article class="compare-card"><h3>BFS 版</h3><ul><li>使用队列，按层遍历</li><li>适合最短路径与层级距离</li><li>宽图时队列可能较大</li></ul></article>
+          <article class="compare-card good"><h3>DFS 版</h3><ul><li>递归或显式栈一路深入</li><li>连通块标记代码更紧凑</li><li>递归实现需注意栈深度</li></ul></article>
+        </div>
+      </section>
+
+      <section class="section reveal" id="squares">
+        <div class="section-heading split-heading"><div><p class="section-index">04 · ONE-DIMENSIONAL DP</p><h2>完全平方数</h2></div><p>把问题视为：用若干“平方数硬币”凑出 n，求最少数量。</p></div>
+        <div class="formula large">dp[i] = min<sub>j²≤i</sub>(dp[i−j²] + 1), &nbsp; dp[0]=0</div>
+        <div class="code-card">
+          <div class="code-head"><div><i></i><strong>perfect_squares.py</strong></div><button class="copy-button" data-copy="squares-code">复制代码</button></div>
+          <pre id="squares-code">import math
+
+def numSquares(n):
+    # dp[i]：组成整数 i 所需的最少完全平方数个数
+    dp = [0] + [float("inf")] * n
+    squares = [j * j for j in range(1, math.isqrt(n) + 1)]
+
+    for i in range(1, n + 1):
+        for square in squares:
+            if square > i:
+                break
+            dp[i] = min(dp[i], dp[i - square] + 1)
+
+    return dp[n]</pre>
+        </div>
+        <div class="line-explain"><article><span>STATE</span><strong>dp[i] 的含义先说清</strong><p>它表示组成 i 的最小平方数个数，而不是方案数量。</p></article><article><span>INIT</span><strong>dp[0]=0，其余为 ∞</strong><p>确保每个状态只能由已经可达的较小状态更新。</p></article><article><span>COMPLEXITY</span><strong>O(n√n) / O(n)</strong><p>n 个状态，每个最多枚举 √n 个平方数。</p></article></div>
+      </section>
+
+      <section class="section reveal" id="lcs">
+        <div class="section-heading"><p class="section-index">05 · TWO-DIMENSIONAL DP</p><h2>最长公共子序列 LCS</h2><p>子序列不要求连续。二维状态表示两个字符串前缀的最优答案。</p></div>
+        <div class="formula large">若 a[i−1]=b[j−1]：dp[i][j]=dp[i−1][j−1]+1<br>否则：dp[i][j]=max(dp[i−1][j], dp[i][j−1])</div>
+        <div class="code-card">
+          <div class="code-head"><div><i></i><strong>longest_common_subsequence.py</strong></div><button class="copy-button" data-copy="lcs-code">复制代码</button></div>
+          <pre id="lcs-code">def longestCommonSubsequence(text1, text2):
+    m, n = len(text1), len(text2)
+    # 多一行/列表示空前缀，天然处理边界
+    dp = [[0] * (n + 1) for _ in range(m + 1)]
+
+    for i in range(1, m + 1):
+        for j in range(1, n + 1):
+            if text1[i - 1] == text2[j - 1]:
+                dp[i][j] = dp[i - 1][j - 1] + 1
+            else:
+                dp[i][j] = max(dp[i - 1][j], dp[i][j - 1])
+
+    return dp[m][n]</pre>
+        </div>
+        <div class="callout"><strong>为什么字符相等时取左上角 + 1？</strong><p>当前两个相同字符可以同时加入公共子序列，因此问题缩小为两个前缀都各去掉一个字符；若不等，只能分别尝试舍弃其中一个末尾字符。</p></div>
+        <details class="practice-card" style="margin-top:14px"><summary style="cursor:pointer;font-weight:700">空间优化到 O(n)</summary><div class="code-card"><pre>def lcs_1d(a, b):
+    if len(a) < len(b):
+        a, b = b, a
+    dp = [0] * (len(b) + 1)
+    for ca in a:
+        diagonal = 0
+        for j, cb in enumerate(b, start=1):
+            old_dp_j = dp[j]
+            if ca == cb:
+                dp[j] = diagonal + 1
+            else:
+                dp[j] = max(dp[j], dp[j - 1])
+            diagonal = old_dp_j
+    return dp[-1]</pre></div></details>
+      </section>
+
+      <section class="section reveal" id="palindrome">
+        <div class="section-heading split-heading"><div><p class="section-index">06 · TWO POINTERS</p><h2>回文字符串两类常见问法</h2></div><p>“判断是否回文”从两端向中间；“最长回文子串”从中心向两侧扩展。</p></div>
+        <div class="concept-board" data-tabs>
+          <div class="tab-list"><button class="active" data-tab="valid">验证回文</button><button data-tab="longest">最长回文子串</button></div>
+          <div class="tab-panel active" data-panel="valid">
+            <div class="code-card"><div class="code-head"><div><i></i><strong>valid_palindrome.py</strong></div><button class="copy-button" data-copy="valid-code">复制代码</button></div><pre id="valid-code">def isPalindrome(s):
+    left, right = 0, len(s) - 1
+
+    while left < right:
+        while left < right and not s[left].isalnum():
+            left += 1
+        while left < right and not s[right].isalnum():
+            right -= 1
+        if s[left].lower() != s[right].lower():
+            return False
+        left += 1
+        right -= 1
+
+    return True</pre></div>
+            <p style="color:var(--muted);font-size:12px">时间 O(n)，额外空间 O(1)。注意过滤非字母数字并忽略大小写。</p>
+          </div>
+          <div class="tab-panel" data-panel="longest">
+            <div class="code-card"><div class="code-head"><div><i></i><strong>longest_palindromic_substring.py</strong></div><button class="copy-button" data-copy="pal-code">复制代码</button></div><pre id="pal-code">def longestPalindrome(s):
+    if not s:
+        return ""
+
+    def expand(left, right):
+        while left >= 0 and right < len(s) and s[left] == s[right]:
+            left -= 1
+            right += 1
+        return left + 1, right - 1
+
+    best_l = best_r = 0
+    for center in range(len(s)):
+        for l, r in [expand(center, center),
+                     expand(center, center + 1)]:
+            if r - l > best_r - best_l:
+                best_l, best_r = l, r
+
+    return s[best_l:best_r + 1]</pre></div>
+            <p style="color:var(--muted);font-size:12px">必须同时枚举奇数中心 <code>(i,i)</code> 和偶数中心 <code>(i,i+1)</code>。时间 O(n²)，空间 O(1)。</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="section reveal" id="templates">
+        <div class="section-heading"><p class="section-index">07 · PATTERN TABLE</p><h2>五道题压缩成四个模板</h2></div>
+        <table class="shape-table"><thead><tr><th>信号词</th><th>模板</th><th>核心数据结构</th><th>最常见错误</th></tr></thead><tbody><tr><td>无权图、最短步数</td><td>BFS</td><td>deque</td><td>出队才标记 visited，造成重复入队</td></tr><tr><td>连通块、区域数量</td><td>DFS / BFS</td><td>递归栈 / deque</td><td>漏边界或漏标记，出现无限遍历</td></tr><tr><td>最少数量、最优值</td><td>一维 DP</td><td>dp[n+1]</td><td>状态含义、初始化或遍历顺序不清</td></tr><tr><td>两个序列的公共结构</td><td>二维 DP</td><td>dp[m+1][n+1]</td><td>字符串索引与 dp 索引偏移一位</td></tr><tr><td>首尾对称、连续回文</td><td>双指针 / 中心扩展</td><td>left / right</td><td>漏掉偶数长度中心</td></tr></tbody></table>
+      </section>
+
+      <section class="section reveal" id="practice">
+        <div class="section-heading"><p class="section-index">08 · MOCK INTERVIEW</p><h2>模拟手撕流程</h2><p>每题先用 60 秒讲思路，再开始写。写完主动给复杂度和两个边界用例。</p></div>
+        <div class="topic-list">
+          <article class="topic-row"><div><strong>变体 1：障碍网格最短路</strong><p>从左上到右下，只允许四方向；返回路径本身而非距离。需要额外记录 parent。</p></div><span class="badge high">20 min</span></article>
+          <article class="topic-row"><div><strong>变体 2：最大岛屿面积</strong><p>DFS 不再只“淹没”，而是返回当前连通块面积并维护全局最大值。</p></div><span class="badge">15 min</span></article>
+          <article class="topic-row"><div><strong>变体 3：最少硬币数</strong><p>把平方数集合替换成 coins，重新说明 dp 状态与不可达初始化。</p></div><span class="badge">15 min</span></article>
+          <article class="topic-row"><div><strong>变体 4：输出一个 LCS</strong><p>从 dp[m][n] 反向回溯；相等走左上，否则走数值更大的上或左。</p></div><span class="badge high">25 min</span></article>
+          <article class="topic-row"><div><strong>变体 5：最多删除一个字符后回文</strong><p>首次不相等时，分别尝试跳过左字符或右字符，后续使用标准双指针验证。</p></div><span class="badge">15 min</span></article>
+        </div>
+      </section>
+
+      <section class="section reveal" id="quiz">
+        <div class="section-heading"><p class="section-index">09 · QUICK CHECK</p><h2>五题快速自测</h2></div>
+        <div class="quiz-list">
+          <article class="quiz-item" data-answer="0"><strong>1. 无权图最短路径为什么使用 BFS？</strong><div class="quiz-options"><button>它按距离分层扩展，首次到达即最短</button><button>它总比 DFS 省空间</button><button>它不需要 visited</button><button>它能处理任意负权边</button></div><p class="quiz-note">BFS 的队列顺序保证非递减距离访问。</p></article>
+          <article class="quiz-item" data-answer="2"><strong>2. 网格搜索应在什么时候标记 visited？</strong><div class="quiz-options"><button>发现终点后</button><button>出队后</button><button>入队时</button><button>整个 BFS 完成后</button></div><p class="quiz-note">入队立刻标记，避免多个父节点把同一节点重复加入队列。</p></article>
+          <article class="quiz-item" data-answer="1"><strong>3. LCS 的 dp[i][j] 表示？</strong><div class="quiz-options"><button>两个字符串后缀的最长公共子串</button><button>前 i、前 j 个字符的最长公共子序列长度</button><button>以 i、j 结尾的回文长度</button><button>编辑距离</button></div><p class="quiz-note">前缀定义允许从较小前缀状态递推。</p></article>
+          <article class="quiz-item" data-answer="3"><strong>4. 中心扩展求最长回文，为什么每个位置要扩两次？</strong><div class="quiz-options"><button>区分大小写</button><button>处理空字符串</button><button>降低复杂度</button><button>覆盖奇数和偶数长度回文</button></div><p class="quiz-note">中心可能是一个字符，也可能是两个字符之间的缝隙。</p></article>
+          <article class="quiz-item" data-answer="2"><strong>5. 完全平方数 DP 的复杂度是？</strong><div class="quiz-options"><button>O(log n)</button><button>O(n²)</button><button>O(n√n)</button><button>O(2ⁿ)</button></div><p class="quiz-note">n 个状态，每个枚举不超过 √n 个平方数。</p></article>
+        </div>
+      </section>
+
+      <footer class="footer"><span>Module 04 · Algorithms</span><nav class="footer-links"><a href="rl.html">← 强化学习</a><a href="index.html">回到总览 ↑</a></nav></footer>
+    </main>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>

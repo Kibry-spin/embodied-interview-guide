@@ -1,0 +1,332 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="机器人触觉面试专题：触觉传感器分类、换能原理、优缺点、代表型号、选型、标定、数据处理、策略融合，以及 PP-Tac、FSR 指套、QTac 和 Fluid Reality 项目梳理。">
+  <meta name="theme-color" content="#0f1715">
+  <title>机器人触觉传感与反馈｜具身岗面试专题</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="scroll-progress"><span id="scroll-progress-bar"></span></div>
+  <header class="topbar">
+      <a class="brand" href="index.html"><span class="brand-mark">T</span><span class="brand-copy"><strong>机器人触觉专题</strong><small>Sensing · Data · Policy · Feedback</small></span></a>
+    <nav class="topnav"><a href="index.html">总览</a><a href="vla-interview.html">VLA</a><a class="active" href="tactile-interview.html">触觉</a><a href="pi-series.html">π 系列</a><a href="attention.html">Attention</a><a href="vla-loss.html">Loss</a><a href="rl.html">RL</a><a href="leetcode.html">算法题</a></nav>
+    <div class="top-actions"><button class="top-button" id="focus-toggle" type="button">专注阅读</button><a class="top-button strong" href="#taxonomy">开始学习 ↓</a></div>
+  </header>
+
+  <div class="page-shell">
+    <aside class="sidebar">
+      <p class="eyebrow">TACTILE INTERVIEW PATH</p>
+      <ol class="side-nav">
+        <li><a href="#overview"><span>01</span>一句话框架</a></li>
+        <li><a href="#taxonomy"><span>02</span>概念与分类轴</a></li>
+        <li><a href="#metrics"><span>03</span>评价指标</a></li>
+        <li><a href="#electrical"><span>04</span>电阻/电容/压电</a></li>
+        <li><a href="#vision"><span>05</span>视触觉</a></li>
+        <li><a href="#magnetic"><span>06</span>磁/流体/其他</a></li>
+        <li><a href="#formfactor"><span>07</span>形态与覆盖范围</a></li>
+        <li><a href="#selection"><span>08</span>任务选型</a></li>
+        <li><a href="#pipeline"><span>09</span>标定与数据流</a></li>
+        <li><a href="#policy"><span>10</span>进入策略模型</a></li>
+        <li><a href="#resume"><span>11</span>个人经历映射</a></li>
+        <li><a href="#interview"><span>12</span>面试追问</a></li>
+      </ol>
+      <div class="sidebar-card"><strong>本页过关标准</strong><p>能按换能原理说出 8 类传感器；能根据静态力、滑移、形状、覆盖面积和工程成本做选型；能把自己的硬件复现、数采和 QTac 算法经历串成闭环。</p></div>
+    </aside>
+
+    <main>
+      <section class="hero compact reveal visible" id="overview">
+        <div>
+          <p class="kicker">Robotic Tactile Sensing · Interview Guide</p>
+          <h1>机器人触觉<br><em>从接触到策略</em></h1>
+          <p class="hero-lead">触觉系统不是“加一个压力传感器”。它包含机械接触层、换能器、采集与标定、时序对齐、感知表征、策略融合，以及可选的触觉反馈执行器。</p>
+          <div class="hero-actions"><a class="primary-button" href="#taxonomy">先看分类总表 ↓</a><a class="ghost-button" href="#resume">结合我的项目 ↗</a></div>
+          <div class="hero-stats"><div><strong>8</strong><span>换能家族</span></div><div><strong>10</strong><span>选型指标</span></div><div><strong>7</strong><span>经历映射</span></div></div>
+        </div>
+        <div class="hero-board tactile-hero-board">
+          <div class="terminal-head"><span class="terminal-dots"><i></i><i></i><i></i></span><span>tactile_system.pipeline</span></div>
+          <div class="tactile-signal-chain">
+            <article><span>PHYSICS</span><strong>接触</strong><small>法向 / 剪切 / 振动 / 热</small></article><b>→</b>
+            <article><span>SENSOR</span><strong>换能</strong><small>阻 / 容 / 压 / 光 / 磁</small></article><b>→</b>
+            <article><span>DATA</span><strong>表征</strong><small>taxel / 图像 / 特征 / 概率</small></article><b>→</b>
+            <article class="accent"><span>POLICY</span><strong>闭环</strong><small>识别 / 调力 / 重抓 / 反馈</small></article>
+          </div>
+          <div class="formula" style="margin:26px 0 28px">触觉价值 = 遮挡后的接触状态 + 动作结果反馈</div>
+          <div class="hero-track"><span>测得准</span><span>对得齐</span><span>用得上</span></div>
+        </div>
+      </section>
+
+      <section class="section reveal">
+        <div class="section-heading"><p class="section-index">01 · ELEVATOR PITCH</p><h2>先记住这条主线</h2></div>
+        <div class="interview-card"><strong>60 秒回答</strong><p>机器人触觉通常按换能原理分为压阻/FSR、电容、压电、光学视觉、磁感、流体或气压、摩擦电和光纤等路线。压阻和电容适合静态接触与压力阵列，压电擅长振动和滑移，视触觉能得到高分辨率接触形貌，磁触觉可在紧凑软结构中测三轴形变，流体式适合仿生多模态，摩擦电适合自供能动态触碰，光纤则适合强电磁干扰或特殊环境。选型不能只看分辨率，还要结合量程、迟滞、漂移、带宽、剪切力、覆盖面积、耐用性、标定成本和数据接口。最终目标不是“采到信号”，而是将稳定、同步的触觉表征用于接触判断、滑移检测、在手状态估计和闭环动作调整。</p></div>
+        <div class="memory-line"><strong>记忆口诀</strong><p>阻容守静力，压电抓变化；光学看细节，磁感测三轴；流体做多模态，摩擦电能自供，光纤抗干扰。</p></div>
+      </section>
+
+      <section class="section reveal" id="taxonomy">
+        <div class="section-heading split-heading"><div><p class="section-index">02 · TAXONOMY</p><h2>先分清三个概念，再谈分类</h2></div><p>“触觉传感器”“力传感器”和“触觉反馈设备”经常被混在一起，是面试第一处易错点。</p></div>
+        <div class="card-grid three">
+          <article class="info-card"><span>TACTILE SENSING</span><h3>皮肤式接触感知</h3><p>安装在接触表面，测量接触位置、压力分布、法向/剪切力、滑移、纹理、形貌或温度。</p></article>
+          <article class="info-card"><span>FORCE / PROPRIOCEPTION</span><h3>整体受力与本体感觉</h3><p>腕部六维力传感器、关节力矩和电流能测整体载荷，但通常不能给出指尖接触分布。</p></article>
+          <article class="info-card"><span>HAPTIC FEEDBACK</span><h3>把触感施加给人</h3><p>振动、气动、拉索、电刺激或电渗泵是执行器。Fluid Reality 属于反馈，不是触觉传感器。</p></article>
+        </div>
+
+        <div class="taxonomy-grid" style="margin-top:15px">
+          <article><span>按换能原理</span><strong>信号怎样产生</strong><p>压阻、电容、压电、光学、磁、流体、摩擦电、光纤。</p></article>
+          <article><span>按测量对象</span><strong>到底测到了什么</strong><p>接触二值、压力、三轴力、形貌、振动、温度、材料与在手状态。</p></article>
+          <article><span>按空间形态</span><strong>信号覆盖哪里</strong><p>单点、阵列/电子皮肤、指尖、全指/手掌、可穿戴手套。</p></article>
+          <article><span>按时间响应</span><strong>静态还是动态</strong><p>静态压力与持续夹持；动态冲击、振动、初始滑移和纹理扫描。</p></article>
+        </div>
+
+        <div class="section-heading" style="margin-top:65px"><p class="section-index">MASTER TABLE</p><h2>八类传感器总表</h2><p>先用这张表完成横向比较，后文再展开。</p></div>
+        <div class="table-scroll tactile-table"><table class="shape-table"><thead><tr><th>类型</th><th>基本原理</th><th>主要输出</th><th>核心优点</th><th>主要缺点</th><th>代表</th><th>最适合</th></tr></thead><tbody>
+          <tr><td><strong>压阻 / FSR</strong></td><td>受力改变导电复合材料的电阻</td><td>单点法向力、低密度压力阵列</td><td>薄、软、便宜、接口简单、易做大面积</td><td>非线性、迟滞、漂移/蠕变、个体差异；剪切力弱</td><td>Interlink FSR、Tekscan FlexiForce；你的 FSR 硅胶指套</td><td>快速原型、接触检测、相对压力</td></tr>
+          <tr><td><strong>电容</strong></td><td>受力改变极板距离、面积或介电常数</td><td>静态压力、压力分布，可扩展剪切</td><td>灵敏、低功耗、静态响应好、阵列化成熟</td><td>寄生电容、串扰、湿度/电磁影响；布线和扫描复杂</td><td>PPS TactArray、DigiTact、RoboTact</td><td>稳定压力映射、电子皮肤</td></tr>
+          <tr><td><strong>压电 / PVDF</strong></td><td>材料受应力变化时产生电荷</td><td>振动、冲击、动态压力、滑移</td><td>高带宽、高动态灵敏度、薄而柔性</td><td>难测长期静态力；需高阻/电荷放大，受热释电影响</td><td>PVDF slip sensor、PZT 阵列</td><td>初始滑移、纹理和碰撞事件</td></tr>
+          <tr><td><strong>视触觉 / 光学成像</strong></td><td>相机观察软表面的形变、标记或反射</td><td>高分辨率形貌、接触区域、剪切/滑移</td><td>信息密度高，可复用视觉模型，易做几何重建</td><td>相机/照明占空间；凝胶磨损、光学标定与算力成本高</td><td>GelSight、DIGIT、TacTip、PP-Tac/R-Tac</td><td>精细形状、纹理、抓取状态研究</td></tr>
+          <tr><td><strong>磁感</strong></td><td>软磁材料/磁体形变改变 Hall 或磁强计读数</td><td>三轴形变、法向/剪切力、接触位置</td><td>紧凑、软、可三轴、电子层与皮肤可分离</td><td>外部磁场与温度干扰；强非线性、跨传感器标定困难</td><td>ReSkin、AnySkin、XELA uSkin</td><td>灵巧手、可替换皮肤和大面积覆盖</td></tr>
+          <tr><td><strong>流体 / 气压 / 声学</strong></td><td>接触使液体/气体压力、阻抗或声信号变化</td><td>整体压力、低密度位置、振动、温度</td><td>柔顺、仿生、过载安全，可做多模态</td><td>密封与制作复杂；信号耦合、温漂，空间分辨率常有限</td><td>BioTac、气压式软指尖</td><td>仿生多模态、材料/滑移感知</td></tr>
+          <tr><td><strong>摩擦电</strong></td><td>接触—分离或滑动导致表面电荷转移</td><td>动态触碰、滑动、压力事件</td><td>可自供能、柔性、适合大面积皮肤</td><td>静态保持弱；湿度、材料和表面状态影响明显</td><td>TENG robot skin、triboelectric array</td><td>低功耗触碰事件和安全皮肤</td></tr>
+          <tr><td><strong>光纤 / FBG</strong></td><td>应变或温度改变光栅反射波长</td><td>法向/剪切力、应变、温度</td><td>抗电磁干扰、轻、可复用一根光纤多点测量</td><td>解调仪昂贵；封装、走线脆弱，温度—应变需解耦</td><td>FBG fingertip、TacCap</td><td>医疗、强 EMI、远距离与可穿戴场景</td></tr>
+        </tbody></table></div>
+      </section>
+
+      <section class="section reveal" id="metrics">
+        <div class="section-heading"><p class="section-index">03 · SENSOR METRICS</p><h2>不要只比较“分辨率”</h2><p>传感器选型至少要同时看测量能力、时间特性、机械特性和工程成本。</p></div>
+        <div class="table-scroll"><table class="shape-table"><thead><tr><th>指标</th><th>它回答什么</th><th>常见陷阱</th><th>面试表达</th></tr></thead><tbody>
+          <tr><td><strong>量程 Range</strong></td><td>最大最小可测力或压力</td><td>量程大通常会牺牲小力灵敏度</td><td>先按任务最大接触力留过载余量，再讨论灵敏度</td></tr>
+          <tr><td><strong>灵敏度 Sensitivity</strong></td><td>输入变化引起多大输出变化</td><td>灵敏不等于准确，易饱和也可能“很灵敏”</td><td>结合噪声和量程讨论，不单看斜率</td></tr>
+          <tr><td><strong>分辨率 Resolution</strong></td><td>能区分的最小输入变化</td><td>与 accuracy、repeatability 混淆</td><td>区分力分辨率、空间分辨率和 ADC/图像分辨率</td></tr>
+          <tr><td><strong>空间分辨率 / Taxel</strong></td><td>接触分布能分多细</td><td>相机像素数不等于独立物理 taxel 数</td><td>同时说有效接触面积、像素/标记密度与机械扩散</td></tr>
+          <tr><td><strong>带宽 Bandwidth</strong></td><td>能真实跟随多快的物理变化</td><td>采样率高不代表传感器带宽高</td><td>滑移和振动更关心带宽，静态抓力更关心漂移</td></tr>
+          <tr><td><strong>迟滞 Hysteresis</strong></td><td>同一载荷在加载/卸载时输出是否相同</td><td>只用单向标定曲线会掩盖</td><td>压阻和软材料必须做加载—卸载循环</td></tr>
+          <tr><td><strong>蠕变 / 漂移</strong></td><td>恒定载荷下输出是否随时间改变</td><td>静态夹持中被误判为力变化</td><td>做零点跟踪、温度补偿与持续加载测试</td></tr>
+          <tr><td><strong>剪切力能力</strong></td><td>能否感知切向力与初始滑移</td><td>只测法向压力常无法提前判断滑移</td><td>三轴磁传感、标记流或多电极结构更占优</td></tr>
+          <tr><td><strong>顺应性与耐用性</strong></td><td>能否贴合物体并承受反复接触</td><td>软皮肤提升接触却会增加迟滞和磨损</td><td>同时考虑过载、皮肤更换、摩擦系数和疲劳寿命</td></tr>
+          <tr><td><strong>系统代价</strong></td><td>布线、采集、算力、标定和维护有多复杂</td><td>只比较传感器单价</td><td>完整成本包括机械集成、同步、驱动、模型与换皮重标定</td></tr>
+        </tbody></table></div>
+        <div class="callout warning"><strong>三个必须分开的词</strong><p><strong>采样率</strong>是每秒输出多少次，<strong>带宽</strong>是能真实跟随多快的物理信号，<strong>延迟</strong>是接触发生到策略收到可用数据经过多久。120 fps 相机并不自动意味着 120 Hz 的端到端闭环带宽。</p></div>
+      </section>
+
+      <section class="section reveal" id="electrical">
+        <div class="section-heading split-heading"><div><p class="section-index">04 · ELECTRICAL TRANSDUCTION</p><h2>电阻、电容、压电怎么选</h2></div><p>最简单的记法：电阻和电容能守住静态，压电更擅长变化。</p></div>
+        <div class="concept-board" data-tabs>
+          <div class="tab-list"><button class="active" data-tab="resistive">压阻 / FSR</button><button data-tab="capacitive">电容</button><button data-tab="piezo">压电 / PVDF</button></div>
+          <div class="tab-panel active" data-panel="resistive">
+            <div class="formula">受力 → 导电通路变化 → R ↓ / Conductance ↑</div>
+            <div class="card-grid" style="margin-top:14px"><article class="info-card"><span>适合</span><h3>低成本接触与相对压力</h3><p>薄、柔性、两根线即可读取，容易贴在指腹、手套或硅胶指套中。</p></article><article class="info-card"><span>不适合</span><h3>未经标定的精确力测量</h3><p>输入—输出通常非线性，受预载、受力面积、封装、迟滞和时间漂移影响。</p></article></div>
+            <div class="callout"><strong>结合你的 FSR 指套</strong><p>它的工程价值是低成本验证“触觉信号能否进入数采与策略流程”，适合检测接触、粗分压力等级和时间变化；简历中不应包装成高精度三维力传感器。</p></div>
+          </div>
+          <div class="tab-panel" data-panel="capacitive">
+            <div class="formula">C = εA / d &nbsp;，接触改变 d、A 或 ε</div>
+            <div class="card-grid" style="margin-top:14px"><article class="info-card"><span>优势</span><h3>静态、灵敏、可阵列化</h3><p>适合压力分布和持续夹持；PPS 的 TactArray、DigiTact 和 RoboTact 是典型商业路线。</p></article><article class="info-card"><span>工程难点</span><h3>寄生参数与扫描网络</h3><p>走线、电极交叉、湿度、人体和附近导体都会改变电容，需要屏蔽、参考通道和稳定扫描电路。</p></article></div>
+          </div>
+          <div class="tab-panel" data-panel="piezo">
+            <div class="formula">应力变化 dσ/dt → 极化变化 → 电荷 / 电压</div>
+            <div class="card-grid" style="margin-top:14px"><article class="info-card"><span>优势</span><h3>滑移和振动</h3><p>PVDF 薄、柔性、动态灵敏度高，可捕获接触瞬态、纹理振动和初始滑移。</p></article><article class="info-card"><span>限制</span><h3>难测长期静态力</h3><p>电荷会泄漏，恒定载荷最终趋近零；还需要电荷放大器，并处理温度引起的热释电响应。</p></article></div>
+          </div>
+        </div>
+        <div class="table-scroll" style="margin-top:16px"><table class="shape-table"><thead><tr><th>任务</th><th>压阻 / FSR</th><th>电容</th><th>压电 / PVDF</th></tr></thead><tbody>
+          <tr><td>持续夹持力</td><td>可以，但要补偿漂移</td><td><strong>更合适</strong></td><td>不适合单独使用</td></tr>
+          <tr><td>快速接触事件</td><td>可以</td><td>可以</td><td><strong>最敏感</strong></td></tr>
+          <tr><td>初始滑移</td><td>需要多点/时序特征</td><td>结合阵列与加速度计</td><td><strong>振动信号直接</strong></td></tr>
+          <tr><td>低成本指套</td><td><strong>最容易</strong></td><td>电极和电路更复杂</td><td>需要高阻前端</td></tr>
+          <tr><td>大面积阵列</td><td>便宜但一致性一般</td><td><strong>压力映射成熟</strong></td><td>动态皮肤有优势</td></tr>
+        </tbody></table></div>
+      </section>
+
+      <section class="section reveal" id="vision">
+        <div class="section-heading"><p class="section-index">05 · VISION-BASED TACTILE</p><h2>视触觉：把软体形变变成图像</h2><p>它的优势是高维和高分辨率，真正的代价则是机械、光学和计算链路都要稳定。</p></div>
+        <div class="tactile-signal-chain wide">
+          <article><span>CONTACT</span><strong>物体压入软表面</strong><small>法向 + 剪切 + 摩擦</small></article><b>→</b>
+          <article><span>OPTICS</span><strong>形变改变反射/标记</strong><small>照明、膜层、内部 pin</small></article><b>→</b>
+          <article><span>CAMERA</span><strong>采集触觉图像</strong><small>[H,W,C] / fps</small></article><b>→</b>
+          <article><span>ALGORITHM</span><strong>深度、力、滑移、表征</strong><small>CV / CNN / SSL</small></article>
+        </div>
+        <div class="table-scroll tactile-table" style="margin-top:16px"><table class="shape-table"><thead><tr><th>代表</th><th>观测机制</th><th>突出能力</th><th>优势</th><th>局限</th><th>与你的经历关系</th></tr></thead><tbody>
+          <tr><td><strong>GelSight</strong></td><td>反射膜 + 多方向照明，常用光度立体重建</td><td>高分辨率三维微形貌、接触面、标记流和滑移</td><td>几何细节丰富，算法与标定体系成熟</td><td>照明一致性、膜层制作与磨损；结构通常较厚</td><td>理解视触觉深度重建和 slip 的基础路线</td></tr>
+          <tr><td><strong>DIGIT</strong></td><td>紧凑相机观察凝胶表面</td><td>指尖尺度高分辨率触觉图像</td><td>开源、低成本、适合机器人指端集成</td><td>有效接触面有限，凝胶和光学一致性仍需维护</td><td>与 PP-Tac 同属低成本 camera-based tactile 思路</td></tr>
+          <tr><td><strong>TacTip</strong></td><td>相机追踪软皮肤内部仿生 pins/markers</td><td>接触位置、边缘、剪切、轮廓和滑移</td><td>柔顺、可 3D 打印、形态可定制，皮肤机械滤波明显</td><td>marker 对应与制造差异；微观纹理不如反射膜路线直接</td><td>可用于回答“marker-based 与 markerless 的差异”</td></tr>
+          <tr><td><strong>PP-Tac / R-Tac</strong></td><td>单目相机观测圆形软触觉表面</td><td>高分辨率全向接触、形状重建与实时滑移控制</td><td>低成本、120 fps、圆形单通道设计，开源 CAD/PCB/标定流程</td><td>模具、硅胶/PDMS、散光与参考深度的一致性影响结果</td><td><strong>你已完成结构制作、器件装配、成像与采集验证</strong></td></tr>
+          <tr><td><strong>Digit 360</strong></td><td>广视场光学 + 多种辅助模态 + 端侧 AI</td><td>全向指尖、多模态、高频振动与热等信息</td><td>覆盖和模态非常丰富，展示未来集成方向</td><td>系统复杂度、成本和数据融合要求高</td><td>可作为前沿代表，不要声称自己复现</td></tr>
+        </tbody></table></div>
+
+        <div class="card-grid three" style="margin-top:14px">
+          <article class="info-card"><span>REFLECTIVE</span><h3>反射/光度立体路线</h3><p>从彩色或灰度变化恢复表面法向和深度；细节高，但依赖光源、反射层与标定。</p></article>
+          <article class="info-card"><span>MARKER-BASED</span><h3>标记流路线</h3><p>跟踪 marker 位移估计剪切、接触和滑移；对形变直观，但 marker 密度限制空间信息。</p></article>
+          <article class="info-card"><span>REPRESENTATION</span><h3>学习表征路线</h3><p>不必显式重建力/深度，直接用 CNN/Transformer 或 Sparsh 类自监督编码器提取任务特征。</p></article>
+        </div>
+        <div class="callout warning"><strong>视触觉的“高分辨率”不是免费午餐</strong><p>图像分辨率高会带来视频带宽、编码延迟、存储和模型算力；软体形变还包含接触几何、摩擦、材料和历史状态的耦合。研究中常把它当作高维观测，不应直接把像素值解释为绝对力。</p></div>
+      </section>
+
+      <section class="section reveal" id="magnetic">
+        <div class="section-heading split-heading"><div><p class="section-index">06 · MAGNETIC & OTHER FAMILIES</p><h2>磁触觉及其他重要路线</h2></div><p>磁感路线在灵巧手和可替换皮肤中越来越常见；其余路线则针对多模态、自供能或特殊环境。</p></div>
+        <div class="table-scroll tactile-table"><table class="shape-table"><thead><tr><th>路线</th><th>怎样工作</th><th>优势</th><th>缺点与补偿</th><th>代表与适用场景</th></tr></thead><tbody>
+          <tr><td><strong>离散磁体 + Hall/磁强计</strong></td><td>软皮肤中磁体位移/转动改变三轴磁场</td><td>单 taxel 可测 X/Y/Z，适合剪切与法向力；紧凑、采样快</td><td>邻近磁场串扰、温漂、安装公差；需参考通道、温补和逐点标定</td><td>XELA uSkin：分布式三轴 taxel，适合手指和手掌</td></tr>
+          <tr><td><strong>磁性颗粒软体</strong></td><td>硅胶中的磁粉随整体形变改变附近磁场</td><td>皮肤可整体成型，电子板与易损软层分离，便于替换</td><td>输出与力高度非线性；不同皮肤磁化差异导致域偏移</td><td>ReSkin、AnySkin：机器人皮肤、手套、指尖</td></tr>
+          <tr><td><strong>流体阻抗 / 声学 / 热</strong></td><td>软皮肤和导电液体变形改变电极阻抗；液体传递振动与热</td><td>单指尖集成静态力、振动和温度，柔顺且仿生</td><td>通道耦合、密封、温度和换皮标定复杂，空间密度有限</td><td>BioTac：材料、滑移、接触和顺应性</td></tr>
+          <tr><td><strong>气压 / MEMS Barometer</strong></td><td>封闭软腔受压后由气压计读出压力变化</td><td>低成本、过载容忍、封装简单，可用时序学习滑移</td><td>通常是整体信号，定位能力弱；气密性、温度和腔体动力学影响明显</td><td>软夹爪、低成本指端、接触/滑移分类</td></tr>
+          <tr><td><strong>摩擦电 TENG</strong></td><td>两材料接触分离产生电荷，外电路输出脉冲</td><td>自供能、柔性、大面积制作潜力高</td><td>输出依赖湿度、材料和运动速度，难稳定表示静态力</td><td>安全皮肤、触碰/滑动事件、可穿戴 HMI</td></tr>
+          <tr><td><strong>光纤 FBG</strong></td><td>应变改变 Bragg 反射波长，可在一根光纤复用多个光栅</td><td>抗 EMI、轻、远距离、多点、可同时设计力与温度通道</td><td>解调仪成本高；光纤弯折、封装和温度补偿困难</td><td>FBG 指尖、医疗机器人、TacCap 可穿戴数采</td></tr>
+        </tbody></table></div>
+        <div class="callout"><strong>磁传感器为什么常需要学习模型</strong><p>磁场变化不仅取决于力，还取决于磁体/磁粉位置、软体几何、边界条件和传感器安装误差。工程上常用六维力传感器或压头采集监督数据，学习从多路 Bx/By/Bz 到接触位置和三轴力的映射，并做跨皮肤校准。</p></div>
+      </section>
+
+      <section class="section reveal" id="formfactor">
+        <div class="section-heading"><p class="section-index">07 · FORM FACTOR</p><h2>同一种原理，也会长成完全不同的系统</h2><p>形态决定覆盖范围、数据形状、走线、磨损方式和能否集成到灵巧手。</p></div>
+        <div class="table-scroll"><table class="shape-table"><thead><tr><th>形态</th><th>典型数据</th><th>优点</th><th>局限</th><th>常见用途</th></tr></thead><tbody>
+          <tr><td><strong>单点传感器</strong></td><td>[N] 标量或少量通道</td><td>便宜、易集成、易高速采样</td><td>不知道接触发生在感受区的哪里</td><td>FSR 指套、接触开关、夹爪力阈值</td></tr>
+          <tr><td><strong>压力阵列 / e-skin</strong></td><td>[H,W] 或 [N_taxel,C]</td><td>覆盖面积大，能估计接触中心和分布</td><td>布线、扫描、串扰和一致性校准</td><td>手掌、手指、机械臂安全皮肤</td></tr>
+          <tr><td><strong>三轴 taxel 阵列</strong></td><td>[N_taxel,3]</td><td>同时获得法向和剪切，适合滑移与受力方向</td><td>三轴标定和通道耦合复杂</td><td>uSkin、灵巧手全覆盖</td></tr>
+          <tr><td><strong>高分辨率视触觉指尖</strong></td><td>[H,W,C] 图像/视频</td><td>接触几何和纹理信息丰富</td><td>结构体积、视频带宽、凝胶维护</td><td>精密操作、在手感知、研究平台</td></tr>
+          <tr><td><strong>全向软指尖</strong></td><td>曲面图像或多路融合</td><td>侧面接触也可感知，更适合灵巧手</td><td>光学畸变、曲面标定和制作难</td><td>PP-Tac/R-Tac、GelSight360、Digit 360</td></tr>
+          <tr><td><strong>可穿戴手套/指套</strong></td><td>手姿态 + N 路接触/力 + 时间戳</td><td>无本体采集便捷，可获得人类接触示范</td><td>人手到机器人形态和接触位置存在 embodiment gap</td><td>你的 OMMO + 途见触觉手套方案</td></tr>
+          <tr><td><strong>腕部六维力/力矩</strong></td><td>[Fx,Fy,Fz,Tx,Ty,Tz]</td><td>标定成熟、整体受力准确、控制接口清晰</td><td>不能区分多个局部接触，不属于高分辨率皮肤</td><td>装配、力控、安全与触觉标定真值</td></tr>
+        </tbody></table></div>
+      </section>
+
+      <section class="section reveal" id="selection">
+        <div class="section-heading split-heading"><div><p class="section-index">08 · TASK-DRIVEN SELECTION</p><h2>从任务反推传感器</h2></div><p>没有“综合性能最强”的触觉传感器，只有在目标、空间、成本和数据链路下更合适的方案。</p></div>
+        <div class="table-scroll tactile-table"><table class="shape-table"><thead><tr><th>任务需求</th><th>优先方案</th><th>备选方案</th><th>选型理由</th><th>需要验证</th></tr></thead><tbody>
+          <tr><td>只需判断是否接触</td><td>FSR / 开关 / 单点电容</td><td>气压计</td><td>接口简单、成本最低</td><td>触发阈值、预载和误触发</td></tr>
+          <tr><td>持续控制夹持力</td><td>电容阵列 / 标定压阻 / 磁三轴</td><td>腕部 F/T</td><td>能保留静态信号；局部皮肤比腕力更直接</td><td>漂移、迟滞、饱和和闭环延迟</td></tr>
+          <tr><td>检测初始滑移</td><td>PVDF / 三轴磁 / marker flow</td><td>加速度计、声学</td><td>滑移首先表现为微振动、剪切和局部相对运动</td><td>物体材质、速度和抓力泛化</td></tr>
+          <tr><td>识别形状、边缘与纹理</td><td>GelSight/DIGIT/PP-Tac 类视触觉</td><td>TacTip、密集电容阵列</td><td>需要高空间信息和接触几何</td><td>凝胶域偏移、照明、扫描动作和算力</td></tr>
+          <tr><td>覆盖整只灵巧手</td><td>磁 taxel / 柔性电容 e-skin</td><td>分布式 FSR</td><td>体积、走线、曲面与耐用性比单点分辨率更重要</td><td>总线带宽、可替换性和邻域串扰</td></tr>
+          <tr><td>人类无本体触觉数采</td><td>轻量触觉手套/指套 + 空间追踪</td><td>FBG TacCap、FSR 自制指套</td><td>必须兼顾佩戴舒适、动作自由与机器人可迁移性</td><td>坐标统一、时间同步、接触位置与强度语义</td></tr>
+          <tr><td>强电磁/医疗环境</td><td>FBG 光纤</td><td>纯光学视触觉</td><td>光学信号不受 EMI，远端可放电子设备</td><td>光纤走线、温漂和解调设备</td></tr>
+          <tr><td>低成本验证算法数据流</td><td>FSR + ADC</td><td>气压计、开源 ReSkin</td><td>先验证同步、格式和模型接口，再升级硬件</td><td>不要把粗糙信号当绝对真值</td></tr>
+        </tbody></table></div>
+        <div class="selection-checklist">
+          <article><span>01</span><strong>任务</strong><p>接触、力、滑移、纹理还是数量？</p></article>
+          <article><span>02</span><strong>物理量</strong><p>静态/动态，法向/剪切，需要多大范围？</p></article>
+          <article><span>03</span><strong>形态</strong><p>指尖、手掌、全手还是可穿戴？</p></article>
+          <article><span>04</span><strong>系统</strong><p>频率、延迟、布线、算力、同步怎样约束？</p></article>
+          <article><span>05</span><strong>维护</strong><p>磨损后是否可换，换后是否要重标定？</p></article>
+        </div>
+      </section>
+
+      <section class="section reveal" id="pipeline">
+        <div class="section-heading"><p class="section-index">09 · CALIBRATION & DATA PIPELINE</p><h2>采到数据只是开始</h2><p>触觉最常见的问题不是模型结构，而是机械耦合、标定、时间戳和训练部署不一致。</p></div>
+        <div class="architecture-stack">
+          <article class="architecture-layer"><span>01 / MECHANICS</span><div><strong>固定接触层与预载</strong><p>确认传感器受力面积、硅胶厚度、摩擦面、安装刚度和过载保护。</p></div><code>contact interface</code></article>
+          <article class="architecture-layer"><span>02 / ACQUISITION</span><div><strong>稳定读取原始信号</strong><p>ADC/相机参数、供电、曝光、总线频率、丢帧和设备时钟都要记录。</p></div><code>raw + timestamp</code></article>
+          <article class="architecture-layer"><span>03 / CALIBRATION</span><div><strong>零点、量程与空间标定</strong><p>建立 raw→物理量/参考表征映射，分别检查加载、卸载、持续加载与多位置。</p></div><code>calib(raw)</code></article>
+          <article class="architecture-layer"><span>04 / PREPROCESS</span><div><strong>滤波、归一化与接触掩码</strong><p>去零漂、温补、限幅；训练统计量必须和推理一致，并保留 valid mask。</p></div><code>x<sub>t</sub> ∈ stable space</code></article>
+          <article class="architecture-layer"><span>05 / SYNC</span><div><strong>与图像、状态、动作时间对齐</strong><p>基于统一时钟/硬件触发或最近邻插值，显式估计传感器和执行器延迟。</p></div><code>{v,tac,q,a}<sub>t</sub></code></article>
+          <article class="architecture-layer"><span>06 / DATASET</span><div><strong>保存原始数据、处理参数与元信息</strong><p>触觉图像可按视频流保存，低维 taxel/FSR 可按时间序列保存；记录型号、标定版本和安装位置。</p></div><code>episode / frame</code></article>
+          <article class="architecture-layer"><span>07 / INFERENCE</span><div><strong>监控实时性和异常</strong><p>检查数据 shape、频率、延迟、饱和、缺帧和传感器替换后的分布漂移。</p></div><code>tactile → policy</code></article>
+        </div>
+
+        <div class="section-heading" style="margin-top:65px"><p class="section-index">FAILURE MODES</p><h2>故障—原因—处理速查表</h2></div>
+        <div class="table-scroll tactile-table"><table class="shape-table"><thead><tr><th>现象</th><th>常见原因</th><th>诊断方法</th><th>处理方式</th></tr></thead><tbody>
+          <tr><td>空载值慢慢变化</td><td>温漂、软材料恢复、FSR 蠕变</td><td>长时间空载/恒载曲线</td><td>预热、温补、分段归零；避免在线接触时误归零</td></tr>
+          <tr><td>加载和卸载曲线不同</td><td>迟滞、硅胶摩擦、封装预载</td><td>多轮加载—卸载循环</td><td>双向标定、历史窗口模型或只使用相对等级</td></tr>
+          <tr><td>突然顶到最大值</td><td>量程不足、ADC 饱和、光学过曝</td><td>对照原始码值和真实载荷</td><td>重新设计受力结构/增益/曝光并保留饱和 mask</td></tr>
+          <tr><td>不同 taxel 互相影响</td><td>机械扩散、电容串扰、磁场耦合</td><td>单点网格压入测试</td><td>结构隔离、参考通道、整阵列学习标定</td></tr>
+          <tr><td>视触觉参考图变化</td><td>凝胶老化、温度、LED、相机自动曝光</td><td>固定压头与空载参考序列</td><td>锁曝光/白平衡、定期 reference reset、记录皮肤版本</td></tr>
+          <tr><td>更换磁皮肤后模型失效</td><td>磁化与安装差异造成域偏移</td><td>新旧皮肤同一标定网格对比</td><td>多皮肤训练 + 少量自监督/监督重标定</td></tr>
+          <tr><td>训练很好，真机滞后</td><td>离线时间戳错位、编码/网络/队列延迟</td><td>用接触瞬间对齐视频、触觉和动作</td><td>统一时钟、测固定延迟、按有效时间重采样</td></tr>
+          <tr><td>滑移模型只认某种物体</td><td>纹理、速度、抓力和方向分布单一</td><td>跨材质/速度/载荷分组评估</td><td>覆盖物理因素，使用时序特征与域随机化</td></tr>
+        </tbody></table></div>
+        <div class="callout"><strong>LeRobot 数据如何放触觉</strong><p>核心不是强行把所有触觉都变成图片，而是保持统一时间轴：视触觉图像可作为 image/video feature，FSR、磁 taxel 与手套信号可作为低维 observation feature；同时保存时间戳、有效 mask、标定版本和传感器位置。训练前要核对窗口长度、动作 chunk 与触觉延迟是否一致。</p></div>
+      </section>
+
+      <section class="section reveal" id="policy">
+        <div class="section-heading split-heading"><div><p class="section-index">10 · TACTILE IN POLICY</p><h2>触觉怎样进入策略模型</h2></div><p>不一定要把原始触觉直接拼进 Transformer；接口取决于任务所需的充分状态。</p></div>
+        <div class="table-scroll"><table class="shape-table"><thead><tr><th>融合方式</th><th>数据流</th><th>优点</th><th>缺点</th><th>适用情况</th></tr></thead><tbody>
+          <tr><td><strong>原始早期融合</strong></td><td>tactile image/taxel → encoder → tokens，与视觉/状态共同进入骨干</td><td>保留信息最多，可学习复杂交互</td><td>数据需求和算力高，传感器依赖强</td><td>大规模数据、多任务 VLA</td></tr>
+          <tr><td><strong>独立特征后融合</strong></td><td>各模态独立编码，再 concat/cross-attention</td><td>模块清晰，方便预训练和消融</td><td>特征时空对齐仍需设计</td><td>常规视触觉策略</td></tr>
+          <tr><td><strong>任务瓶颈 / 概率分布</strong></td><td>高维触觉 → 接触状态/数量/滑移概率 → 策略</td><td>可解释、数据效率高、便于更换传感器</td><td>瓶颈定义错会丢失有用信息</td><td><strong>QTac 的 CountNet 路线</strong></td></tr>
+          <tr><td><strong>触觉事件触发</strong></td><td>contact/slip event 触发增力、停止或重规划</td><td>实时、工程可靠、模型简单</td><td>复杂任务表达能力有限</td><td>安全抓取和传统控制</td></tr>
+          <tr><td><strong>残差/闭环修正</strong></td><td>视觉策略给 nominal action，触觉策略输出 correction</td><td>保留视觉预训练能力，触觉专注接触阶段</td><td>两个控制器的稳定性和职责边界难调</td><td>装配、插入、抓稳与接触后调整</td></tr>
+        </tbody></table></div>
+
+        <div class="qtac-diagram" style="margin-top:16px">
+          <article><span>双侧高维触觉</span><strong>T<sub>L</sub>, T<sub>R</sub></strong><p>接触形貌与在手状态</p></article><b>→</b>
+          <article class="accent"><span>Decoupled CountNet</span><strong>p(n | T<sub>L</sub>,T<sub>R</sub>)</strong><p>在手物体数量概率分布</p></article><b>→</b>
+          <article><span>DiTFlow</span><strong>vision + proprio + target + p(n)</strong><p>连续动作与迭代重抓</p></article>
+        </div>
+        <div class="card-grid three" style="margin-top:14px">
+          <article class="info-card"><span>WHY DECOUPLE</span><h3>先回答“抓了几个”</h3><p>将复杂触觉压缩为任务相关、可解释的数量概率，而不是让动作网络自己摸索所有含义。</p></article>
+          <article class="info-card"><span>WHY DISTRIBUTION</span><h3>保留不确定性</h3><p>输出概率分布比硬分类更能表达接触模糊性，策略可结合目标数量决定调整方向。</p></article>
+          <article class="info-card"><span>WHY CLOSED LOOP</span><h3>触觉是结果反馈</h3><p>视觉决定接近与初抓，触觉判断实际在手数量，策略再调整或重抓，形成动态迭代。</p></article>
+        </div>
+        <div class="interview-card" style="margin-top:14px"><strong>触觉与视觉的互补</strong><p>视觉擅长接触前的全局场景、目标定位和语义，触觉擅长接触后的局部状态、遮挡区域、法向/剪切变化和动作结果。二者不是互相替代：典型闭环是视觉引导接触，触觉确认结果并修正动作，再由新视觉观察验证环境变化。</p></div>
+      </section>
+
+      <section class="section reveal" id="resume">
+        <div class="section-heading"><p class="section-index">11 · YOUR EXPERIENCE MAP</p><h2>把你的经历串成一条触觉技术栈</h2><p>你的优势不是只接触过某一种传感器，而是覆盖了调研选型、硬件复现、系统集成、数据处理、模型推理和触觉反馈。</p></div>
+        <div class="resume-map">
+          <article><span>01 · 调研选型</span><strong>商用触觉手套与指套</strong><p>调研、试用并比较多类触觉手套/指套，关注感受区域、信号形式、佩戴约束、同步接口与无本体数采适配性。</p><em>关键词：方案对比、器件选型、原型测试</em></article>
+          <article><span>02 · 低成本原型</span><strong>FSR 硅胶触觉指套</strong><p>自制 FSR + 硅胶指套进行简单数采验证，证明接触信号采集、同步和数据接口可行；准确定位为低成本原理验证。</p><em>关键词：压阻、ADC、迟滞/漂移、接触等级</em></article>
+          <article><span>03 · 高分辨率硬件</span><strong>PP-Tac / R-Tac 视触觉复现</strong><p>依据论文与开源资料完成 120 fps 圆形单通道视触觉传感器的结构制作、器件装配、触觉成像与采集验证，理解模具、软体、照明和参考深度标定链路。</p><em>关键词：软硬件复现、视触觉、深度重建、滑移</em></article>
+          <article><span>04 · 无本体采集</span><strong>OMMO + 途见触觉手套</strong><p>主导系统方案，将空间追踪关键点转换并统一到相机坐标系，完成手部运动与触觉信号同步采集，为人类示范到机器人训练数据转换建立基础。</p><em>关键词：坐标统一、设备接入、时间同步、Ego 方案集成</em></article>
+          <article><span>05 · 算法研究</span><strong>QTac 定量抓取</strong><p>将双侧高维触觉解耦为在手数量概率分布，再与视觉、本体状态和目标数量共同驱动 Flow Matching 动作生成，实现触觉反馈下的动态调整与迭代重抓。</p><em>关键词：触觉表征、CountNet、多模态融合、闭环策略</em></article>
+          <article><span>06 · 真机推理流</span><strong>G3 触觉数据与推理优化</strong><p>负责自研机器人平台的触觉数据采集、数据接口和推理链路优化；AT-VLA 仅作为验证触觉推理流正确性的参考模型，而非主要研发内容。</p><em>关键词：实时数据流、shape/频率/延迟、真机验证</em></article>
+          <article><span>07 · 反馈执行器</span><strong>Fluid Reality 电渗泵触觉反馈</strong><p>在公开资料有限的情况下完成电渗泵触觉反馈装置复现与制作工艺优化，验证基本原理和可行性。它补齐的是“将触感输出给人”的反馈端。</p><em>关键词：高压低流、微流体、工艺复现、触觉反馈</em></article>
+        </div>
+
+        <div class="section-heading" style="margin-top:70px"><p class="section-index">INTERVIEW STORY</p><h2>两分钟个人触觉经历回答</h2></div>
+        <div class="interview-card"><strong>推荐表达</strong><p>我的触觉经验覆盖从硬件到策略的完整链路。硬件侧，我调研和试用了多类商用触觉手套与指套，自制过 FSR 硅胶指套用于低成本数据流验证，并依据论文和开源资料复现了 PP-Tac 项目的高帧率圆形视触觉传感器，完成结构、软体、光学与采集验证。系统侧，我将 OMMO 空间追踪与触觉手套集成，完成手部关键点到相机坐标系的转换以及运动—触觉同步采集。算法侧，我在 QTac 中将双侧高维触觉解耦为在手数量概率分布，与视觉、本体和目标数量共同驱动 Flow Matching 策略，实现动态调整；在公司 G3 平台上也负责过触觉数据流与推理链路验证。此外，我还复现过 Fluid Reality 电渗泵装置，理解触觉感知与触觉反馈两端的区别。我的特点不是只会使用某一款传感器，而是能够根据任务做选型、完成接入和标定，并把触觉真正送入数据集和真机策略闭环。</p></div>
+        <div class="callout warning"><strong>边界要主动说清</strong><p>FSR 指套是原理验证，不包装成高精度传感器；G3 数采系统不是你开发的，强调你负责触觉数据与推理链路；AT-VLA 是参考验证模型；Fluid Reality 是反馈执行器；PP-Tac 项目中的开源传感器在仓库里称 R-Tac。</p></div>
+      </section>
+
+      <section class="section reveal" id="interview">
+        <div class="section-heading"><p class="section-index">12 · INTERVIEW DRILLS</p><h2>高频追问与回答骨架</h2><p>先按“任务—物理量—传感器—工程代价—验证方式”回答，再展开细节。</p></div>
+        <div class="card-grid">
+          <article class="practice-card"><span class="card-label">QUESTION 01</span><h3>为什么不直接用视觉，非要加触觉？</h3><div class="prompt">说清接触前、接触后和遮挡三件事。</div><button class="reveal-button" data-reveal="tac-answer-1" data-hide-label="隐藏参考回答">查看参考回答</button><div class="solution" id="tac-answer-1"><p>视觉擅长全局定位和接触前规划，但抓取后接触区域被手和物体遮挡，无法可靠知道是否接触、抓了几个、是否发生滑移或夹持力是否合适。触觉直接测量动作产生的接触结果，因此特别适合闭环纠错。代价是传感器磨损、标定、同步和数据融合更复杂。</p></div></article>
+          <article class="practice-card"><span class="card-label">QUESTION 02</span><h3>FSR、视触觉和磁触觉怎样选？</h3><div class="prompt">不要只说价格和精度。</div><button class="reveal-button" data-reveal="tac-answer-2" data-hide-label="隐藏参考回答">查看参考回答</button><div class="solution" id="tac-answer-2"><p>如果只需低成本接触/相对压力，我会选 FSR；如果需要形貌、纹理和高空间分辨率，会选视触觉，但接受体积、凝胶和算力成本；如果需要灵巧手大面积覆盖、三轴剪切和可替换软皮肤，会优先磁触觉，同时处理外部磁场和跨皮肤标定。最后还要看控制频率、布线和维护。</p></div></article>
+          <article class="practice-card"><span class="card-label">QUESTION 03</span><h3>为什么压电适合滑移，却不适合静态夹持力？</h3><div class="prompt">从物理机理回答，而不是背结论。</div><button class="reveal-button" data-reveal="tac-answer-3" data-hide-label="隐藏参考回答">查看参考回答</button><div class="solution" id="tac-answer-3"><p>压电材料对机械应力变化产生电荷，因此接触瞬态、振动和微滑移会产生明显输出；恒定应力下电荷通过有限输入阻抗逐渐泄漏，信号回到接近零，所以不适合单独保持静态力。工程上常把 PVDF 动态通道与 FSR/电容静态通道组合。</p></div></article>
+          <article class="practice-card"><span class="card-label">QUESTION 04</span><h3>触觉数据怎样与相机、状态和动作同步？</h3><div class="prompt">提到时间戳、频率、延迟与 valid mask。</div><button class="reveal-button" data-reveal="tac-answer-4" data-hide-label="隐藏参考回答">查看参考回答</button><div class="solution" id="tac-answer-4"><p>优先统一设备时钟或使用硬件触发；否则记录单调时钟时间戳，并离线测量固定采集/编码延迟。以策略时间轴为基准，对低维触觉做最近邻或插值、对视频取最近帧，禁止跨 episode；缺帧用 mask 标记。最后用真实接触瞬间检查视觉、触觉和动作边沿是否对齐。</p></div></article>
+          <article class="practice-card"><span class="card-label">QUESTION 05</span><h3>QTac 为什么先预测数量分布，而不直接拼触觉图像？</h3><div class="prompt">从任务瓶颈、可解释性和不确定性回答。</div><button class="reveal-button" data-reveal="tac-answer-5" data-hide-label="隐藏参考回答">查看参考回答</button><div class="solution" id="tac-answer-5"><p>定量抓取真正需要的是“当前在手数量及其不确定性”。CountNet 把双侧高维接触信号解耦为数量概率分布，降低动作策略的数据负担，也便于单独评估触觉模块和更换传感器。概率而非硬类别还能把接触模糊性传给策略，用于决定调整或重抓。</p></div></article>
+          <article class="practice-card"><span class="card-label">QUESTION 06</span><h3>Fluid Reality 为什么不是触觉传感器？</h3><div class="prompt">区分 sensing 和 actuation。</div><button class="reveal-button" data-reveal="tac-answer-6" data-hide-label="隐藏参考回答">查看参考回答</button><div class="solution" id="tac-answer-6"><p>传感器把真实接触转换为数据；Fluid Reality 的电渗泵阵列根据控制信号改变指腹微结构，将虚拟接触形状和纹理输出给人，因此属于 haptic actuator。原论文展示的是 20 haptic pixels/cm²、5 mm 厚、约 10 mW/pixel 的反馈方案；我的复现工作应描述为原理和工艺可行性验证。</p></div></article>
+        </div>
+
+        <div class="section-heading" style="margin-top:70px"><p class="section-index">SELF CHECK</p><h2>五题快速自测</h2></div>
+        <div class="quiz-list">
+          <article class="quiz-item" data-answer="2"><strong>1. 下列哪种传感器最不适合单独测长期静态夹持力？</strong><div class="quiz-options"><button>电容阵列</button><button>标定后的压阻传感器</button><button>PVDF 压电薄膜</button><button>磁三轴 taxel</button></div><p class="quiz-note">压电输出主要对应应力变化，静态电荷会逐渐泄漏。</p></article>
+          <article class="quiz-item" data-answer="1"><strong>2. 视触觉的主要系统代价是什么？</strong><div class="quiz-options"><button>完全无法检测滑移</button><button>相机/照明体积、软体磨损、标定、视频带宽与算力</button><button>只能输出一个标量</button><button>必须安装在腕部</button></div><p class="quiz-note">高空间信息来自完整光机电与计算链路。</p></article>
+          <article class="quiz-item" data-answer="3"><strong>3. ReSkin/AnySkin 路线的关键特点是？</strong><div class="quiz-options"><button>用相机看反射膜</button><button>用 PVDF 测电荷</button><button>用电极测电容</button><button>磁性软体形变改变磁强计读数，软皮肤可替换</button></div><p class="quiz-note">电子层和易损软体层分离是磁皮肤的重要工程优势。</p></article>
+          <article class="quiz-item" data-answer="0"><strong>4. 120 fps 相机意味着什么？</strong><div class="quiz-options"><button>每秒最多输出约 120 帧，不等于端到端闭环带宽必为 120 Hz</button><button>力测量绝对误差为 1/120</button><button>触觉延迟固定为零</button><button>策略必须执行 120 个动作 chunk</button></div><p class="quiz-note">采样率、传感器物理带宽与端到端延迟必须分开。</p></article>
+          <article class="quiz-item" data-answer="2"><strong>5. QTac 的触觉瓶颈输出是什么？</strong><div class="quiz-options"><button>单个 RGB 图像</button><button>六维腕部力</button><button>在手物体数量概率分布</button><button>机器人语言指令</button></div><p class="quiz-note">CountNet 将双侧触觉压缩为任务相关的数量分布。</p></article>
+        </div>
+      </section>
+
+      <section class="section reveal" id="sources">
+        <div class="section-heading"><p class="section-index">PRIMARY SOURCES</p><h2>代表传感器与原始资料</h2><p>具体型号和论文细节优先回到官方项目、产品文档和原始论文核对。</p></div>
+        <div class="source-grid">
+          <a class="source-card" href="https://github.com/bigai-ai/PP-Tac" target="_blank" rel="noreferrer"><span>VISION</span><strong>PP-Tac / R-Tac</strong><p>120 fps 圆形单通道视触觉开源指南</p></a>
+          <a class="source-card" href="https://arxiv.org/abs/2504.16649" target="_blank" rel="noreferrer"><span>PAPER</span><strong>PP-Tac 论文</strong><p>全向触觉、滑移控制与纸张抓取</p></a>
+          <a class="source-card" href="https://arxiv.org/abs/1708.00922" target="_blank" rel="noreferrer"><span>VISION</span><strong>GelSight Geometry & Slip</strong><p>反射膜、光度立体、几何与滑移</p></a>
+          <a class="source-card" href="https://digit.ml/digit.html" target="_blank" rel="noreferrer"><span>VISION</span><strong>DIGIT</strong><p>紧凑开源指尖视触觉</p></a>
+          <a class="source-card" href="https://tactip.org/" target="_blank" rel="noreferrer"><span>VISION</span><strong>TacTip</strong><p>仿生 pin/marker 光学触觉家族</p></a>
+          <a class="source-card" href="https://digit.ml/" target="_blank" rel="noreferrer"><span>MULTIMODAL</span><strong>Digit 360</strong><p>全向高分辨率多模态指尖</p></a>
+          <a class="source-card" href="https://reskin.dev/" target="_blank" rel="noreferrer"><span>MAGNETIC</span><strong>ReSkin</strong><p>可替换磁触觉软皮肤</p></a>
+          <a class="source-card" href="https://xelarobotics.com/products/uscu-alha/" target="_blank" rel="noreferrer"><span>MAGNETIC</span><strong>XELA uSkin</strong><p>分布式三轴 taxel 与灵巧手集成</p></a>
+          <a class="source-card" href="https://www.syntouchllc.com/Media/2013-08-27-Sensing-touch/" target="_blank" rel="noreferrer"><span>FLUIDIC</span><strong>BioTac</strong><p>液体阻抗、声学振动与热多模态</p></a>
+          <a class="source-card" href="https://pressureprofile.com/sensors" target="_blank" rel="noreferrer"><span>CAPACITIVE</span><strong>PPS Sensors</strong><p>TactArray、DigiTact 与 RoboTact</p></a>
+          <a class="source-card" href="https://www.tekscan.com/flexiforce-loadforce-sensors-and-systems" target="_blank" rel="noreferrer"><span>PIEZORESISTIVE</span><strong>Tekscan FlexiForce</strong><p>薄型柔性力传感器</p></a>
+          <a class="source-card" href="https://www.interlinkelectronics.com/integration-guides" target="_blank" rel="noreferrer"><span>FSR</span><strong>Interlink FSR</strong><p>FSR 系列集成指南</p></a>
+          <a class="source-card" href="https://doi.org/10.1145/3586183.3606771" target="_blank" rel="noreferrer"><span>HAPTIC</span><strong>Fluid Reality</strong><p>电渗泵阵列触觉反馈手套</p></a>
+          <a class="source-card" href="https://pmc.ncbi.nlm.nih.gov/articles/PMC6477702/" target="_blank" rel="noreferrer"><span>FIBER</span><strong>FBG Tactile Hand</strong><p>光纤光栅指尖力感知与抓取控制</p></a>
+          <a class="source-card" href="https://pmc.ncbi.nlm.nih.gov/articles/PMC6418621/" target="_blank" rel="noreferrer"><span>TRIBOELECTRIC</span><strong>TENG Robot Skin</strong><p>大面积柔性自供能触觉阵列</p></a>
+        </div>
+      </section>
+
+      <section class="section reveal">
+        <div class="section-heading"><p class="section-index">NEXT STEP</p><h2>继续补模型与代码</h2></div>
+        <div class="path-grid">
+          <a class="path-card" href="vla-interview.html"><span class="number">SYSTEM</span><h3>VLA 系统架构</h3><p>把触觉作为第四模态，理解编码、融合、动作空间与 Sim2Real。</p><span class="go">进入 →</span></a>
+          <a class="path-card" href="vla-loss.html"><span class="number">POLICY</span><h3>Flow Matching 与动作块</h3><p>复习 QTac/DiTFlow 中触觉条件如何参与连续动作生成。</p><span class="go">进入 →</span></a>
+          <a class="path-card" href="../ditflow-interview-guide/index.html"><span class="number">SOURCE</span><h3>DiTFlow 源码指南</h3><p>回到 velocity network、timestep、动作 shape 和采样代码。</p><span class="go">进入 →</span></a>
+        </div>
+      </section>
+
+      <footer class="footer"><span>Robotic Tactile Interview Guide · 资料核对日期 2026-08-19</span><nav class="footer-links"><a href="index.html">← 总览</a><a href="vla-interview.html">下一模块：VLA →</a></nav></footer>
+    </main>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,298 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Physical Intelligence π 系列面试专题：π0、π0-FAST、π0.5、Knowledge Insulation、π0.6 与 π*0.6/RECAP 的版本动机、架构、动作表示和工程取舍。">
+  <meta name="theme-color" content="#0f1715">
+  <title>π 系列版本演进｜VLA 面试专题</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="scroll-progress"><span id="scroll-progress-bar"></span></div>
+  <header class="topbar">
+    <a class="brand" href="index.html"><span class="brand-mark">π</span><span class="brand-copy"><strong>π 系列版本演进</strong><small>Motivation · Design · Trade-off</small></span></a>
+    <nav class="topnav"><a href="index.html">总览</a><a href="vla-interview.html">VLA</a><a href="tactile-interview.html">触觉</a><a class="active" href="pi-series.html">π 系列</a><a href="attention.html">Attention</a><a href="vla-loss.html">Loss</a><a href="rl.html">RL</a><a href="leetcode.html">算法题</a></nav>
+    <div class="top-actions"><button class="top-button" id="focus-toggle" type="button">专注阅读</button><a class="top-button strong" href="#evolution">开始学习 ↓</a></div>
+  </header>
+
+  <div class="page-shell">
+    <aside class="sidebar">
+      <p class="eyebrow">PI FAMILY PATH</p>
+      <ol class="side-nav">
+        <li><a href="#overview"><span>01</span>一句话主线</a></li>
+        <li><a href="#evolution"><span>02</span>版本全景</a></li>
+        <li><a href="#pi0"><span>03</span>π0：Flow 起点</a></li>
+        <li><a href="#fast"><span>04</span>π0-FAST</a></li>
+        <li><a href="#pi05"><span>05</span>π0.5：开放世界</a></li>
+        <li><a href="#ki"><span>06</span>知识隔离</a></li>
+        <li><a href="#pi06"><span>07</span>π0.6：规模升级</a></li>
+        <li><a href="#pistar"><span>08</span>π*0.6：RECAP</a></li>
+        <li><a href="#comparison"><span>09</span>路线比较</a></li>
+        <li><a href="#availability"><span>10</span>开源状态</a></li>
+        <li><a href="#interview"><span>11</span>面试追问</a></li>
+        <li><a href="#sources"><span>12</span>一手资料</a></li>
+      </ol>
+      <div class="sidebar-card"><strong>本页过关标准</strong><p>不只会背模型名；能沿“上一版痛点 → 本版改动 → 收益与代价”讲完每一代，并能区分 π0.6 与 π*0.6。</p></div>
+    </aside>
+
+    <main>
+      <section class="hero compact reveal visible" id="overview">
+        <div>
+          <p class="kicker">Physical Intelligence · Model Evolution</p>
+          <h1>π 系列<br><em>为什么这样演进</em></h1>
+          <p class="hero-lead">主线不是不断更换模型名字，而是逐步解决三类问题：怎样生成高频连续动作、怎样保住 VLM 的语义泛化、怎样让策略从真实部署经验中继续变强。</p>
+          <div class="hero-actions"><a class="primary-button" href="#evolution">先看版本地图 ↓</a><a class="ghost-button" href="vla-loss.html#flow">复习 Flow Matching ↗</a></div>
+          <div class="hero-stats"><div><strong>3</strong><span>演进主线</span></div><div><strong>6</strong><span>关键节点</span></div><div><strong>12</strong><span>高频追问</span></div></div>
+        </div>
+        <div class="hero-board pi-hero-board" aria-label="π 系列演进主线">
+          <div class="terminal-head"><span class="terminal-dots"><i></i><i></i><i></i></span><span>pi_family.map</span></div>
+          <div class="pi-mini-map">
+            <div><b>π0</b><small>连续 Flow</small></div><span>→</span>
+            <div><b>π0.5</b><small>开放世界</small></div><span>→</span>
+            <div><b>π0.6</b><small>更强基座</small></div><span>→</span>
+            <div class="accent"><b>π*0.6</b><small>经验学习</small></div>
+          </div>
+          <div class="pi-fast-branch"><span>并行分支</span><strong>π0-FAST</strong><small>DCT + BPE + 自回归动作 token</small></div>
+          <div class="hero-track"><span>动作表示</span><span>知识与泛化</span><span>真实世界 RL</span></div>
+        </div>
+      </section>
+
+      <section class="section reveal">
+        <div class="section-heading"><p class="section-index">01 · ELEVATOR PITCH</p><h2>先背这一段，再补细节</h2></div>
+        <div class="interview-card"><strong>90 秒版本</strong><p>π0 用预训练 VLM 理解图像和语言，再让独立 action expert 通过 Flow Matching 一次生成连续动作块，解决自回归离散动作难以覆盖高频灵巧控制的问题。π0-FAST 是一条并行路线：先用 DCT 压缩动作时序，再用 BPE 形成短 token 序列，使自回归 VLA 也能学习高频动作。π0.5 面向开放世界泛化，将 FAST 离散预训练、高层子任务预测和连续 Flow 动作执行结合起来，并把本体状态作为离散文本 token 放入前缀。Knowledge Insulation 进一步阻断连续动作损失对 VLM 的反向干扰，实现“VLM 学知识、action expert 学控制”。π0.6 沿用这套混合与层级设计，升级到 Gemma 3 4B、更大的动作专家、更丰富的数据与元数据条件；π*0.6 则在其上加入价值函数和优势条件，通过 RECAP 从自主执行、示范与人工纠错中迭代改进。</p></div>
+        <div class="callout warning"><strong>版本范围要说准确</strong><p>截至 2026 年 8 月，官方已经发布 π0.7。本页按面试笔记的指定范围讲到 π0.6 与其 RL 变体 π*0.6，因此面试时不要再把 π0.6 称为“当前最新一代”。</p></div>
+      </section>
+
+      <section class="section reveal" id="evolution">
+        <div class="section-heading split-heading"><div><p class="section-index">02 · EVOLUTION MAP</p><h2>每一代到底解决什么</h2></div><p>FAST 更像动作表示的并行实验分支，不应机械地放成 π0.5 的直接前身。</p></div>
+        <div class="version-rail">
+          <article><span class="version-year">2024</span><div class="version-dot">π0</div><div><strong>把 VLM 与连续动作生成接起来</strong><p>VLM 提供视觉语义，action expert 用 Flow Matching 生成高频动作 chunk。</p></div><em>痛点：离散自回归动作难以处理高频灵巧控制</em></article>
+          <article class="branch"><span class="version-year">2025</span><div class="version-dot">FAST</div><div><strong>让自回归动作重新可用</strong><p>DCT 把平滑轨迹压到频域，BPE 再压缩为更短、更低相关的 token 序列。</p></div><em>痛点：逐维逐时刻分桶容易学成“复制上一动作”</em></article>
+          <article><span class="version-year">2025</span><div class="version-dot">π0.5</div><div><strong>从单技能走向开放环境长任务</strong><p>离散预训练 + 高层子任务 + 连续低层执行，同一模型承担语义规划和动作生成。</p></div><em>痛点：新房间、新物体与长任务泛化不足</em></article>
+          <article><span class="version-year">2025</span><div class="version-dot">KI</div><div><strong>兼顾训练速度、推理速度和知识保持</strong><p>用梯度路由隔离 VLM 知识学习与连续动作学习。</p></div><em>痛点：动作梯度会破坏 VLM 的通用语义能力</em></article>
+          <article><span class="version-year">2025</span><div class="version-dot">π0.6</div><div><strong>提升开箱即用的精细操作能力</strong><p>更强 VLM、更大 action expert、更丰富数据、元数据条件和更少去噪步数。</p></div><em>痛点：前代复杂技能常依赖任务专用后训练</em></article>
+          <article><span class="version-year">2025</span><div class="version-dot">π*0.6</div><div><strong>从部署结果和纠错中继续学习</strong><p>RECAP 将示范、自主 rollout、奖励与人工干预统一成优势条件训练。</p></div><em>痛点：纯模仿受示范上限与分布偏移限制</em></article>
+        </div>
+        <div class="memory-strip" style="margin-top:16px">
+          <article><span>AXIS 01</span><strong>动作表示</strong><p>Flow 连续生成、FAST 离散压缩，以及后续两者混合。</p></article>
+          <article><span>AXIS 02</span><strong>知识保持</strong><p>VLM 的 Web 语义知识不能被低层控制梯度覆盖。</p></article>
+          <article><span>AXIS 03</span><strong>任务层级</strong><p>高层子任务处理长时域，低层 action chunk 保持实时。</p></article>
+          <article><span>AXIS 04</span><strong>学习信号</strong><p>从示范学习扩展到奖励、自主经验与人工纠错。</p></article>
+        </div>
+      </section>
+
+      <section class="section reveal" id="pi0">
+        <div class="section-heading"><p class="section-index">03 · π0</p><h2>起点：VLM + Flow Action Expert</h2><p>π0 的关键不是“在 VLM 后面接一个 MLP”，而是同一个 Transformer 内放入两套专家权重，并通过注意力传递条件信息。</p></div>
+        <div class="architecture-stack">
+          <article class="architecture-layer"><span>VLM PREFIX</span><div><strong>多路图像 + 语言指令</strong><p>由预训练 PaliGemma 路线编码，保留视觉语言知识；原论文使用约 3B VLM。</p></div><code>I<sub>t</sub>, ℓ<sub>t</sub></code></article>
+          <article class="architecture-layer"><span>ROBOT STATE</span><div><strong>连续本体状态投影</strong><p>π0 将关节等状态投影为一个连续 token，并路由到 action expert。</p></div><code>q<sub>t</sub> ∈ R<sup>D<sub>s</sub></sup></code></article>
+          <article class="architecture-layer"><span>NOISY CHUNK</span><div><strong>动作块与 Flow 时间</strong><p>每个动作时刻对应一个 token；原论文任务中 H=50，但这是配置，不是系列固定常数。</p></div><code>A<sup>τ</sup> ∈ R<sup>H×D<sub>a</sub></sup></code></article>
+          <article class="architecture-layer"><span>ACTION EXPERT</span><div><strong>约 300M 的机器人专家</strong><p>与 VLM 通过 self-attention 交互，输出每个动作 token 的速度场。</p></div><code>v<sub>θ</sub>(A<sup>τ</sup>, o)</code></article>
+          <article class="architecture-layer"><span>CONTROL</span><div><strong>一次生成连续 action chunk</strong><p>原论文使用 10 次 Euler 积分；图像、语言与状态前缀的 KV 可缓存。</p></div><code>[B, H, D<sub>a</sub>]</code></article>
+        </div>
+
+        <div class="formula large" style="margin-top:16px">A<sup>τ</sup> = τA + (1−τ)ε,&nbsp; ε ~ N(0,I) &nbsp;&nbsp;→&nbsp;&nbsp; v<sup>*</sup> = A−ε</div>
+        <div class="card-grid" style="margin-top:14px">
+          <article class="info-card"><span>训练</span><h3>回归速度场</h3><p>随机采样真实动作块、噪声与时间 τ，让网络预测把当前 noisy chunk 推向数据分布的方向。</p></article>
+          <article class="info-card"><span>推理</span><h3>从噪声积分到动作</h3><p>从高斯噪声开始，多步调用 action expert 更新整个动作块；动作 token 之间是双向注意力。</p></article>
+        </div>
+        <div class="callout"><strong>注意论文与 openpi 的时间方向相反</strong><p>π0 论文写成 τ=0 为噪声、τ=1 为动作；openpi 代码采用扩散领域更常见的 t=1 为噪声、t=0 为动作。公式看起来会反过来，但本质都是学习同一条噪声—动作路径。面试时先声明自己的约定。</p></div>
+
+        <div class="concept-board" data-tabs>
+          <div class="tab-list"><button class="active" data-tab="why-flow">为什么用 Flow</button><button data-tab="mask">注意力怎样连</button><button data-tab="tradeoff">代价是什么</button></div>
+          <div class="tab-panel active" data-panel="why-flow"><div class="compare-grid"><article class="compare-card good"><h3>Flow Action Expert</h3><ul><li>连续值不需要逐维分桶</li><li>整个 chunk 联合生成，可表达时间相关性</li><li>同一观测下可表示多种合理动作</li><li>适合最高 50 Hz 的高频灵巧任务</li></ul></article><article class="compare-card"><h3>朴素自回归分桶</h3><ul><li>量化误差随动作维数累积</li><li>序列长，逐 token 推理延迟高</li><li>高频相邻动作高度相关</li><li>容易优化到复制前一 token 的捷径</li></ul></article></div></div>
+          <div class="tab-panel" data-panel="mask"><div class="formula">[图像, 语言] → [机器人状态] → [noisy action chunk]</div><p style="color:var(--muted);font-size:12px">π0 使用三块 blockwise causal mask：每块内部双向；后块能看前块，前块不能看后块。这样 VLM token 不被新模态反向扰动，状态和观测 KV 又能在多步 Flow 采样中缓存。</p></div>
+          <div class="tab-panel" data-panel="tradeoff"><div class="card-grid"><article class="info-card"><span>COMPUTE</span><h3>需要多次前向</h3><p>每个 chunk 需要多步 ODE/Euler 更新，因此必须缩小 action expert 并缓存条件前缀。</p></article><article class="info-card"><span>CONTROL</span><h3>反馈仍可能变旧</h3><p>一次生成很长 chunk 虽然平滑，但全部执行会降低闭环性；工程上通常滚动执行前 K 步再重规划。</p></article></div></div>
+        </div>
+      </section>
+
+      <section class="section reveal" id="fast">
+        <div class="section-heading split-heading"><div><p class="section-index">04 · π0-FAST</p><h2>不是更快的 Flow，而是另一种动作语言</h2></div><p>FAST = Frequency-space Action Sequence Tokenization；π0-FAST 是采用该 tokenizer 的自回归 VLA。</p></div>
+        <div class="fast-pipeline">
+          <article><span>01</span><strong>Normalize</strong><p>按动作维度做分位数归一化</p></article><b>→</b>
+          <article><span>02</span><strong>DCT</strong><p>沿时间维变到频域</p></article><b>→</b>
+          <article><span>03</span><strong>Round</strong><p>缩放并取整系数</p></article><b>→</b>
+          <article><span>04</span><strong>Flatten</strong><p>低频分量优先排列</p></article><b>→</b>
+          <article><span>05</span><strong>BPE</strong><p>压缩成动作 token</p></article>
+        </div>
+        <div class="formula" style="margin-top:15px">平滑轨迹 a<sub>1:H</sub> &nbsp;—DCT→&nbsp; 少量大低频系数 + 大量接近 0 的高频系数</div>
+        <div class="card-grid three" style="margin-top:14px">
+          <article class="info-card"><span>WHY DCT</span><h3>先去掉时间冗余</h3><p>平滑动作的大部分能量集中在低频，频域系数比逐时刻动作更短、相关性更低。</p></article>
+          <article class="info-card"><span>WHY LOW-FIRST</span><h3>先预测整体形状</h3><p>自回归模型先生成决定轨迹轮廓的低频项，再补细节，rollout 更稳定。</p></article>
+          <article class="info-card"><span>WHY BPE</span><h3>复用语言模型接口</h3><p>BPE 无损压缩取整后的系数序列，并给出固定词表，容易并入 VLM tokenizer。</p></article>
+        </div>
+        <div class="table-scroll" style="margin-top:14px"><table class="shape-table"><thead><tr><th>面试问题</th><th>正确回答</th><th>容易说错</th></tr></thead><tbody>
+          <tr><td>FAST 加速什么？</td><td>主要缩短动作 token 序列，使 next-token 训练收敛更快；论文报告在 π0 规模上训练最多约快 5 倍。</td><td>“把 Flow 的 10 次去噪变成 1 次”</td></tr>
+          <tr><td>DCT 本身是否有损？</td><td>DCT 可逆；误差主要来自系数缩放后的取整，BPE 对取整序列是无损压缩。</td><td>“DCT 会直接删除所有高频项”</td></tr>
+          <tr><td>为什么比普通分桶好？</td><td>普通方法忽略时间相关性；FAST 先压缩轨迹，再做自回归预测。</td><td>“只是把分桶数调得更多”</td></tr>
+          <tr><td>什么时候未必合适？</td><td>动作含强突变、冲击或精细高频接触时，需要更多频率系数，压缩率和量化精度会受影响。</td><td>“FAST 在所有任务都严格优于 Flow”</td></tr>
+        </tbody></table></div>
+        <div class="callout warning"><strong>一句话辨析</strong><p>π0-FAST 不是 π0 的“快速采样器”，而是把连续 action chunk 编码成短离散 token 后，用标准自回归 next-token prediction 生成；它是动作表示路线的切换。</p></div>
+      </section>
+
+      <section class="section reveal" id="pi05">
+        <div class="section-heading"><p class="section-index">05 · π0.5</p><h2>开放世界：把语义规划与实时动作合起来</h2><p>π0.5 的核心问题不再只是“动作够不够灵巧”，而是机器人能否在新家庭、新物体和长时域任务中知道下一步做什么。</p></div>
+        <div class="table-scroll"><table class="shape-table"><thead><tr><th>维度</th><th>π0</th><th>π0.5 的改动</th><th>动机</th></tr></thead><tbody>
+          <tr><td>训练表示</td><td>主要用 Flow 连续动作</td><td>预训练阶段把机器人动作也表示成 FAST 离散 token</td><td>统一为 next-token 训练，便于大规模异构数据协同</td></tr>
+          <tr><td>执行表示</td><td>Flow action expert</td><td>后训练加入/适配连续 action expert</td><td>离散 AR 推理较慢，连续头更适合实时精细执行</td></tr>
+          <tr><td>任务层级</td><td>语言直接条件动作</td><td>先生成高层子任务，再条件生成低层动作</td><td>把长任务拆成短技能，提升新环境中的语义决策</td></tr>
+          <tr><td>本体状态</td><td>连续 token 位于 action-expert suffix</td><td>离散化后作为文本 token 放入 VLM prefix</td><td>让高层语义预测与低层控制都能直接读取机器人状态</td></tr>
+          <tr><td>数据</td><td>跨平台机器人数据为主</td><td>增加 Web 多模态、高层语言标注、人类/机器人异构数据</td><td>把 VLM 知识与物理技能共同用于开放世界泛化</td></tr>
+        </tbody></table></div>
+
+        <div class="hierarchy-diagram" style="margin-top:16px">
+          <article><span>输入</span><strong>“整理厨房” + 图像 + 状态</strong><p>总体任务可能持续数分钟，不能直接用一个固定 action chunk 覆盖。</p></article>
+          <b>① 低频</b>
+          <article class="accent"><span>同一模型 / VLM 头</span><strong>预测子任务</strong><p>“把盘子放进水槽”</p></article>
+          <b>② 高频</b>
+          <article><span>同一模型 / Action Expert</span><strong>生成连续动作块</strong><p>a<sub>t:t+H</sub> | 图像、状态、子任务</p></article>
+        </div>
+        <div class="callout"><strong>“同一模型”是高频追问</strong><p>高层与低层不是两套互不相干的网络。π0.5 用同一 Transformer 表示两种分布：先自回归采样高层文本子任务，再在该子任务条件下用 action expert 生成连续动作；高层运行频率可以低于低层。</p></div>
+
+        <div class="card-grid">
+          <article class="formula-card"><span class="card-label">STATE AS TEXT TOKENS</span><h3>连续状态怎样变成 token</h3><p>先按训练统计量归一化，再把每个状态维度分到离散区间，将区间编号写成普通文本数字 token。原始 π0.5 论文明确采用这种表示。</p><div class="formula" style="margin-top:14px">q<sub>i</sub> → normalize → bin(q<sub>i</sub>) → “37”</div></article>
+          <article class="formula-card"><span class="card-label">TRADE-OFF</span><h3>为什么不永远这样做</h3><p>好处是格式接近 VLM 预训练时见过的数字文本；代价是量化误差、token 数较多、相邻状态的连续关系被硬分桶。KI 研究也比较了普通文本、特殊 token 与连续投影三种方案。</p><div class="formula" style="margin-top:14px">可复用 VLM 先验 ↔ 连续精度与序列长度</div></article>
+        </div>
+      </section>
+
+      <section class="section reveal" id="ki">
+        <div class="section-heading split-heading"><div><p class="section-index">06 · KNOWLEDGE INSULATION</p><h2>知识隔离：不是冻结整个 VLM</h2></div><p>它是梯度路由设计：信息可以从 VLM 流向动作专家，但连续动作损失不能反向改坏 VLM。</p></div>
+        <div class="gradient-diagram">
+          <article><span>离散 / Web 目标</span><strong>文本、FAST action token、多模态 Web 任务</strong><p>Cross-Entropy</p></article>
+          <b class="forward">更新 ↓</b>
+          <article class="vlm"><span>知识系统</span><strong>VLM Backbone</strong><p>学习语义、视觉、FAST token 与共训练任务</p></article>
+          <b class="context">条件信息 →</b>
+          <article class="expert"><span>运动系统</span><strong>Flow Action Expert</strong><p>预测连续动作速度场</p></article>
+          <b class="blocked">连续动作梯度 ⛔</b>
+        </div>
+        <div class="card-grid three" style="margin-top:14px">
+          <article class="info-card"><span>TRAIN FAST</span><h3>离散目标易扩展</h3><p>FAST token 可以并入标准 next-token 训练，高效利用大规模异构数据。</p></article>
+          <article class="info-card"><span>RUN FAST</span><h3>连续头实时执行</h3><p>推理时使用 Flow action expert，避免长动作 token 的逐个解码延迟。</p></article>
+          <article class="info-card"><span>GENERALIZE</span><h3>不让控制损失污染语义</h3><p>动作专家读取 VLM 表示，但 stop-gradient 阻断其梯度回写 VLM。</p></article>
+        </div>
+        <div class="compare-grid" style="margin-top:14px"><article class="compare-card good"><h3>正确理解</h3><ul><li>VLM 仍会被 Web、文本和 FAST token 目标更新</li><li>action expert 仍能通过 attention 读取 VLM 表示</li><li>阻断的是连续 Flow loss 对 VLM 的梯度</li><li>动作 token 与 Flow action token 互不偷看，避免信息泄漏</li></ul></article><article class="compare-card"><h3>常见误解</h3><ul><li>把 Knowledge Insulation 说成“全程冻结 VLM”</li><li>把 VLM 和 action expert 说成完全独立、没有交互</li><li>认为只保留 FAST 或只保留 Flow</li><li>忽略训练表示与推理表示可以不同</li></ul></article></div>
+      </section>
+
+      <section class="section reveal" id="pi06">
+        <div class="section-heading"><p class="section-index">07 · π0.6</p><h2>沿用混合架构，升级基座、数据与条件</h2><p>π0.6 没有抛弃 π0.5 的层级设计，也没有在 FAST 与 Flow 之间二选一。</p></div>
+        <div class="metric-grid">
+          <article><span>VLM</span><strong>Gemma 3 4B</strong><p>更强的视觉语言主干</p></article>
+          <article><span>ACTION EXPERT</span><strong>约 860M</strong><p>层数与主干一致</p></article>
+          <article><span>VISION</span><strong>最多 4 × 448²</strong><p>基座、双腕与可选后视相机</p></article>
+          <article><span>INFERENCE</span><strong>5 steps / 63 ms</strong><p>3 相机、单 H100 的官方测量</p></article>
+        </div>
+        <div class="table-scroll" style="margin-top:15px"><table class="shape-table"><thead><tr><th>改动</th><th>为什么改</th><th>解决的前代痛点</th><th>代价/边界</th></tr></thead><tbody>
+          <tr><td>更强 VLM 与更大 action expert</td><td>提高语义、视觉和精细动作容量</td><td>复杂技能开箱性能不足</td><td>训练显存与部署算力更高</td></tr>
+          <tr><td>更高分辨率、更多相机</td><td>增强腕部细节和移动操作视野</td><td>小物体、遮挡和精细接触感知不足</td><td>视觉 token、带宽和延迟增加</td></tr>
+          <tr><td>元数据条件</td><td>描述不仅“做什么”，还描述平台、质量、方式等差异</td><td>异构数据混合时行为分布相互干扰</td><td>依赖一致、可靠的 metadata 设计</td></tr>
+          <tr><td>更丰富跨本体、家庭与 Web 数据</td><td>覆盖更多场景、任务和几何语义</td><td>任务专用 post-training 依赖较强</td><td>数据治理、平衡和质量控制更难</td></tr>
+          <tr><td>Knowledge Insulation</td><td>同时训练 FAST/Web 目标与连续动作专家</td><td>速度、实时性和知识保持难以兼得</td><td>训练管线与 attention/gradient mask 更复杂</td></tr>
+        </tbody></table></div>
+        <div class="callout warning"><strong>“π0.6 为什么不用前代方案”该怎样纠正</strong><p>准确说法是：π0.6 仍同时使用 tokenized discrete outputs 与 Flow Matching action chunks，也保留 π0.5 的高层子任务—低层动作层级。它主要减少的是对任务专用后训练的依赖，而不是放弃 FAST、Flow 或层级推理。</p></div>
+        <div class="interview-card"><strong>30 秒回答</strong><p>π0.6 的创新重点不在重新定义动作生成，而在把 π0.5 + KI 的混合路线做大做强：升级 Gemma 3 4B 和约 860M 动作专家，使用更高分辨率多相机输入、更丰富的跨平台数据与 metadata 条件，并把去噪控制在 5 步。结果是无需针对每项任务专门后训练，也能获得更强的开箱速度、成功率与泛化。</p></div>
+      </section>
+
+      <section class="section reveal" id="pistar">
+        <div class="section-heading split-heading"><div><p class="section-index">08 · π*0.6 / RECAP</p><h2>星号代表从经验中学习</h2></div><p>π0.6 是监督训练的基础模型；π*0.6 才是加入优势条件、用 RECAP 做真实机器人 RL 的版本。</p></div>
+        <div class="compare-grid">
+          <article class="compare-card"><h3>π0.6</h3><ul><li>多源数据监督学习</li><li>继承 π0.5 的层级与 KI</li><li>输出 FAST token 与 Flow 连续动作</li><li>是 π*0.6 的初始化基础</li></ul></article>
+          <article class="compare-card good"><h3>π*0.6</h3><ul><li>额外输入二值优势指示 I</li><li>结合单独训练的多任务价值函数</li><li>利用自主 rollout、示范与专家纠错</li><li>通过多轮部署—学习继续提升</li></ul></article>
+        </div>
+        <div class="recap-loop" style="margin-top:16px">
+          <article><span>01</span><strong>部署与采集</strong><p>自主执行；记录成功/失败；必要时人工接管纠错。</p></article>
+          <b>→</b><article><span>02</span><strong>训练价值函数</strong><p>使用迄今全部数据估计任务进度与成功前景。</p></article>
+          <b>→</b><article><span>03</span><strong>计算 Advantage</strong><p>比较该动作后的未来价值与当前价值。</p></article>
+          <b>→</b><article><span>04</span><strong>优势条件训练</strong><p>把优势二值化为“更优/非更优”条件并训练 VLA。</p></article>
+          <b>↺</b>
+        </div>
+        <div class="formula large" style="margin-top:15px">A(o<sub>t</sub>,a<sub>t</sub>) ≈ Σ r + V(o<sub>t+N</sub>) − V(o<sub>t</sub>) &nbsp;&nbsp;→&nbsp;&nbsp; I = 𝟙[A &gt; ε]</div>
+        <div class="card-grid three" style="margin-top:14px">
+          <article class="info-card"><span>HETEROGENEOUS DATA</span><h3>为什么用条件而非筛掉坏数据</h3><p>示范、旧策略、自主失败和人工纠错都保留；I 告诉模型哪些动作更可能改善结果。</p></article>
+          <article class="info-card"><span>VALUE, NOT DQN</span><h3>不是 DQN / SAC</h3><p>RECAP 学的是多任务分布式 V(o,ℓ)，再做优势条件的策略提取；不是用 Q 网络直接 argmax，也不是 SAC 熵正则 actor。</p></article>
+          <article class="info-card"><span>OFFLINE-STYLE RL</span><h3>为什么适合大型 VLA</h3><p>不用对 Flow VLA 直接做昂贵且不稳定的 on-policy PPO；可反复利用离线与历史 off-policy 数据。</p></article>
+        </div>
+        <div class="callout"><strong>人类纠错怎样进入 RECAP</strong><p>机器人自主执行时，专家可以在关键错误处接管并提供正确动作；这些 intervention 强制视为正向样本。价值函数同时从成功/失败结果学习，后续策略再基于二值优势条件吸收这些异构数据。</p></div>
+      </section>
+
+      <section class="section reveal" id="comparison">
+        <div class="section-heading"><p class="section-index">09 · ROUTE COMPARISON</p><h2>π 系列与 RT、OpenVLA 的路线差异</h2><p>比较时优先看动作表示和控制频率，其次看预训练知识、开放程度与工程成本。</p></div>
+        <div class="table-scroll"><table class="shape-table"><thead><tr><th>路线</th><th>感知/语义主干</th><th>动作表示</th><th>时间建模与执行</th><th>主要优势</th><th>主要代价</th></tr></thead><tbody>
+          <tr><td><strong>RT-1</strong></td><td>EfficientNet + FiLM + TokenLearner</td><td>逐维离散动作 token</td><td>3 Hz 闭环逐步控制</td><td>结构紧凑、面向多任务真机部署</td><td>Web 语义迁移和高频灵巧性有限</td></tr>
+          <tr><td><strong>RT-2</strong></td><td>大规模预训练 VLM</td><td>动作写成文本式 token</td><td>自回归生成</td><td>把 Web 语义与推理迁移到机器人</td><td>动作离散化和逐 token 延迟</td></tr>
+          <tr><td><strong>OpenVLA</strong></td><td>DINOv2 + SigLIP + Llama 2</td><td>离散 7-DoF 动作</td><td>自回归单步/短序列</td><td>开源、易做 LoRA 和新任务适配</td><td>原始路线对高频连续灵巧动作不占优</td></tr>
+          <tr><td><strong>π0</strong></td><td>PaliGemma 类 VLM + action expert</td><td>Flow 连续 action chunk</td><td>多步并行生成整个 chunk</td><td>高频、连续、多峰、灵巧</td><td>每个 chunk 要多次 action-expert 前向</td></tr>
+          <tr><td><strong>π0-FAST</strong></td><td>π0 VLM 路线</td><td>DCT+BPE 压缩动作 token</td><td>自回归 chunk</td><td>标准 next-token 训练、收敛快</td><td>量化误差与 AR 解码延迟</td></tr>
+          <tr><td><strong>π0.5 / 0.6</strong></td><td>VLM + KI + action expert</td><td>FAST 离散训练 + Flow 连续执行</td><td>高层文本子任务 + 低层 chunk</td><td>训练、实时性、语义泛化兼顾</td><td>数据、mask、梯度路由和部署更复杂</td></tr>
+        </tbody></table></div>
+        <div class="interview-card" style="margin-top:14px"><strong>推荐比较框架</strong><p>RT-2 和 OpenVLA 代表“把动作也当语言 token”这条 VLM 自回归路线；π0 代表“VLM 负责语义，连续生成式专家负责动作”的路线；π0-FAST 证明经过时序压缩后，自回归动作仍然可以做好高频任务；π0.5/0.6 最终把两者合并，用离散目标获得大规模训练效率和知识，用 Flow 获得实时连续控制。</p></div>
+      </section>
+
+      <section class="section reveal" id="availability">
+        <div class="section-heading"><p class="section-index">10 · PUBLIC AVAILABILITY</p><h2>论文能力与开源仓库不要混为一谈</h2><p>面试中说“我复现了 π0.6”前，必须确认使用的是官方实现、第三方重现还是仅参考模型思想。</p></div>
+        <div class="table-scroll"><table class="shape-table"><thead><tr><th>模型</th><th>官方资料</th><th>openpi 当前状态</th><th>表述建议</th></tr></thead><tbody>
+          <tr><td>π0</td><td>论文、博客、代码与基础 checkpoint</td><td><span class="status open">已支持</span></td><td>可以基于 openpi 做推理和微调</td></tr>
+          <tr><td>π0-FAST</td><td>FAST 论文、tokenizer 与模型实现</td><td><span class="status open">已支持</span></td><td>明确它是自回归模型</td></tr>
+          <tr><td>π0.5</td><td>论文、KI 论文、基础 checkpoint</td><td><span class="status partial">部分支持</span></td><td>仓库目前训练与推理只支持 Flow Matching head，不等同于论文完整离散+连续流程</td></tr>
+          <tr><td>π0.6 / π*0.6</td><td>Model Card、论文/官方博客</td><td><span class="status closed">未列入 openpi</span></td><td>可讲架构与方法，不应声称使用官方开源 checkpoint 复现</td></tr>
+        </tbody></table></div>
+        <div class="callout warning"><strong>截至本页核对日期：2026-08-19</strong><p>openpi README 当前只列出 π0、π0-FAST 与 π0.5 三类模型；版本状态可能更新，实际复现前应再次查看官方 README 和 checkpoint 列表。</p></div>
+      </section>
+
+      <section class="section reveal" id="interview">
+        <div class="section-heading"><p class="section-index">11 · INTERVIEW DRILLS</p><h2>按“改了啥—为什么—代价”练回答</h2><p>先自己讲 60 秒，再展开参考答案。</p></div>
+        <div class="card-grid">
+          <article class="practice-card"><span class="card-label">QUESTION 01</span><h3>π0 为什么不用普通自回归离散动作？</h3><div class="prompt">回答至少包含：高频动作、相邻相关性、量化、chunk、多峰性。</div><button class="reveal-button" data-reveal="pi-answer-1">查看参考回答</button><div class="solution" id="pi-answer-1"><p>高频控制下动作序列很长、相邻时刻高度相关，逐维逐时刻离散化既有量化误差，也容易让 next-token 训练学成复制上一动作。π0 用 Flow Matching 对整个连续 action chunk 联合建模，能表达时间相关和多种合理轨迹，同时避免把每个连续维度变成大量离散 token。代价是推理要做多次动作专家前向。</p></div></article>
+          <article class="practice-card"><span class="card-label">QUESTION 02</span><h3>FAST 为什么 DCT 后还需要 BPE？</h3><div class="prompt">区分：DCT、取整、低频优先、BPE 各自负责什么。</div><button class="reveal-button" data-reveal="pi-answer-2">查看参考回答</button><div class="solution" id="pi-answer-2"><p>DCT 把时间域相关性转成频域稀疏性；缩放取整把连续系数变成整数；低频优先让自回归先决定轨迹轮廓；BPE 再无损合并常见整数片段和大量零附近系数，得到更短、固定词表的动作 token。BPE 不是替代 DCT，两者分别解决连续信号压缩和离散序列压缩。</p></div></article>
+          <article class="practice-card"><span class="card-label">QUESTION 03</span><h3>π0.5 相比 π0 最核心的变化是什么？</h3><div class="prompt">不要只答“数据更多”，要讲训练表示、层级推理和开放世界目标。</div><button class="reveal-button" data-reveal="pi-answer-3">查看参考回答</button><div class="solution" id="pi-answer-3"><p>π0.5 将问题从通用低层控制扩展到新环境长任务：预训练时用 FAST 离散动作统一 next-token 学习，后训练加入连续 action expert 以保证实时执行；推理时同一模型先预测高层子任务，再在子任务条件下生成低层连续动作。再配合跨本体、Web、多模态和高层语义数据获得开放世界泛化。</p></div></article>
+          <article class="practice-card"><span class="card-label">QUESTION 04</span><h3>π0.5 的 state token 放在哪里，为什么？</h3><div class="prompt">对比 π0 的连续 suffix state 与 π0.5 的离散 prefix state。</div><button class="reveal-button" data-reveal="pi-answer-4">查看参考回答</button><div class="solution" id="pi-answer-4"><p>π0 将连续本体状态线性投影后放在 action-expert suffix；π0.5 将状态离散分桶并作为文本 token 放入包含图像和语言的 VLM prefix。这样高层子任务预测和低层动作生成都可读取状态，也更贴近 VLM 的文本接口。代价是量化误差和更长 token 序列。</p></div></article>
+          <article class="practice-card"><span class="card-label">QUESTION 05</span><h3>Knowledge Insulation 与冻结 VLM 有何区别？</h3><div class="prompt">回答清楚前向信息流和反向梯度流。</div><button class="reveal-button" data-reveal="pi-answer-5">查看参考回答</button><div class="solution" id="pi-answer-5"><p>KI 不是冻结整个 VLM。VLM 仍被 Web、文本和 FAST token 的离散目标更新；前向时 action expert 仍通过 attention 读取 VLM 表示。隔离的是连续 Flow action loss 回传到 VLM 的梯度，所以低层运动学习不会覆盖通用语义知识。</p></div></article>
+          <article class="practice-card"><span class="card-label">QUESTION 06</span><h3>π0.6 与 π*0.6 是什么关系？</h3><div class="prompt">不要把 RECAP 直接写进 π0.6 的监督训练定义。</div><button class="reveal-button" data-reveal="pi-answer-6">查看参考回答</button><div class="solution" id="pi-answer-6"><p>π0.6 是升级 VLM、动作专家、数据和 metadata 的监督基础模型；π*0.6 是它的 RL 适配版，额外条件于二值 advantage indicator。RECAP 用价值函数评估自主 rollout、示范和人工纠错，再用优势条件训练迭代改进策略，因此星号对应“从经验学习”的能力。</p></div></article>
+        </div>
+
+        <div class="section-heading" style="margin-top:70px"><p class="section-index">SELF CHECK</p><h2>五题快速自测</h2></div>
+        <div class="quiz-list">
+          <article class="quiz-item" data-answer="1"><strong>1. π0-FAST 与 π0 最根本的区别是什么？</strong><div class="quiz-options"><button>VLM 换成了 RNN</button><button>动作由 FAST token 自回归生成，而非 Flow 连续生成</button><button>不再输入图像</button><button>只预测单步动作</button></div><p class="quiz-note">π0-FAST 是动作表示与解码范式的改变，不是 Flow sampler 的小优化。</p></article>
+          <article class="quiz-item" data-answer="2"><strong>2. FAST 中低频系数优先排列的主要原因是？</strong><div class="quiz-options"><button>低频系数一定全为零</button><button>可以彻底消除量化误差</button><button>让自回归模型先决定轨迹整体形状</button><button>让 BPE 词表无限增大</button></div><p class="quiz-note">先确定全局轨迹轮廓通常比先预测细碎高频项更稳定。</p></article>
+          <article class="quiz-item" data-answer="0"><strong>3. π0.5 推理中的高层与低层关系是？</strong><div class="quiz-options"><button>同一模型先产出子任务文本，再以其为条件生成连续动作</button><button>两个完全独立且不共享参数的模型</button><button>高层直接输出关节力矩</button><button>低层只使用语言，不看图像</button></div><p class="quiz-note">同一模型表示文本子任务分布和连续 action chunk 分布。</p></article>
+          <article class="quiz-item" data-answer="3"><strong>4. Knowledge Insulation 阻断的是什么？</strong><div class="quiz-options"><button>VLM 到 action expert 的前向信息</button><button>所有 Web 数据的梯度</button><button>FAST token 对 VLM 的训练</button><button>连续 action expert loss 回到 VLM 的梯度</button></div><p class="quiz-note">它是单向信息流与选择性 stop-gradient，而非冻结整网。</p></article>
+          <article class="quiz-item" data-answer="2"><strong>5. RECAP 最接近哪种描述？</strong><div class="quiz-options"><button>DQN 在动作 token 上做 argmax</button><button>SAC 用熵正则训练高斯 actor</button><button>价值函数估计优势，再用二值优势条件提取改进策略</button><button>只保留成功示范重新做行为克隆</button></div><p class="quiz-note">它能统一利用示范、自主经验、失败和专家干预，不等同于经典 DQN/SAC。</p></article>
+        </div>
+      </section>
+
+      <section class="section reveal" id="sources">
+        <div class="section-heading"><p class="section-index">12 · PRIMARY SOURCES</p><h2>所有版本回到一手资料</h2><p>页面优先依据 Physical Intelligence 官方论文、Model Card 与开源仓库；点击可直接核对原文。</p></div>
+        <div class="source-grid">
+          <a class="source-card" href="https://www.pi.website/blog/pi0" target="_blank" rel="noreferrer"><span>MODEL</span><strong>π0 官方介绍</strong><p>VLM + Flow action expert 的起点</p></a>
+          <a class="source-card" href="https://www.physicalintelligence.company/download/pi0.pdf" target="_blank" rel="noreferrer"><span>PAPER</span><strong>π0 论文</strong><p>架构、attention mask、H=50 与 Flow 细节</p></a>
+          <a class="source-card" href="https://www.pi.website/research/fast" target="_blank" rel="noreferrer"><span>MODEL</span><strong>FAST 官方介绍</strong><p>DCT、BPE 与动作压缩动机</p></a>
+          <a class="source-card" href="https://www.physicalintelligence.company/download/fast.pdf" target="_blank" rel="noreferrer"><span>PAPER</span><strong>FAST 论文</strong><p>π0-FAST、FAST+ 与实验分析</p></a>
+          <a class="source-card" href="https://www.pi.website/blog/pi05" target="_blank" rel="noreferrer"><span>MODEL</span><strong>π0.5 官方介绍</strong><p>开放世界泛化与层级推理</p></a>
+          <a class="source-card" href="https://www.physicalintelligence.company/download/pi05.pdf" target="_blank" rel="noreferrer"><span>PAPER</span><strong>π0.5 论文</strong><p>离散预训练、连续后训练与状态 token</p></a>
+          <a class="source-card" href="https://www.pi.website/research/knowledge_insulation" target="_blank" rel="noreferrer"><span>RECIPE</span><strong>Knowledge Insulation</strong><p>训练快、推理快、知识保持</p></a>
+          <a class="source-card" href="https://www.physicalintelligence.company/download/pi05_KI.pdf" target="_blank" rel="noreferrer"><span>PAPER</span><strong>KI 论文</strong><p>梯度路由、attention mask 与状态表示</p></a>
+          <a class="source-card" href="https://website.pi-asset.com/pi06star/PI06_model_card.pdf" target="_blank" rel="noreferrer"><span>MODEL CARD</span><strong>π0.6 Model Card</strong><p>Gemma 3、860M expert 与 5 步推理</p></a>
+          <a class="source-card" href="https://www.pi.website/blog/pistar06" target="_blank" rel="noreferrer"><span>RL</span><strong>π*0.6 官方介绍</strong><p>真实机器人经验学习与 RECAP</p></a>
+          <a class="source-card" href="https://www.physicalintelligence.company/download/pistar06.pdf" target="_blank" rel="noreferrer"><span>PAPER</span><strong>π*0.6 论文</strong><p>价值函数、优势条件与迭代训练</p></a>
+          <a class="source-card" href="https://github.com/Physical-Intelligence/openpi" target="_blank" rel="noreferrer"><span>CODE</span><strong>openpi</strong><p>当前公开模型、checkpoint 与微调配置</p></a>
+          <a class="source-card" href="https://robotics-transformer1.github.io/" target="_blank" rel="noreferrer"><span>COMPARE</span><strong>RT-1 官方项目</strong><p>离散 action token 与 3 Hz 控制</p></a>
+          <a class="source-card" href="https://github.com/VLA-RL/openvla" target="_blank" rel="noreferrer"><span>COMPARE</span><strong>OpenVLA 仓库</strong><p>开源离散动作 VLA 路线</p></a>
+          <a class="source-card" href="https://www.pi.website/blog/pi07" target="_blank" rel="noreferrer"><span>FOLLOW-UP</span><strong>π0.7 官方介绍</strong><p>本页范围之外的后续版本</p></a>
+        </div>
+      </section>
+
+      <section class="section reveal">
+        <div class="section-heading"><p class="section-index">NEXT STEP</p><h2>把版本知识落到代码</h2></div>
+        <div class="path-grid">
+          <a class="path-card" href="vla-interview.html"><span class="number">CONCEPT</span><h3>VLA 系统架构</h3><p>回到通用输入、融合、动作空间、数据与 Sim2Real 框架。</p><span class="go">进入 →</span></a>
+          <a class="path-card" href="vla-loss.html"><span class="number">CODE</span><h3>Flow Matching 与 Loss</h3><p>理解 π0 action expert 的训练目标、张量形状与采样过程。</p><span class="go">进入 →</span></a>
+          <a class="path-card" href="rl.html"><span class="number">FOUNDATION</span><h3>强化学习基础</h3><p>用 DQN、SAC 理解 value、advantage 和经典 RL 与 RECAP 的差异。</p><span class="go">进入 →</span></a>
+        </div>
+      </section>
+
+      <footer class="footer"><span>π Family Interview Guide · 资料核对日期 2026-08-19</span><nav class="footer-links"><a href="vla-interview.html">← VLA 架构</a><a href="vla-loss.html">下一模块：Flow/Loss →</a></nav></footer>
+    </main>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>

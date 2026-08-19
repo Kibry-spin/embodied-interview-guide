@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="具身智能岗位手撕代码面试指南：Attention、VLA Loss、强化学习与高频算法题。">
+  <meta name="theme-color" content="#0f1715">
+  <title>具身岗手撕代码｜面试训练营</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%230f1715'/%3E%3Ctext x='32' y='41' text-anchor='middle' font-family='Arial' font-size='25' font-weight='700' fill='%23b9e0d2'%3EAI%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="scroll-progress" aria-hidden="true"><span id="scroll-progress-bar"></span></div>
+  <header class="topbar">
+    <a class="brand" href="index.html">
+      <span class="brand-mark">AI</span>
+      <span class="brand-copy"><strong>具身岗手撕代码</strong><small>Interview Coding Guide</small></span>
+    </a>
+    <nav class="topnav" aria-label="专题导航">
+      <a class="active" href="index.html">总览</a>
+      <a href="vla-interview.html">VLA</a>
+      <a href="tactile-interview.html">触觉</a>
+      <a href="pi-series.html">π 系列</a>
+      <a href="attention.html">Attention</a>
+      <a href="vla-loss.html">Loss</a>
+      <a href="rl.html">RL</a>
+      <a href="leetcode.html">算法题</a>
+    </nav>
+    <div class="top-actions">
+      <button class="top-button" id="focus-toggle" type="button">专注阅读</button>
+      <a class="top-button strong" href="attention.html">开始学习 →</a>
+    </div>
+  </header>
+
+  <div class="page-shell no-sidebar">
+    <main>
+      <section class="hero reveal visible">
+        <div>
+          <p class="kicker">Embodied AI · Coding Interview</p>
+          <h1>从“看懂”到<br><em>现场写出来</em></h1>
+          <p class="hero-lead">围绕具身智能算法岗高频手撕题，按“原理—尺寸—最小实现—易错点—面试表达”拆解。先完成深度学习核心，再补强化学习与算法题。</p>
+          <div class="hero-actions">
+            <a class="primary-button" href="#learning-path">查看学习路径 ↓</a>
+            <a class="ghost-button" href="../ditflow-interview-guide/index.html">回到 DiTFlow 源码指南 ↗</a>
+          </div>
+          <div class="hero-stats">
+            <div><strong>18</strong><span>高频实现</span></div>
+            <div><strong>7</strong><span>学习模块</span></div>
+            <div><strong>3×</strong><span>建议默写次数</span></div>
+          </div>
+        </div>
+
+        <div class="hero-board" aria-label="手写代码练习示意">
+          <div class="terminal-head"><span class="terminal-dots"><i></i><i></i><i></i></span><span>minimal_attention.py</span></div>
+          <div class="hero-code">
+            <span class="kw">def</span> <span class="fn">attention</span>(q, k, v, mask=<span class="kw">None</span>):<br>
+            &nbsp;&nbsp;scale = q.size(-<span class="num">1</span>) ** -<span class="num">0.5</span><br>
+            &nbsp;&nbsp;scores = q @ k.transpose(-<span class="num">2</span>, -<span class="num">1</span>) * scale<br>
+            &nbsp;&nbsp;<span class="kw">if</span> mask <span class="kw">is not None</span>: <span class="cm"># TODO</span><br>
+            &nbsp;&nbsp;attn = scores.softmax(dim=-<span class="num">1</span>)<br>
+            &nbsp;&nbsp;<span class="kw">return</span> attn @ v
+          </div>
+          <div class="hero-track"><span>01 · 不看答案默写</span><span>02 · 说清每个 shape</span><span>03 · 补边界条件</span></div>
+        </div>
+      </section>
+
+      <section class="section reveal" id="learning-path">
+        <div class="section-heading">
+          <p class="section-index">01 · LEARNING PATH</p>
+          <h2>按面试收益排序</h2>
+          <p>时间有限时，不需要平均用力。Attention 与 VLA/Loss 是第一优先级。</p>
+        </div>
+        <div class="path-grid">
+          <a class="path-card priority" href="vla-interview.html">
+            <span class="number">MODULE 00</span>
+            <h3>VLA 系统面试</h3>
+            <p>建立从多模态输入、模型架构到数据与真机部署的完整认知。</p>
+            <ul><li>VLM 架构与多模态融合</li><li>π / RT / OpenVLA</li><li>LoRA、LeRobot 与 Sim2Real</li></ul>
+            <span class="go">进入模块 →</span>
+          </a>
+          <a class="path-card priority" href="tactile-interview.html">
+            <span class="number">MODULE TAC</span>
+            <h3>机器人触觉专题</h3>
+            <p>从换能原理、工程选型与标定数据流，一直讲到 QTac 中的触觉闭环。</p>
+            <ul><li>八类传感器横向对比</li><li>选型、标定与故障诊断</li><li>简历经历与面试问答</li></ul>
+            <span class="go">进入模块 →</span>
+          </a>
+          <a class="path-card priority" href="pi-series.html">
+            <span class="number">MODULE π</span>
+            <h3>π 系列版本演进</h3>
+            <p>按“上一版痛点—本版改动—收益与代价”理解 π0 到 π*0.6。</p>
+            <ul><li>Flow 与 FAST 动作路线</li><li>π0.5 与知识隔离</li><li>π0.6、RECAP 与开源状态</li></ul>
+            <span class="go">进入模块 →</span>
+          </a>
+          <a class="path-card priority" href="attention.html">
+            <span class="number">MODULE 01</span>
+            <h3>Attention 系列</h3>
+            <p>从 scaled dot-product 到多头拆分、位置编码和 KV Cache。</p>
+            <ul><li>Self / Cross Attention</li><li>Multi-Head Attention</li><li>Positional Encoding</li><li>KV Cache</li></ul>
+            <span class="go">进入模块 →</span>
+          </a>
+          <a class="path-card priority" href="vla-loss.html">
+            <span class="number">MODULE 02</span>
+            <h3>VLA 与 Loss</h3>
+            <p>把动作生成、损失函数和时序执行写成可靠的最小代码。</p>
+            <ul><li>CE / MSE / Flow Matching</li><li>Temporal Ensemble</li><li>Action Chunk 滑窗</li></ul>
+            <span class="go">进入模块 →</span>
+          </a>
+          <a class="path-card" href="rl.html">
+            <span class="number">MODULE 03</span>
+            <h3>强化学习</h3>
+            <p>重点掌握 target 的构造，以及哪些量需要停止梯度。</p>
+            <ul><li>DQN / Double DQN</li><li>SAC Actor Loss</li><li>重参数化采样</li></ul>
+            <span class="go">进入模块 →</span>
+          </a>
+          <a class="path-card" href="leetcode.html">
+            <span class="number">MODULE 04</span>
+            <h3>高频算法题</h3>
+            <p>用少量代表题覆盖 BFS、DFS、DP 与字符串基本套路。</p>
+            <ul><li>矩阵最短路 / 岛屿数量</li><li>完全平方数 / LCS</li><li>回文字符串</li></ul>
+            <span class="go">进入模块 →</span>
+          </a>
+        </div>
+      </section>
+
+      <section class="section reveal" id="routine">
+        <div class="section-heading split-heading">
+          <div><p class="section-index">02 · PRACTICE LOOP</p><h2>每道题练四遍</h2></div>
+          <p>“会解释”和“能手写”是两种能力。训练时需要主动移除提示。</p>
+        </div>
+        <div class="memory-strip">
+          <article><span>ROUND 01</span><strong>看答案理解</strong><p>逐行跟踪张量尺寸，弄清每个算子的目的。</p></article>
+          <article><span>ROUND 02</span><strong>关答案默写</strong><p>只保留函数签名和输入输出约束。</p></article>
+          <article><span>ROUND 03</span><strong>边写边讲</strong><p>模拟面试，先说思路、复杂度和边界情况。</p></article>
+          <article><span>ROUND 04</span><strong>制造错误测试</strong><p>主动检查 mask、device、dtype、detach 和维度。</p></article>
+        </div>
+      </section>
+
+      <section class="section reveal" id="checklist">
+        <div class="section-heading">
+          <p class="section-index">03 · UNIVERSAL CHECKLIST</p>
+          <h2>写完代码先检查这些</h2>
+          <p>多数现场手撕失分并不是公式不会，而是接口、尺寸或梯度处理不完整。</p>
+        </div>
+        <div class="card-grid three">
+          <article class="info-card"><span>SHAPE</span><h3>尺寸是否闭合</h3><p>先在注释里写输入输出 shape，特别检查 <strong>transpose、reshape 和广播</strong>。</p></article>
+          <article class="info-card"><span>NUMERICS</span><h3>数值是否稳定</h3><p>softmax 前减最大值、log 前 clamp，方差和标准差加 <strong>epsilon</strong>。</p></article>
+          <article class="info-card"><span>GRADIENT</span><h3>梯度流向是否正确</h3><p>target 计算通常放进 <strong>torch.no_grad()</strong>；重参数化保留采样梯度。</p></article>
+          <article class="info-card"><span>DEVICE</span><h3>设备与类型一致</h3><p>新建 tensor 时继承输入的 <strong>device 和 dtype</strong>，避免 CPU/GPU 混用。</p></article>
+          <article class="info-card"><span>EDGE CASE</span><h3>边界条件完整</h3><p>考虑空输入、全 mask、序列长度为 1、终止状态和不可达路径。</p></article>
+          <article class="info-card"><span>COMPLEXITY</span><h3>复杂度讲得出来</h3><p>至少能说明时间、空间复杂度，以及优化前后的主要瓶颈。</p></article>
+        </div>
+      </section>
+
+      <section class="section reveal" id="schedule">
+        <div class="section-heading">
+          <p class="section-index">04 · 7-DAY PLAN</p>
+          <h2>一周最小训练安排</h2>
+        </div>
+        <div class="step-timeline">
+          <div class="step-row"><span>D1</span><strong>Self / Cross Attention</strong><p>先写单头，逐行说清 QKᵀ、缩放、mask、softmax、加权求和。</p></div>
+          <div class="step-row"><span>D2</span><strong>Multi-Head + PE</strong><p>反复练习 reshape/transpose；独立默写 sin/cos 位置编码。</p></div>
+          <div class="step-row"><span>D3</span><strong>KV Cache + Loss</strong><p>区分训练与自回归推理；手写稳定 CE、MSE、Flow Matching。</p></div>
+          <div class="step-row"><span>D4</span><strong>Action Chunk</strong><p>实现滑窗取数、动作队列和 Temporal Ensemble。</p></div>
+          <div class="step-row"><span>D5</span><strong>DQN / Double DQN</strong><p>写清 gather、done mask、no_grad 和 target network。</p></div>
+          <div class="step-row"><span>D6</span><strong>SAC + 重参数化</strong><p>掌握 tanh-squashed Gaussian 的采样、log_prob 修正和 actor loss。</p></div>
+          <div class="step-row"><span>D7</span><strong>算法题模拟</strong><p>随机抽 3 题，每题 25 分钟，完整讲解复杂度与边界情况。</p></div>
+        </div>
+      </section>
+
+      <footer class="footer">
+        <span>具身岗手撕代码 · 本地学习版</span>
+        <nav class="footer-links"><a href="attention.html">下一页：Attention →</a><a href="../ditflow-interview-guide/index.html">DiTFlow 指南</a></nav>
+      </footer>
+    </main>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>
