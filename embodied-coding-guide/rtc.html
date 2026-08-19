@@ -1,0 +1,366 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Realtime Action Chunking（RTC）面试专题：异步推理、动作块交接、推理时 inpainting、soft mask、训练时 action prefix conditioning、LeRobot 实现与真机调试。">
+  <meta name="theme-color" content="#0f1715">
+  <title>RTC 实时动作分块｜VLA 面试专题</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="scroll-progress"><span id="scroll-progress-bar"></span></div>
+  <header class="topbar">
+    <a class="brand" href="index.html"><span class="brand-mark">RT</span><span class="brand-copy"><strong>RTC 实时动作分块</strong><small>Async · Inpainting · Prefix Conditioning</small></span></a>
+    <nav class="topnav"><a href="index.html">总览</a><a href="vla-interview.html">VLA</a><a href="tactile-interview.html">触觉</a><a href="at-vla.html">AT-VLA</a><a class="active" href="rtc.html">RTC</a><a href="pi-series.html">π 系列</a><a href="attention.html">Attention</a><a href="vla-loss.html">Loss</a><a href="rl.html">RL</a><a href="leetcode.html">算法题</a></nav>
+    <div class="top-actions"><button class="top-button" id="focus-toggle" type="button">专注阅读</button><a class="top-button strong" href="#overview">开始梳理 ↓</a></div>
+  </header>
+
+  <div class="page-shell">
+    <aside class="sidebar">
+      <p class="eyebrow">RTC INTERVIEW PATH</p>
+      <ol class="side-nav">
+        <li><a href="#overview"><span>01</span>一分钟主线</a></li>
+        <li><a href="#taxonomy"><span>02</span>先区分三个方案</a></li>
+        <li><a href="#symbols"><span>03</span>符号与时间线</a></li>
+        <li><a href="#async"><span>04</span>异步运行框架</a></li>
+        <li><a href="#inference"><span>05</span>推理时 RTC</a></li>
+        <li><a href="#mask"><span>06</span>三段 Soft Mask</a></li>
+        <li><a href="#guidance"><span>07</span>VJP 引导公式</a></li>
+        <li><a href="#training"><span>08</span>训练时 RTC</a></li>
+        <li><a href="#comparison"><span>09</span>方案对比</a></li>
+        <li><a href="#evidence"><span>10</span>实验结论</a></li>
+        <li><a href="#lerobot"><span>11</span>LeRobot 源码</a></li>
+        <li><a href="#deployment"><span>12</span>真机落地</a></li>
+        <li><a href="#debug"><span>13</span>调参与排错</a></li>
+        <li><a href="#interview"><span>14</span>高频追问</a></li>
+      </ol>
+      <div class="sidebar-card"><strong>本页过关标准</strong><p>能解释 async 为什么仍会抖；能画出 H、s、d 的时间线；能说清 VJP 在约束什么；能手写训练时 prefix mask；能给出一套可测量、可回退的真机部署方案。</p></div>
+    </aside>
+
+    <main>
+      <section class="hero compact rtc-hero reveal visible" id="overview">
+        <div>
+          <p class="kicker">Real-Time Execution of Action Chunking Policies</p>
+          <h1>RTC<br><em>边行动，边规划</em></h1>
+          <p class="hero-lead">异步推理消除“等模型”的停顿；RTC 再让下一段动作尊重已经承诺的旧计划，在持续运动中完成平滑、可反应的 chunk 交接。</p>
+          <div class="hero-actions"><a class="primary-button" href="#taxonomy">先看概念边界 ↓</a><a class="ghost-button" href="#training">直接看训练时 RTC ↗</a></div>
+          <div class="hero-stats"><div><strong>H</strong><span>预测时域</span></div><div><strong>d</strong><span>推理延迟步数</span></div><div><strong>s</strong><span>执行时域</span></div></div>
+        </div>
+        <div class="hero-board rtc-hero-board">
+          <div class="terminal-head"><span class="terminal-dots"><i></i><i></i><i></i></span><span>rtc.runtime</span></div>
+          <div class="rtc-live-loop">
+            <article class="robot"><span>CONTROL THREAD</span><strong>执行旧 chunk</strong><small>a₀ → a₁ → a₂ → …</small></article>
+            <b>同时</b>
+            <article class="model"><span>INFERENCE THREAD</span><strong>生成新 chunk</strong><small>最新 observation + 旧动作前缀</small></article>
+          </div>
+          <div class="rtc-mask-bar" aria-label="RTC 动作区间"><span class="frozen">冻结区 W=1</span><span class="soft">过渡区 1→0</span><span class="free">自由区 W=0</span></div>
+          <div class="formula">RTC = Async Execution + Cross-chunk Conditioning</div>
+        </div>
+      </section>
+
+      <section class="section reveal">
+        <div class="section-heading"><p class="section-index">01 · ELEVATOR PITCH</p><h2>先背这一分钟</h2></div>
+        <div class="interview-card"><strong>60 秒回答</strong><p>VLA 一次通常预测未来 H 步 action chunk，但模型推理需要几十到几百毫秒。同步执行会在两个 chunk 之间停下来等模型；朴素异步虽然让模型边执行边预测，却可能从旧 chunk 的一种策略突然跳到新 chunk 的另一种策略，产生速度或加速度突变。推理时 RTC 把新 chunk 生成改写成 inpainting：根据推理延迟 d，把必然由旧计划执行的前 d 步完全约束，再用从 1 衰减到 0 的 soft mask 约束重叠区，最后让新尾部自由生成；每个 flow denoising step 通过 VJP 给速度场增加引导。训练时 RTC 则在训练阶段随机模拟 d，把 ground-truth 前缀作为干净条件，前缀不加噪、不算 loss，只学习后缀，因此部署时无需额外反向传播。关键不是单纯“把 chunk 做大”，而是在连续性、反应速度和计算开销之间做权衡。</p></div>
+        <div class="memory-line"><strong>记忆主线</strong><p>同步会停 → 异步不停但会跳 → 推理 RTC 用 inpainting 对齐 → 训练 RTC 提前学会续写 → Soft RTC 进一步把硬前缀推广为连续动作先验。</p></div>
+      </section>
+
+      <section class="section reveal" id="taxonomy">
+        <div class="section-heading split-heading"><div><p class="section-index">02 · CONCEPT BOUNDARY</p><h2>先区分三个经常混用的词</h2></div><p>“用了 action queue”不等于“实现了 RTC”；“动作很平滑”也不代表使用了同一种算法。</p></div>
+        <div class="table-scroll"><table class="shape-table"><thead><tr><th>方案</th><th>运行方式</th><th>解决什么</th><th>仍然缺什么</th><th>一句话判断</th></tr></thead><tbody>
+          <tr><td><strong>同步 Action Chunking</strong></td><td>推理 → 执行 s 步 → 停下等待下一次推理</td><td>一次推理摊薄到多步，动作局部连贯</td><td>chunk 间出现停顿；新观测更新慢</td><td>控制线程会被模型阻塞</td></tr>
+          <tr><td><strong>朴素异步 / SmolVLA Async</strong></td><td>控制线程持续取队列；推理线程提前请求新 chunk</td><td>消除等待空窗，提高吞吐和响应频率</td><td>新旧 chunk 可能策略冲突，简单覆盖/平均不一定有效</td><td>解决“有没有动作”，未严格解决“动作是否一致”</td></tr>
+          <tr><td><strong>RTC</strong></td><td>异步运行，同时让新 chunk 条件于旧 chunk 的已承诺动作</td><td>兼顾无停顿、跨 chunk 连续性和新观测反应</td><td>推理 RTC 有反向引导开销；训练 RTC 需重新训练/微调</td><td>核心是 delayed prefix conditioning</td></tr>
+        </tbody></table></div>
+        <div class="callout"><strong>SmolVLA 的关系</strong><p>Hugging Face 在 2025 年 SmolVLA 介绍中发布的是“提前触发 + 控制/推理解耦 + 简单 chunk fusion”的异步栈；官方报告约 30% 更短完成时间和固定时间内约 2 倍吞吐。当前 LeRobot 后续已经加入真正的推理时 RTC 支持，适用于 SmolVLA、π₀ 和 π₀.₅。面试时要按版本和机制分别表述。</p></div>
+      </section>
+
+      <section class="section reveal" id="symbols">
+        <div class="section-heading"><p class="section-index">03 · SYMBOLS & TIMING</p><h2>四个量决定系统是否来得及</h2></div>
+        <div class="metric-grid">
+          <article><span>CONTROL PERIOD</span><strong>Δt</strong><p>控制器每隔多久消费一个动作。例如 50 Hz 时 Δt=20 ms。</p></article>
+          <article><span>WALL-CLOCK LATENCY</span><strong>δ</strong><p>从采集 observation 到新 chunk 可用的端到端时间。</p></article>
+          <article><span>INFERENCE DELAY</span><strong>d=⌊δ/Δt⌋</strong><p>一次推理期间，机器人会继续执行多少个控制步。</p></article>
+          <article><span>HORIZONS</span><strong>H / s</strong><p>H 是模型预测长度；s 是一次 replanning 前执行/承诺的步数。</p></article>
+        </div>
+        <div class="rtc-timeline" style="margin-top:16px">
+          <div class="timeline-label"><strong>旧 chunk A⁰</strong><span>已经在执行</span></div>
+          <div class="timeline-track old"><i>0</i><i>1</i><i>2</i><i>3</i><i>4</i><i>5</i><i>6</i><i>7</i><i>8</i><i>9</i><i>10</i><i>11</i></div>
+          <div class="timeline-note"><span>↑ 在旧 chunk 执行到 s 附近时，用最新观测启动异步推理</span><span>推理持续 d 个控制步 →</span></div>
+          <div class="timeline-label"><strong>新 chunk A¹</strong><span>与旧计划对齐后接管</span></div>
+          <div class="timeline-track new"><i class="frozen">0</i><i class="frozen">1</i><i class="frozen">2</i><i class="soft">3</i><i class="soft">4</i><i class="soft">5</i><i class="soft">6</i><i class="free">7</i><i class="free">8</i><i class="free">9</i><i class="free">10</i><i class="free">11</i></div>
+        </div>
+        <div class="formula large">d ≤ s ≤ H − d</div>
+        <div class="card-grid three" style="margin-top:15px">
+          <article class="info-card"><span>LEFT BOUND</span><h3>s ≥ d</h3><p>要有足够已承诺前缀来覆盖推理期间继续发生的运动。</p></article>
+          <article class="info-card"><span>RIGHT BOUND</span><h3>s + d ≤ H</h3><p>新结果回来前，旧 chunk 不能被耗尽，否则队列会空。</p></article>
+          <article class="info-card"><span>JITTER</span><h3>d 不是常数</h3><p>网络和 GPU 延迟会波动；工程上应记录实际 delay，并用滑动最大值或高分位数做保守估计。</p></article>
+        </div>
+        <div class="callout warning"><strong>常见口误</strong><p>d 不是“模型推理的毫秒数”，而是换算到控制周期后的步数；s 也不是永远等于 H。chunk size、prediction horizon、execution horizon 和 queue trigger threshold 是不同概念。</p></div>
+      </section>
+
+      <section class="section reveal" id="async">
+        <div class="section-heading"><p class="section-index">04 · ASYNC RUNTIME</p><h2>系统层先做到“控制不等模型”</h2></div>
+        <div class="rtc-thread-diagram">
+          <article class="control"><span>THREAD A · HARD REAL-TIME-ish</span><strong>控制执行</strong><p>固定周期读取最新状态、从 ActionQueue 取一个动作、做反归一化与安全限幅、发送给低层控制器。</p><small>不能等待网络或 GPU；队列不足时执行明确 fallback。</small></article>
+          <b>共享：queue / latest obs / timestamps</b>
+          <article class="inference"><span>THREAD B · VARIABLE LATENCY</span><strong>策略推理</strong><p>在触发阈值到达时复制最新 observation 和旧 chunk 剩余部分，执行远端或本地模型，再原子替换新队列。</p><small>必须记录 obs→action 延迟与推理前后 action index。</small></article>
+        </div>
+        <div class="architecture-stack" style="margin-top:16px">
+          <article class="architecture-layer"><span>01 / OBSERVE</span><div><strong>快照而非引用</strong><p>同步相机、本体、触觉与时间戳，形成不可变 observation snapshot。</p></div><code>obs_t</code></article>
+          <article class="architecture-layer"><span>02 / TRIGGER</span><div><strong>队列低于阈值</strong><p>SmolVLA 示例在队列剩余低于约 70% 时提前请求；实际阈值应由 P95 latency 和 H 反推。</p></div><code>qsize &lt; threshold</code></article>
+          <article class="architecture-layer"><span>03 / INFER</span><div><strong>生成时继续执行</strong><p>保存 inference 开始时 action index；控制线程持续消费旧队列。</p></div><code>non-blocking</code></article>
+          <article class="architecture-layer"><span>04 / ALIGN</span><div><strong>对齐旧 chunk</strong><p>新 chunk 的第 i 步必须与相同绝对控制时刻的旧动作比较，不能只按数组索引盲目拼接。</p></div><code>time alignment</code></article>
+          <article class="architecture-layer"><span>05 / SWAP</span><div><strong>扣除真实 delay</strong><p>新结果回来时丢弃其前 real_delay 步，因为对应物理时刻已经过去，再原子更新 ActionQueue。</p></div><code>new[d:]</code></article>
+        </div>
+        <div class="callout warning"><strong>异步最难的不是开线程</strong><p>真正风险是 observation、旧动作、action index 和网络返回之间的时间对齐。若推理期间执行了 5 步，却按预估 3 步丢弃，就会把“过去的动作”再次发给机器人。</p></div>
+      </section>
+
+      <section class="section reveal" id="inference">
+        <div class="section-heading"><p class="section-index">05 · INFERENCE-TIME RTC</p><h2>把新 chunk 看成动作 inpainting</h2></div>
+        <div class="step-list">
+          <article class="step-row"><span>01</span><strong>保留旧计划</strong><p>从当前 ActionQueue 取出尚未消费的原始模型空间动作，并与新 chunk 的绝对时间对齐。</p></article>
+          <article class="step-row"><span>02</span><strong>从噪声开始</strong><p>和普通 flow policy 一样初始化 A⁰∼N(0,I)，但每一步去噪都参考旧动作。</p></article>
+          <article class="step-row"><span>03</span><strong>预测 clean chunk</strong><p>用当前速度场估计最终动作 Â¹=Aᵗ+(1−t)vθ(Aᵗ,o,t)。</p></article>
+          <article class="step-row"><span>04</span><strong>计算加权误差</strong><p>比较对齐后的旧动作 Y 与 Â¹；冻结区权重大、远期区逐渐放松。</p></article>
+          <article class="step-row"><span>05</span><strong>VJP 修正速度场</strong><p>把“最终动作要靠近旧计划”的误差通过 Â¹ 对当前噪声状态的 Jacobian 反传，加入 flow velocity。</p></article>
+          <article class="step-row"><span>06</span><strong>按真实延迟接管</strong><p>生成完成后跳过已经过期的前 d 步，队列从仍属于未来的动作开始执行。</p></article>
+        </div>
+        <div class="formula large">v<sub>RTC</sub> = v<sub>θ</sub> + λ(t) · J<sup>T</sup>[(Y − Â¹) ⊙ W]</div>
+        <div class="table-scroll" style="margin-top:16px"><table class="shape-table"><thead><tr><th>符号</th><th>尺寸</th><th>含义</th><th>面试解释</th></tr></thead><tbody>
+          <tr><td><code>Aᵗ</code></td><td>[B,H,D<sub>a</sub>]</td><td>当前 flow 时刻的噪声动作块</td><td>正在被逐步去噪的变量</td></tr>
+          <tr><td><code>vθ</code></td><td>[B,H,D<sub>a</sub>]</td><td>基础策略预测的速度场</td><td>如果不加 RTC，就只沿它积分</td></tr>
+          <tr><td><code>Â¹</code></td><td>[B,H,D<sub>a</sub>]</td><td>从当前状态一步外推得到的 clean action 估计</td><td>用它判断最终 chunk 是否会与旧计划冲突</td></tr>
+          <tr><td><code>Y</code></td><td>[B,H,D<sub>a</sub>]</td><td>对齐并右侧补零的旧 chunk 剩余动作</td><td>不是 GT，而是上一次模型已经承诺的 action prior</td></tr>
+          <tr><td><code>W</code></td><td>[1,H,1]</td><td>时间步权重，广播到动作维</td><td>控制旧计划在不同未来时刻的约束强度</td></tr>
+          <tr><td><code>Jᵀe</code></td><td>[B,H,D<sub>a</sub>]</td><td>vector–Jacobian product</td><td>不显式构造巨大 Jacobian，用一次反向自动微分得到修正方向</td></tr>
+        </tbody></table></div>
+      </section>
+
+      <section class="section reveal" id="mask">
+        <div class="section-heading"><p class="section-index">06 · SOFT MASK</p><h2>三段不是同一种“融合”</h2></div>
+        <div class="rtc-mask-explain">
+          <article class="frozen"><span>REGION 01 · i &lt; d</span><strong>冻结区：W=1</strong><p>推理完成前这些物理时刻一定由旧 chunk 执行。生成时强约束它们，是为了让新计划从同一运动历史继续；新结果到达后，这部分通常会因过期而被丢弃。</p></article>
+          <article class="soft"><span>REGION 02 · d ≤ i &lt; H−s</span><strong>过渡区：1 &gt; W &gt; 0</strong><p>它们仍与旧 chunk 重叠，但尚未执行，可以根据最新 observation 修改。越靠近冻结前缀越应保持旧策略，越远越可以重规划。</p></article>
+          <article class="free"><span>REGION 03 · i ≥ H−s</span><strong>新生成区：W=0</strong><p>这部分已经超出旧 chunk 可提供的未来时域，没有可对齐先验，完全由新 observation 和策略自由生成。</p></article>
+        </div>
+        <div class="rtc-weight-chart" style="margin-top:16px"><span class="axis-label top">W=1</span><div class="weight-bars"><i style="--w:1"></i><i style="--w:1"></i><i style="--w:1"></i><i style="--w:.84"></i><i style="--w:.58"></i><i style="--w:.35"></i><i style="--w:.16"></i><i style="--w:0"></i><i style="--w:0"></i><i style="--w:0"></i></div><span class="axis-label bottom">W=0</span></div>
+        <div class="formula">W<sub>i</sub>：前 d 步为 1，中间按指数函数衰减，最后 s 步为 0</div>
+        <div class="card-grid three" style="margin-top:15px">
+          <article class="info-card"><span>HARD MASK</span><h3>只有 1 / 0</h3><p>只冻结前 d 步，信号较弱时仍可能在后续突然换策略。</p></article>
+          <article class="info-card"><span>SOFT MASK</span><h3>连续衰减</h3><p>把全部重叠动作都作为程度不同的先验，改善跨 chunk 策略连续性。</p></article>
+          <article class="info-card"><span>NOT AVERAGING</span><h3>不是输出后插值</h3><p>约束发生在生成过程的速度场中，目标是得到一个自身合理的新样本，而非把两条多模态轨迹直接平均。</p></article>
+        </div>
+      </section>
+
+      <section class="section reveal" id="guidance">
+        <div class="section-heading"><p class="section-index">07 · VJP GUIDANCE</p><h2>jax.VJP / autograd 到底在算什么</h2></div>
+        <div class="gradient-diagram rtc-gradient">
+          <article><span>CURRENT LATENT</span><strong>Aᵗ</strong><p>当前动作噪声，开启梯度</p></article><b class="forward">→ forward</b>
+          <article class="vlm"><span>BASE POLICY</span><strong>vθ(Aᵗ,o,t)</strong><p>预测 flow velocity</p></article><b class="context">→ extrapolate</b>
+          <article class="expert"><span>CLEAN ESTIMATE</span><strong>Â¹</strong><p>与 Y 做 soft-masked error</p></article><b class="blocked">← Jᵀe 反传到 Aᵗ</b>
+        </div>
+        <div class="table-scroll" style="margin-top:16px"><table class="shape-table"><thead><tr><th>步骤</th><th>计算</th><th>为什么需要</th><th>常见错误</th></tr></thead><tbody>
+          <tr><td>1. clean estimate</td><td><code>x1 = x_t + (1-t) * v</code></td><td>RTC 关心最终动作是否连续，不只关心当前噪声</td><td>忽略不同实现的时间方向；LeRobot 内部时间从 1→0，需要转换</td></tr>
+          <tr><td>2. weighted error</td><td><code>e = (prev - x1) * W</code></td><td>把旧计划约束分配到不同 action token</td><td>在动作物理空间和模型归一化空间混用</td></tr>
+          <tr><td>3. VJP</td><td><code>g = autograd.grad(x1, x_t, grad_outputs=e)</code></td><td>得到“怎样改当前 latent 才能让最终 action 接近旧计划”</td><td>显式构造 Jacobian，浪费巨大内存</td></tr>
+          <tr><td>4. clipped guidance</td><td><code>v_rtc = v + λ(t) * g</code></td><td>在早期 flow step 保持稳定，限制过强引导</td><td>不设 β，少步去噪时可能发散</td></tr>
+        </tbody></table></div>
+        <div class="code-card" style="margin-top:16px">
+          <div class="code-head"><div><i></i><strong>minimal_rtc_guidance.py · 概念实现</strong></div><button class="copy-button" type="button" data-copy="rtc-guidance-code">复制</button></div>
+          <pre id="rtc-guidance-code"><code>def guided_velocity(model, x_t, obs, t, prev, w, beta=10.0):
+    """x_t/prev: [B, H, A], w: [1, H, 1]"""
+    x_t = x_t.detach().requires_grad_(True)
+    v = model(x_t, obs, t)
+
+    # 论文约定 t: 0=noise, 1=data
+    x1_hat = x_t + (1.0 - t) * v
+    error = (prev - x1_hat) * w
+
+    # J^T error；不显式创建 Jacobian
+    correction = torch.autograd.grad(
+        outputs=x1_hat,
+        inputs=x_t,
+        grad_outputs=error.detach(),
+    )[0]
+
+    guidance = compute_guidance_weight(t).clamp(max=beta)
+    return v + guidance * correction</code></pre>
+        </div>
+        <div class="callout"><strong>符号正负要结合实现的时间方向</strong><p>原论文从 t=0 的噪声积分到 t=1 的数据；LeRobot 的采样时间方向相反，因此代码先做 <code>tau = 1 - time</code>，clean estimate 与最终速度修正的正负号也相应变化。面试写最小代码前应先声明自己的 flow convention。</p></div>
+      </section>
+
+      <section class="section reveal" id="training">
+        <div class="section-heading"><p class="section-index">08 · TRAINING-TIME RTC</p><h2>训练时教模型“接着旧动作写”</h2><p>核心条件分布：p(A<sub>t+d:t+H</sub> | o<sub>t</sub>, A<sub>t:t+d</sub>)。</p></div>
+        <div class="rtc-train-flow">
+          <article><span>01</span><strong>随机采样 d</strong><p>模拟不同 GPU、网络和负载下的推理延迟。</p></article><b>→</b>
+          <article><span>02</span><strong>构造 prefix mask</strong><p>每个样本前 d 个 action token 是已承诺前缀。</p></article><b>→</b>
+          <article><span>03</span><strong>前缀保持干净</strong><p>prefix 不加噪，flow time 设为数据端点 1。</p></article><b>→</b>
+          <article><span>04</span><strong>只监督 postfix</strong><p>后缀照常加噪并计算 flow matching loss。</p></article>
+        </div>
+        <div class="formula large">L = Σ[(1 − prefix_mask) · ‖v̂ − (A − ε)‖²] / Σ(1 − prefix_mask)</div>
+        <div class="code-card" style="margin-top:16px">
+          <div class="code-head"><div><i></i><strong>training_time_rtc.py · PyTorch 面试版</strong></div><button class="copy-button" type="button" data-copy="rtc-training-code">复制</button></div>
+          <pre id="rtc-training-code"><code>def rtc_flow_loss(model, obs, action, max_delay):
+    # action: [B, H, A]
+    B, H, _ = action.shape
+    noise = torch.randn_like(action)
+    t = torch.rand(B, device=action.device)          # [B]
+    d = torch.randint(0, max_delay + 1, (B,), device=action.device)
+
+    prefix = torch.arange(H, device=action.device)[None, :] &lt; d[:, None]
+    token_t = torch.where(prefix, 1.0, t[:, None])   # [B, H]
+
+    x_t = token_t[..., None] * action + (1 - token_t[..., None]) * noise
+    pred_v = model(obs, x_t, token_t)                # token-wise flow time
+    target_v = action - noise
+
+    postfix = (~prefix)[..., None].to(action.dtype)
+    sq_error = (pred_v - target_v).square()
+    return (sq_error * postfix).sum() / postfix.sum().clamp_min(1.0)</code></pre>
+        </div>
+        <div class="table-scroll" style="margin-top:16px"><table class="shape-table"><thead><tr><th>改动</th><th>普通 Flow Matching</th><th>训练时 RTC</th><th>作用</th></tr></thead><tbody>
+          <tr><td><strong>flow time</strong></td><td>每个 batch 样本一个标量 t</td><td>每个 action token 一个 t；prefix t=1</td><td>告诉模型哪些 token 已经是 clean 条件</td></tr>
+          <tr><td><strong>noisy input</strong></td><td>整个 chunk 插值加噪</td><td>prefix 直接放 GT action，postfix 正常加噪</td><td>把旧动作前缀作为上下文</td></tr>
+          <tr><td><strong>loss mask</strong></td><td>整个 chunk 计算</td><td>只计算 postfix</td><td>前缀是条件，不是需要重新预测的目标</td></tr>
+          <tr><td><strong>delay</strong></td><td>训练中不存在</td><td>从目标部署延迟分布中采样 d</td><td>学习适应波动延迟，而非固定一个值</td></tr>
+          <tr><td><strong>inference</strong></td><td>从全噪声生成</td><td>每一步把 prefix clamp 回旧动作，并设 token time=1</td><td>无需 VJP，只做普通前向去噪</td></tr>
+        </tbody></table></div>
+        <div class="callout warning"><strong>“无需改架构”应准确理解</strong><p>它不增加新的可学习模块和参数量，也不要求改变机器人运行时接口；但模型实现必须允许每个 action token 使用不同的 flow timestep。对于 adaLN 风格 DiT，这通常只是把原来的 batch 级时间条件广播方式改成 token 级。</p></div>
+      </section>
+
+      <section class="section reveal" id="comparison">
+        <div class="section-heading"><p class="section-index">09 · METHOD COMPARISON</p><h2>怎么选：看 checkpoint 权限与延迟预算</h2></div>
+        <div class="table-scroll"><table class="shape-table"><thead><tr><th>方法</th><th>是否重训</th><th>部署额外计算</th><th>连续性机制</th><th>优势</th><th>局限</th></tr></thead><tbody>
+          <tr><td><strong>同步执行</strong></td><td>否</td><td>无</td><td>每个 chunk 前停住</td><td>最简单、行为容易复核</td><td>慢且产生训练数据中少见的停顿</td></tr>
+          <tr><td><strong>朴素 Async</strong></td><td>否</td><td>线程/服务通信</td><td>直接换队列或简单融合</td><td>快速落地，消除 idle</td><td>多模态动作可能跳变</td></tr>
+          <tr><td><strong>Temporal Ensemble</strong></td><td>否</td><td>保存并平均重叠预测</td><td>输出空间加权平均</td><td>对单峰小抖动简单有效</td><td>平均两条有效策略可能得到无效轨迹</td></tr>
+          <tr><td><strong>推理时 RTC</strong></td><td>否</td><td>每个去噪步一次 VJP/反向</td><td>hard prefix + soft overlap inpainting</td><td>即插即用，可调 soft mask</td><td>增加延迟和显存；高 d 时线性化引导更难</td></tr>
+          <tr><td><strong>训练时 Hard RTC</strong></td><td>是</td><td>近似普通采样</td><td>训练时 action prefix conditioning</td><td>推理便宜，高延迟更稳</td><td>只区分固定前缀/自由后缀，缺少软过渡</td></tr>
+          <tr><td><strong>训练时 Soft RTC</strong></td><td>是</td><td>轻量 token-wise prior blending</td><td>连续 action-prior 权重</td><td>保留近原始运行时并改善 jerk</td><td>2026 年较新的扩展，真实机器人证据仍有限</td></tr>
+        </tbody></table></div>
+        <div class="compare-grid" style="margin-top:16px">
+          <article class="compare-card good"><span>ONLY HAVE A CHECKPOINT</span><h3>先用推理时 RTC</h3><p>适合无法改训练 recipe、希望快速验证的情况。先在离线轨迹和仿真中调 d、s、β、mask schedule，再进真机。</p></article>
+          <article class="compare-card good"><span>CAN FINETUNE</span><h3>优先评估训练时 RTC</h3><p>部署端没有额外 VJP，尤其适合远端 VLA、高延迟或算力受限平台。delay 采样分布应匹配真实 P50/P95。</p></article>
+        </div>
+      </section>
+
+      <section class="section reveal" id="evidence">
+        <div class="section-heading"><p class="section-index">10 · EVIDENCE</p><h2>论文结果应该怎样记</h2></div>
+        <div class="metric-grid">
+          <article><span>INFERENCE RTC</span><strong>12</strong><p>Kinetix 高动态仿真任务，包含投掷、接住、平衡等。</p></article>
+          <article><span>REAL WORLD</span><strong>6</strong><p>π₀.₅ 双臂任务，其中 2 个包含移动操作。</p></article>
+          <article><span>LATENCY</span><strong>&gt;300 ms</strong><p>论文展示在超过预测时域 30% 的延迟下仍完成精细点火任务。</p></article>
+          <article><span>SPEED</span><strong>≈20%</strong><p>论文图示同一机器人动作相对同步推理更快完成。</p></article>
+        </div>
+        <div class="table-scroll" style="margin-top:16px"><table class="shape-table"><thead><tr><th>结论</th><th>论文证据</th><th>不能过度解读为</th></tr></thead><tbody>
+          <tr><td><strong>RTC 随 delay 增大更有优势</strong></td><td>Kinetix 中相对 Naive Async、TE 和 BID 的差距随 d 增大</td><td>任何 policy、任何 d 都必然提升成功率</td></tr>
+          <tr><td><strong>Soft mask 优于只冻结前缀</strong></td><td>低 delay、短 execution horizon 下改善明显</td><td>soft 权重越强越好</td></tr>
+          <tr><td><strong>TE 在多模态任务可能失败</strong></td><td>两条可行动作路径的平均值可能穿过障碍；高延迟真机触发保护停机</td><td>Temporal Ensemble 在所有场景都无效</td></tr>
+          <tr><td><strong>推理 RTC 有额外成本</strong></td><td>π₀.₅ 基线模型 76 ms，RTC 97 ms，另有 10–20 ms LAN 延迟</td><td>RTC 本身能让单次模型 forward 更快</td></tr>
+          <tr><td><strong>训练 RTC 更省部署计算</strong></td><td>π₀.₆ 实验平均端到端延迟 108 ms；推理 RTC 为 135 ms</td><td>训练 RTC 不需要任何微调或数据</td></tr>
+        </tbody></table></div>
+        <div class="callout"><strong>实验主线不必死背所有任务</strong><p>面试最值得说的是：RTC 的优势随着 inference delay 增大而扩大；较短 execution horizon 能提高闭环反应，但只有跨 chunk 连续性足够好时才真正获益；推理时方案用计算换即插即用，训练时方案用训练成本换低部署开销。</p></div>
+      </section>
+
+      <section class="section reveal" id="lerobot">
+        <div class="section-heading"><p class="section-index">11 · LEROBOT IMPLEMENTATION</p><h2>官方代码从哪里追</h2><p>截至 2026-08，LeRobot 已内置推理时 RTC；它是 policy 的推理增强，不是一个独立 policy。</p></div>
+        <div class="architecture-stack">
+          <article class="architecture-layer"><span>01 / CONFIG</span><div><strong>configuration_rtc.py</strong><p>定义 enabled、prefix schedule、max_guidance_weight、execution_horizon 与 debug。</p></div><code>RTCConfig</code></article>
+          <article class="architecture-layer"><span>02 / RUNTIME</span><div><strong>eval_with_real_robot.py / rollout</strong><p>推理线程和 actor 线程并行，按队列状态触发请求。</p></div><code>2 threads</code></article>
+          <article class="architecture-layer"><span>03 / QUEUE</span><div><strong>action_queue.py</strong><p>同时保存原始模型空间动作和机器人执行动作，记录消费 index，并根据真实 delay 替换队列。</p></div><code>ActionQueue</code></article>
+          <article class="architecture-layer"><span>04 / GUIDANCE</span><div><strong>modeling_rtc.py</strong><p>右侧补齐 prev chunk、构造 prefix weights、计算 clean estimate、VJP correction 和 clipped guidance。</p></div><code>RTCProcessor</code></article>
+          <article class="architecture-layer"><span>05 / LATENCY</span><div><strong>latency_tracker.py</strong><p>维护最近延迟样本、最大值和分位数，避免把波动 delay 当成固定常量。</p></div><code>P95 / max</code></article>
+          <article class="architecture-layer"><span>06 / POSTPROCESS</span><div><strong>relative.py / processors</strong><p>RTC 在归一化的模型动作空间约束连续性，之后才转换为机器人绝对命令。</p></div><code>model → robot space</code></article>
+        </div>
+        <div class="table-scroll" style="margin-top:16px"><table class="shape-table"><thead><tr><th>配置</th><th>LeRobot 当前默认/文档建议</th><th>调大后的效果</th><th>调小后的效果</th></tr></thead><tbody>
+          <tr><td><code>execution_horizon</code></td><td>默认 10；文档示例 8–12</td><td>更多旧动作约束，通常更平滑但更不灵活</td><td>更快响应新观测，但切换风险增加</td></tr>
+          <tr><td><code>max_guidance_weight</code></td><td>默认 10.0</td><td>更贴旧 chunk，过大可能不稳定或反应迟缓</td><td>更自由，但连续性引导不足</td></tr>
+          <tr><td><code>prefix_attention_schedule</code></td><td>代码默认 LINEAR；文档建议先试 EXP</td><td colspan="2">ZEROS=硬前缀，ONES=整段等权，LINEAR/EXP=软过渡；必须以真实任务验证</td></tr>
+          <tr><td><code>inference_delay</code></td><td>运行时传入，不属于静态 config</td><td>高估更保守，可能牺牲反应</td><td>低估会重复过期动作或造成切换错位</td></tr>
+        </tbody></table></div>
+        <div class="callout"><strong>论文符号和 LeRobot 配置名不要机械对应</strong><p>原论文中 soft mask 的非零重叠区结束于索引 H−s；LeRobot 的 <code>get_prefix_weights(inference_delay, execution_horizon, H)</code> 则直接把配置里的 <code>execution_horizon</code> 当作权重结束位置。理解源码时应先画实际 weight vector，不能仅凭同名变量套论文公式。</p></div>
+        <div class="callout warning"><strong>必须保留原始模型空间动作</strong><p>旧 chunk 作为 RTC prior 时，应与新生成动作处在同一归一化/相对动作空间。机器人实际执行的绝对动作只能用于下发和日志，不能未经逆变换直接拿来做 guidance。</p></div>
+      </section>
+
+      <section class="section reveal" id="deployment">
+        <div class="section-heading"><p class="section-index">12 · DEPLOYMENT RECIPE</p><h2>真机部署按这七步推进</h2></div>
+        <div class="version-rail rtc-roadmap">
+          <article><span class="version-year">M0</span><span class="version-dot">SYNC</span><div><strong>同步基线</strong><p>确认 observation、归一化、动作顺序、低层控制和任务成功率，不先引入并发。</p></div><em>证据：稳定回放与动作日志</em></article>
+          <article><span class="version-year">M1</span><span class="version-dot">TIME</span><div><strong>延迟画像</strong><p>测量采集、编码、网络、prefill、denoise、后处理和下发的 P50/P95/P99。</p></div><em>证据：端到端 latency breakdown</em></article>
+          <article><span class="version-year">M2</span><span class="version-dot">ASYNC</span><div><strong>朴素异步</strong><p>控制线程固定频率；推理线程只处理最新请求；ActionQueue 原子切换。</p></div><em>证据：queue 不空、无阻塞、无旧响应覆盖新响应</em></article>
+          <article><span class="version-year">M3</span><span class="version-dot">ALIGN</span><div><strong>时间对齐单测</strong><p>用带索引的虚拟动作验证 real_delay、leftover 和 new[d:] 是否对应相同绝对时刻。</p></div><em>证据：人工延迟 0…d 均无重复/漏步</em></article>
+          <article><span class="version-year">M4</span><span class="version-dot">RTC</span><div><strong>离线 RTC</strong><p>比较 Naive、TE、Hard、Soft；观察 chunk boundary 的 Δa、Δ²a 与任务误差。</p></div><em>证据：连续性—反应性曲线</em></article>
+          <article><span class="version-year">M5</span><span class="version-dot">SAFE</span><div><strong>低速真机</strong><p>加入关节限位、速度/加速度限制、watchdog、queue-empty fallback 和急停。</p></div><em>证据：故障注入不会发散</em></article>
+          <article><span class="version-year">M6</span><span class="version-dot">TUNE</span><div><strong>任务调优</strong><p>基于真实 delay 分布和任务动态性联合选择 H、s、β、schedule、触发阈值。</p></div><em>证据：成功率、耗时、jerk、保护停机次数</em></article>
+        </div>
+        <div class="section-heading" style="margin-top:62px"><p class="section-index">WHAT TO LOG</p><h2>至少记录这些字段</h2></div>
+        <div class="selection-checklist rtc-checklist">
+          <article><span>01</span><strong>时间戳</strong><p>obs capture、request、GPU start/end、response、execute。</p></article>
+          <article><span>02</span><strong>索引</strong><p>episode step、chunk id、action index、queue size。</p></article>
+          <article><span>03</span><strong>延迟</strong><p>real_delay、predicted d、P50/P95/P99。</p></article>
+          <article><span>04</span><strong>动作</strong><p>raw model action、processed action、executed action。</p></article>
+          <article><span>05</span><strong>连续性</strong><p>chunk-boundary jump、Δa、Δ²a / jerk。</p></article>
+          <article><span>06</span><strong>安全事件</strong><p>限幅、掉帧、queue empty、timeout、protective stop。</p></article>
+        </div>
+      </section>
+
+      <section class="section reveal" id="debug">
+        <div class="section-heading"><p class="section-index">13 · DEBUG & TUNING</p><h2>看到现象，先查哪一层</h2></div>
+        <div class="table-scroll"><table class="shape-table"><thead><tr><th>现象</th><th>优先怀疑</th><th>检查方式</th><th>可能修正</th></tr></thead><tbody>
+          <tr><td><strong>周期性停顿</strong></td><td>队列触发太晚、P95 延迟超过剩余 horizon</td><td>画 qsize 与 inference timeline</td><td>提前触发、增大 H、降低模型延迟、设计 fallback</td></tr>
+          <tr><td><strong>每次换 chunk 都跳</strong></td><td>action time 对齐错误或 guidance 太弱</td><td>对比最后旧动作与第一个实际新动作</td><td>修 real_delay；提高 overlap/β；试 EXP mask</td></tr>
+          <tr><td><strong>机器人变得迟钝</strong></td><td>旧计划约束太强或 s 太大</td><td>做扰动后恢复时间曲线</td><td>缩短 execution horizon、减弱 mask、提高 replanning 频率</td></tr>
+          <tr><td><strong>高延迟时发散</strong></td><td>β 未 clipping、d 超出可支持范围</td><td>监控 correction norm、检查 d≤H−s</td><td>限制 guidance、fallback 到同步/安全停机、增加 H</td></tr>
+          <tr><td><strong>动作平滑但任务失败</strong></td><td>平均了不同策略，或过度保留旧计划</td><td>看视觉扰动后是否仍沿旧路径</td><td>不要只优化 jerk；同时看成功率与反应时间</td></tr>
+          <tr><td><strong>偶发大跳</strong></td><td>网络乱序、旧请求晚返回覆盖新请求</td><td>检查 request/chunk id 单调性</td><td>只接受最新 request id；原子交换；取消过期请求</td></tr>
+          <tr><td><strong>离线正常、真机异常</strong></td><td>模型空间/机器人空间混用，低层控制动态不同</td><td>逐级保存 raw、denorm、clipped、sent action</td><td>统一 relative/absolute 语义；校准控制频率和插值</td></tr>
+        </tbody></table></div>
+        <div class="callout warning"><strong>安全底线</strong><p>RTC 让机器人“不停下来”，也意味着错误动作更可能持续下发。真机必须把 RTC 放在独立安全层之前：位置/速度/加速度/力限幅、workspace 限制、watchdog、deadman、queue-empty 行为和急停都不能依赖 VLA 自己学习出来。</p></div>
+      </section>
+
+      <section class="section reveal" id="interview">
+        <div class="section-heading"><p class="section-index">14 · INTERVIEW QUESTIONS</p><h2>高频追问与答题落点</h2></div>
+        <div class="qa-list">
+          <article><span>Q1</span><div><strong>Action chunking 已经减少推理次数，为什么还需要 RTC？</strong><p>Chunking 只把计算摊到多步，并没有消除推理期间的物理时间。同步会停顿；短 s 会频繁切 chunk；长 s 又降低对新观测的反应。RTC 专门处理延迟下的异步交接。</p></div></article>
+          <article><span>Q2</span><div><strong>异步推理和 RTC 的区别是什么？</strong><p>异步保证控制线程不等待模型，解决 action availability；RTC 让新 chunk 条件于已经承诺的旧动作，解决 cross-chunk consistency。RTC 通常建立在异步运行框架之上。</p></div></article>
+          <article><span>Q3</span><div><strong>为什么不直接对新旧动作线性插值？</strong><p>动作分布可能多模态：绕障碍上方和下方都有效，但平均轨迹可能撞障碍。RTC 在生成过程中引导出一条与旧前缀一致的完整样本，而不是事后平均两个 mode。</p></div></article>
+          <article><span>Q4</span><div><strong>前 d 步反正到达时会丢弃，为什么还要冻结？</strong><p>它们代表推理期间真实发生的运动历史。让模型在生成时看到这段已承诺前缀，才能让后续动作从正确状态和策略延续；否则新策略会假设不同的中间运动。</p></div></article>
+          <article><span>Q5</span><div><strong>soft mask 为什么比 hard mask 好？</strong><p>只有 d 个硬前缀时，引导信号可能太短，新 chunk 的后续仍能切到另一种策略。软过渡让所有重叠动作以随时间衰减的强度提供先验，同时保留远期修改能力。</p></div></article>
+          <article><span>Q6</span><div><strong>VJP 的作用是什么？</strong><p>将最终 clean action 与旧计划之间的误差反传到当前 noisy action latent，得到修改当前速度场的方向。自动微分直接计算 Jᵀe，无需显式构造 Jacobian。</p></div></article>
+          <article><span>Q7</span><div><strong>训练时 RTC 为什么更快？</strong><p>模型训练时已经学会把 clean action prefix 当条件，部署只需把 prefix clamp 进每一步普通 flow solver；不需要推理时的额外反向传播和 VJP。</p></div></article>
+          <article><span>Q8</span><div><strong>怎么选择 d 和 s？</strong><p>d 来自真实端到端延迟除以控制周期，且应考虑 P95/P99 抖动；s 要满足 d≤s≤H−d。动态任务希望 s 小以快速更新，但要通过 RTC 保证切换连续。</p></div></article>
+          <article><span>Q9</span><div><strong>RTC 能用于任意策略吗？</strong><p>原方法直接针对可迭代去噪的 flow/diffusion action policy，可在生成中加入 inpainting guidance。离散自回归动作模型不能原样套用，需要不同的条件生成或重规划机制。</p></div></article>
+          <article><span>Q10</span><div><strong>如何证明 RTC 真有用？</strong><p>不能只看 action plot。应在相同 checkpoint、任务和延迟下比较同步、Naive Async、TE、RTC，报告成功率、完成时间、吞吐、Δa/jerk、P95 latency、queue empty 和保护停机次数，并做人工 delay sweep。</p></div></article>
+        </div>
+
+        <div class="section-heading" style="margin-top:62px"><p class="section-index">MOCK QUIZ</p><h2>三道快速自测</h2></div>
+        <div class="quiz-list">
+          <article class="quiz-item" data-answer="1"><strong>1. 控制周期 20 ms，端到端推理 115 ms，保守的 d 至少取多少？</strong><div class="quiz-options"><button>5</button><button>6</button><button>20</button><button>115</button></div><p class="quiz-explain">115/20=5.75，至少需要覆盖 6 个控制步；实际还应结合延迟分位数。</p></article>
+          <article class="quiz-item" data-answer="2"><strong>2. 哪个描述最准确？</strong><div class="quiz-options"><button>RTC 就是动作平均</button><button>RTC 让模型 forward 变快</button><button>RTC 让异步新 chunk 条件于已承诺旧动作</button><button>RTC 必须修改低层 PID</button></div><p class="quiz-explain">RTC 处理的是延迟下的新旧 chunk 一致性，推理时版本反而增加单次生成开销。</p></article>
+          <article class="quiz-item" data-answer="3"><strong>3. 训练时 RTC 的前缀 token 应如何处理？</strong><div class="quiz-options"><button>加更强噪声</button><button>正常加噪并计算双倍 loss</button><button>从输入删除</button><button>保持 clean、t=1、mask 掉 loss</button></div><p class="quiz-explain">前缀是已知条件，不是待预测目标；后缀才参与去噪监督。</p></article>
+        </div>
+
+        <div class="interview-card" style="margin-top:18px"><strong>两分钟完整回答模板</strong><p>我会先把 RTC 分成系统层和生成层。系统层使用独立控制线程与推理线程，机器人持续消费当前 action queue；根据真实端到端延迟 δ 和控制周期 Δt 计算 d，并在旧 chunk 用尽前提前请求新 chunk。仅做异步仍可能因为两个 chunk 选择不同策略而跳变，所以推理时 RTC 将生成视为 inpainting：前 d 步对应推理期间必然执行的旧动作，权重为 1；剩余重叠区按时间衰减；超出旧 chunk 的尾部权重为 0。每个 flow step 先估计 clean action，再对它和旧计划的加权误差做 VJP，修正速度场，并用 β 限制引导强度。若允许微调，我会使用训练时 RTC：随机采样 delay，让 GT 前缀保持 clean 并作为 token-wise 条件，只对 postfix 计算 flow matching loss，部署时不再做反向引导。工程验证会同时看成功率、完成时间、P95 latency、queue empty、chunk boundary jump 和 jerk，并确保 RTC guidance 在归一化模型动作空间执行，安全限幅放在最终机器人命令之前。</p></div>
+      </section>
+
+      <section class="section reveal" id="sources">
+        <div class="section-heading"><p class="section-index">15 · PRIMARY SOURCES</p><h2>本页依据的一手资料</h2><p>检索与代码状态核对日期：2026-08-20。</p></div>
+        <div class="source-grid">
+          <a class="source-card" href="https://arxiv.org/html/2506.07339" target="_blank" rel="noreferrer"><span>PAPER</span><strong>Real-Time Execution of Action Chunking Flow Policies</strong><p>推理时 RTC、soft mask、VJP、Kinetix 与 π₀.₅ 真机实验。</p></a>
+          <a class="source-card" href="https://www.pi.website/research/real_time_chunking" target="_blank" rel="noreferrer"><span>OFFICIAL BLOG</span><strong>Physical Intelligence · RTC</strong><p>动机、视频演示与训练时 RTC 后续入口。</p></a>
+          <a class="source-card" href="https://arxiv.org/html/2512.05964" target="_blank" rel="noreferrer"><span>FOLLOW-UP</span><strong>Training-Time Action Conditioning</strong><p>prefix conditioning、最小训练改动与 π₀.₆ 实验。</p></a>
+          <a class="source-card" href="https://huggingface.co/blog/smolvla" target="_blank" rel="noreferrer"><span>ASYNC STACK</span><strong>SmolVLA Official Blog</strong><p>提前触发、双线程、chunk fusion 与 async 实验结果。</p></a>
+          <a class="source-card" href="https://huggingface.co/docs/lerobot/main/rtc" target="_blank" rel="noreferrer"><span>DOCUMENTATION</span><strong>LeRobot RTC Guide</strong><p>当前用法、参数含义与 async/RTC 区别。</p></a>
+          <a class="source-card" href="https://github.com/huggingface/lerobot/tree/main/src/lerobot/policies/rtc" target="_blank" rel="noreferrer"><span>SOURCE CODE</span><strong>LeRobot RTC Module</strong><p>RTCProcessor、ActionQueue、配置、延迟跟踪与测试入口。</p></a>
+          <a class="source-card" href="https://github.com/Physical-Intelligence/real-time-chunking-kinetix" target="_blank" rel="noreferrer"><span>REFERENCE CODE</span><strong>RTC Kinetix Release</strong><p>原论文公开的模拟环境、模型与 RTC 参考实现。</p></a>
+          <a class="source-card" href="https://arxiv.org/html/2605.25537" target="_blank" rel="noreferrer"><span>EXTENSION</span><strong>Action-Prior Denoising / Soft RTC</strong><p>训练时连续先验权重与 success–smoothness–runtime 权衡。</p></a>
+        </div>
+      </section>
+
+      <footer class="footer"><span>RTC · 异步运行、动作 inpainting 与训练时 prefix conditioning</span><nav class="footer-links"><a href="at-vla.html">← AT-VLA</a><a href="pi-series.html">下一页：π 系列 →</a></nav></footer>
+    </main>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>
