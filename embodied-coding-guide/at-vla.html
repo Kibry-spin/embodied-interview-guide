@@ -1,0 +1,359 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="AT-VLA 深度梳理：自适应触觉注入、触觉门控、Adaptive Cross-Attention、快慢双流、动作扩散、开源代码路径、复现风险与 G3 触觉推理流面试表达。">
+  <meta name="theme-color" content="#0f1715">
+  <title>AT-VLA 论文与源码｜触觉 VLA 面试专题</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="scroll-progress"><span id="scroll-progress-bar"></span></div>
+  <header class="topbar">
+    <a class="brand" href="index.html"><span class="brand-mark">AT</span><span class="brand-copy"><strong>AT-VLA 深度梳理</strong><small>Paper · Code · G3 Integration</small></span></a>
+    <nav class="topnav"><a href="index.html">总览</a><a href="vla-interview.html">VLA</a><a href="tactile-interview.html">触觉</a><a class="active" href="at-vla.html">AT-VLA</a><a href="pi-series.html">π 系列</a><a href="attention.html">Attention</a><a href="vla-loss.html">Loss</a><a href="rl.html">RL</a><a href="leetcode.html">算法题</a></nav>
+    <div class="top-actions"><button class="top-button" id="focus-toggle" type="button">专注阅读</button><a class="top-button strong" href="#status">开始梳理 ↓</a></div>
+  </header>
+
+  <div class="page-shell">
+    <aside class="sidebar">
+      <p class="eyebrow">AT-VLA INTERVIEW PATH</p>
+      <ol class="side-nav">
+        <li><a href="#overview"><span>01</span>一句话框架</a></li>
+        <li><a href="#status"><span>02</span>完成状态与边界</a></li>
+        <li><a href="#motivation"><span>03</span>问题与动机</a></li>
+        <li><a href="#architecture"><span>04</span>整体架构</a></li>
+        <li><a href="#injection"><span>05</span>自适应触觉注入</a></li>
+        <li><a href="#dualstream"><span>06</span>快慢双流</a></li>
+        <li><a href="#tensors"><span>07</span>输入与张量</a></li>
+        <li><a href="#objective"><span>08</span>训练与动作生成</a></li>
+        <li><a href="#experiments"><span>09</span>实验结论</a></li>
+        <li><a href="#code"><span>10</span>源码路径</a></li>
+        <li><a href="#risks"><span>11</span>复现风险</a></li>
+        <li><a href="#roadmap"><span>12</span>G3 适配路线</a></li>
+        <li><a href="#resume"><span>13</span>简历与面试表达</a></li>
+        <li><a href="#interview"><span>14</span>高频追问</a></li>
+      </ol>
+      <div class="sidebar-card"><strong>本页过关标准</strong><p>能用“新模态干扰 + 反馈延迟”解释动机；能画出 Gate、Query 切换和 3:1 双流；能从 deploy.py 追到动作输出；能清楚说明自己目前只在验证触觉推理链路。</p></div>
+    </aside>
+
+    <main>
+      <section class="hero compact reveal visible" id="overview">
+        <div>
+          <p class="kicker">Adaptive Tactile Injection · Code Reading Guide</p>
+          <h1>AT-VLA<br><em>触觉何时进入策略</em></h1>
+          <p class="hero-lead">核心不是把触觉一直拼进 VLA，而是在接触发生时切换条件，并让低频视觉语言推理与高频触觉反馈以不同节奏驱动动作专家。</p>
+          <div class="hero-actions"><a class="primary-button" href="#status">先看项目边界 ↓</a><a class="ghost-button" href="#code">直接看源码路径 ↗</a></div>
+          <div class="hero-stats"><div><strong>2</strong><span>核心机制</span></div><div><strong>3:1</strong><span>论文推理频率比</span></div><div><strong>0.04 s</strong><span>论文反应时间</span></div></div>
+        </div>
+        <div class="hero-board atvla-hero-board">
+          <div class="terminal-head"><span class="terminal-dots"><i></i><i></i><i></i></span><span>at_vla.runtime</span></div>
+          <div class="atvla-stream-map">
+            <article class="slow"><span>SLOW STREAM</span><strong>视觉 + 语言</strong><small>目标定位 · 语义推理 · VLM KV</small></article>
+            <b>↓ cached condition</b>
+            <article class="expert"><span>ACTION EXPERT</span><strong>Adaptive Query</strong><small>无接触用 state · 接触后用 tactile</small></article>
+            <b>↑ latest feedback</b>
+            <article class="fast"><span>FAST STREAM</span><strong>触觉 + 状态</strong><small>接触判断 · 高频动作修正</small></article>
+          </div>
+          <div class="formula">非接触：保留原 VLA　｜　接触：激活触觉闭环</div>
+        </div>
+      </section>
+
+      <section class="section reveal">
+        <div class="section-heading"><p class="section-index">01 · ELEVATOR PITCH</p><h2>先背这一分钟</h2></div>
+        <div class="interview-card"><strong>60 秒回答</strong><p>AT-VLA 面向拉拉链、擦拭、旋盖等接触丰富任务，解决两个问题：第一，预训练 VLA 很少见过触觉，直接追加触觉 token 可能扰乱原有视觉定位；第二，大型 VLM 推理较慢，无法及时利用高频接触反馈。它在 GO-1 的 VLM 加动作专家架构上加入轻量触觉编码器和 Tactile Gate：无接触时保持原有 state query，接触时切换为 tactile query；同时缓存低频视觉语言特征，让触觉快速流在同一 action chunk 时域内多次更新动作。论文用动作损失与接触门控损失联合训练，并在推理时采用 3:1 的快慢流频率比。需要注意，当前开源仓库主要是开放环推理代码，完整训练、真机闭环、数据和权重没有公开，因此我目前把它作为触觉推理链路的参考模型，而不是声称已完成完整复现。</p></div>
+        <div class="memory-line"><strong>记忆主线</strong><p>为什么加：接触反馈；为什么不能直接加：干扰预训练；何时加：Gate 判断接触；加在哪里：Action Expert 的 Query；如何加快：慢 VLM 缓存 + 快触觉更新。</p></div>
+      </section>
+
+      <section class="section reveal" id="status">
+        <div class="section-heading split-heading"><div><p class="section-index">02 · PROJECT STATUS</p><h2>先把“论文、代码、你的工作”分开</h2></div><p>项目尚未完成时，最重要的是可验证地描述进度，不把论文作者的结果变成自己的结果。</p></div>
+        <div class="table-scroll"><table class="shape-table"><thead><tr><th>层级</th><th>现在能够确认的内容</th><th>不能据此声称</th><th>面试中的正确措辞</th></tr></thead><tbody>
+          <tr><td><strong>论文方法</strong></td><td>Adaptive Tactile Injection、Adaptive Cross-Attention、Tactile Reaction Dual-Stream、动作损失 + 门控损失</td><td>这些机制是你提出的</td><td>“我研读并以 AT-VLA 为参考，理解其触觉门控和快慢流设计。”</td></tr>
+          <tr><td><strong>公开代码</strong></td><td>模型结构、三类触觉编码分支、开放环 deploy、动作扩散采样与部分训练 forward</td><td>仓库已经提供可一键复现实验的完整工程</td><td>“我沿公开推理路径完成代码级梳理，并定位了设备适配入口与缺失组件。”</td></tr>
+          <tr><td><strong>公开资源</strong></td><td>当前仓库仅一份推理导向初始提交，checkpoint 和 test_example 目录为空占位</td><td>已经拿到官方权重、训练数据或真实机器人控制代码</td><td>“完整复现受公开权重、数据和闭环控制代码缺失限制。”</td></tr>
+          <tr><td><strong>你的当前工作</strong></td><td>G3 平台触觉数据采集、接口与推理链路适配；AT-VLA 用于参考验证</td><td>你开发了 G3 整套数采系统，或已完成 AT-VLA 端到端部署</td><td>“我负责触觉侧的数据规范、接入和推理流验证，闭环实验仍在推进。”</td></tr>
+        </tbody></table></div>
+        <div class="callout warning"><strong>当前最准确的项目状态</strong><p>属于“源码分析 + 触觉接口适配 + 开放环验证准备/推进中”，不是“训练复现完成”，也不是“真机闭环部署完成”。等实际跑通权重、输出动作并完成安全闭环后，再升级简历措辞。</p></div>
+      </section>
+
+      <section class="section reveal" id="motivation">
+        <div class="section-heading"><p class="section-index">03 · MOTIVATION</p><h2>AT-VLA 解决的两个冲突</h2></div>
+        <div class="compare-grid">
+          <article class="compare-card bad"><span>CONFLICT 01</span><h3>新触觉 vs. 预训练知识</h3><p>VLA 预训练数据主要是视觉、语言和机器人状态。下游阶段突然追加从未见过的触觉 token，可能改变 Action Expert 的注意力分布，让模型从目标物体转移到无关区域，连接触前抓取定位也退化。</p><ul><li>不是“触觉越多越好”</li><li>需要控制注入时机与位置</li><li>非接触阶段应尽量保持原模型行为</li></ul></article>
+          <article class="compare-card good"><span>CONFLICT 02</span><h3>大 VLM vs. 高频反馈</h3><p>接触后的滑移、卡滞和碰撞风险要求快速修正，而完整 VLM 每一步都重新处理多路图像和语言，推理频率往往低于触觉和控制环所需频率。</p><ul><li>语义与定位可以低频更新</li><li>接触反馈必须高频刷新</li><li>使用缓存条件连接两种频率</li></ul></article>
+        </div>
+        <div class="section-heading" style="margin-top:62px"><p class="section-index">WHY DIRECT CONCAT FAILS</p><h2>直接拼接为什么可能更差</h2></div>
+        <div class="step-list">
+          <article class="step-row"><span>01</span><strong>分布外输入</strong><p>触觉是预训练阶段缺失的新模态，其统计分布与视觉/文本 token 不同。</p></article>
+          <article class="step-row"><span>02</span><strong>序列结构改变</strong><p>额外 token 改变注意力竞争关系、位置结构和条件权重。</p></article>
+          <article class="step-row"><span>03</span><strong>接触前也被干扰</strong><p>如果全程注入，即便传感器没有有效接触，模型仍必须解释噪声或零值。</p></article>
+          <article class="step-row"><span>04</span><strong>视觉定位退化</strong><p>论文注意力可视化与消融显示，直接注入的平均成功率低于原始 GO-1。</p></article>
+        </div>
+      </section>
+
+      <section class="section reveal" id="architecture">
+        <div class="section-heading"><p class="section-index">04 · ARCHITECTURE</p><h2>输入、骨干与动作输出</h2><p>先按论文画架构，再用代码检查每一条支路。</p></div>
+        <div class="atvla-architecture">
+          <article><span>OBSERVATION</span><strong>三路 RGB</strong><p>头部相机 I<sub>h</sub>、右腕 I<sub>r</sub>、左腕 I<sub>l</sub></p></article>
+          <article><span>SEMANTICS</span><strong>语言 L</strong><p>自然语言任务描述，经 InternVL 处理</p></article>
+          <article><span>CONTACT</span><strong>触觉 T</strong><p>主实验使用 6D 合力：三维切向 + 三维法向分量</p></article>
+          <article><span>PROPRIOCEPTION</span><strong>状态 S</strong><p>机器人当前本体状态，进入动作专家</p></article>
+          <b>↓</b><b>↓</b><b>↓</b><b>↓</b>
+          <article class="wide slow"><span>PRETRAINED BACKBONE</span><strong>GO-1 / InternVL-2B</strong><p>视觉语言语义、目标定位与上下文推理，产生投影后的分层 KV 条件。</p></article>
+          <article class="wide fast"><span>LIGHTWEIGHT BRANCH</span><strong>Tactile Encoder + Gate</strong><p>将低维力、marker 或视触觉图像编码为 tactile token，并预测接触状态。</p></article>
+          <b class="wide-arrow">↓ heterogeneous condition ↓</b>
+          <article class="full expert"><span>DIT ACTION EXPERT</span><strong>扩散式 Action Chunk 生成</strong><p>论文定义输出 A=π(I,L,T,S)，对应双臂 14-DoF 末端位姿动作块。</p></article>
+        </div>
+        <div class="table-scroll" style="margin-top:16px"><table class="shape-table"><thead><tr><th>模块</th><th>职责</th><th>论文中的信息流</th><th>公开代码对应</th></tr></thead><tbody>
+          <tr><td>视觉编码 + VLM</td><td>场景理解、语言对齐、目标定位</td><td>z<sub>I</sub>, z<sub>L</sub> 作为 Action Expert 的 K/V</td><td><code>common_process_fast()</code> 生成并投影每层 KV cache</td></tr>
+          <tr><td>触觉编码器</td><td>把传感器信号转成统一隐藏维度</td><td>T → z<sub>T</sub></td><td>6D MLP、Marker MLP 或触觉 ViT，最后投影到 1024</td></tr>
+          <tr><td>Tactile Gate</td><td>判断接触/非接触，决定是否让触觉主导 Query</td><td>g(z<sub>T</sub>)</td><td><code>1024→256→2→Sigmoid</code>，推理代码阈值 0.6</td></tr>
+          <tr><td>Action Expert</td><td>条件动作去噪与 chunk 输出</td><td>非接触 Q=z<sub>S</sub>；接触 Q=z<sub>T</sub></td><td>按 gate mask 切换完整触觉分支与末 33 个 state/action token 的更新方式</td></tr>
+        </tbody></table></div>
+        <div class="callout"><strong>“Pi0Model”命名不要说错</strong><p>仓库里的 <code>pi0/</code>、<code>Pi0Model</code> 是上游 AgiBot/InternVL 风格代码的兼容命名。官方 README 明确说明 AT-VLA 构建于 GO-1，不是 Physical Intelligence 的 π₀，也没有发布后者权重。</p></div>
+      </section>
+
+      <section class="section reveal" id="injection">
+        <div class="section-heading"><p class="section-index">05 · ADAPTIVE TACTILE INJECTION</p><h2>什么时候注入，注入到哪里</h2></div>
+        <div class="gate-flow">
+          <article><span>01</span><strong>Tactile Encoder</strong><p>当前触觉 T → token z<sub>T</sub></p></article><b>→</b>
+          <article><span>02</span><strong>Contact Classifier</strong><p>输出接触概率/分数</p></article><b>→</b>
+          <article class="accent"><span>03</span><strong>Gate</strong><p>高于阈值则激活触觉</p></article><b>→</b>
+          <article><span>04</span><strong>Adaptive Query</strong><p>state query ↔ tactile query</p></article>
+        </div>
+        <div class="card-grid three" style="margin-top:15px">
+          <article class="info-card"><span>WHEN</span><h3>只在接触阶段</h3><p>接近、定位和抓取前阶段尽量复用原始 VLA；传感器确认接触后才扩大触觉影响。</p></article>
+          <article class="info-card"><span>WHERE</span><h3>Action Expert 的 Query</h3><p>视觉语言仍作为 K/V 条件，不把新触觉简单附加到预训练 VLM 的输入序列中。</p></article>
+          <article class="info-card"><span>WHY</span><h3>保护视觉定位</h3><p>门控让模型同时适配“有触觉”和“无触觉”，降低新模态对原有行为的持续干扰。</p></article>
+        </div>
+        <div class="table-scroll" style="margin-top:16px"><table class="shape-table"><thead><tr><th>项目</th><th>论文描述</th><th>公开代码实现</th><th>复现时需要确认</th></tr></thead><tbody>
+          <tr><td><strong>监督标签</strong></td><td>人工标注接触帧为 1、非接触帧为 0</td><td>没有发布标注数据与完整训练入口</td><td>G3 接触标签由力阈值生成还是人工修订；过渡帧如何定义</td></tr>
+          <tr><td><strong>门控损失</strong></td><td>二元交叉熵 L<sub>g</sub></td><td>当前 <code>modeling_pi0.py</code> 没有找到独立 gating loss 计算</td><td>需要自行补齐训练损失或依赖官方未发布训练代码</td></tr>
+          <tr><td><strong>门控阈值</strong></td><td>示例为 0.5</td><td>代码使用 <code>mean &gt; 0.6</code></td><td>不要混背；论文概念阈值与当前 checkpoint 代码阈值分开说</td></tr>
+          <tr><td><strong>门控输出</strong></td><td>接触状态分数</td><td>MLP 输出 2 维并逐维 Sigmoid，再跨 token 求均值</td><td>确认两维语义、checkpoint 训练方式与正确归一化</td></tr>
+        </tbody></table></div>
+        <div class="interview-card" style="margin-top:15px"><strong>代码中的 Adaptive Cross-Attention 怎么理解</strong><p>论文用简洁形式描述：VLM 的图像/语言 token 提供 K/V；无接触时 state token 做 Q，接触时 tactile token 做 Q。公开代码的实现更工程化：先把 tactile token、分隔 embedding 与 state/action 轨迹拼成 Action Expert 序列；gate 激活时使用完整分支 hidden states，未激活时用末 33 个 state/action token 重复构造 query，并主要保留末 33 个 token 的层更新。面试时先讲论文抽象，再补充“代码通过 mask 和序列重构近似实现 Query 切换”，不要只背类名。</p></div>
+      </section>
+
+      <section class="section reveal" id="dualstream">
+        <div class="section-heading"><p class="section-index">06 · TACTILE REACTION DUAL-STREAM</p><h2>慢流负责“看懂”，快流负责“反应”</h2></div>
+        <div class="dual-stream-diagram">
+          <div class="stream-column slow"><span>SLOW · t<sub>n</sub></span><strong>Image + Language → VLM</strong><p>低频更新场景语义与目标定位，输出分层 KV cache。</p><em>一次慢流结果覆盖后续 H 个动作时刻</em></div>
+          <div class="cache-column"><b>KV<sub>tₙ</sub></b><span>缓存条件</span><i>→</i><i>→</i><i>→</i></div>
+          <div class="stream-column fast"><span>FAST · t<sub>n+k</sub></span><strong>Latest Tactile → Action Expert</strong><p>每次使用最新触觉与状态，在固定的慢流语义条件下重新生成可执行动作。</p><em>接触阶段高频闭环</em></div>
+        </div>
+        <div class="table-scroll" style="margin-top:16px"><table class="shape-table"><thead><tr><th>阶段</th><th>Gate</th><th>视觉语言条件</th><th>触觉与状态</th><th>频率关系</th></tr></thead><tbody>
+          <tr><td>非接触</td><td>关闭</td><td>正常更新</td><td>state query</td><td>论文称快慢流同步，行为尽量等同原始 VLA</td></tr>
+          <tr><td>接触</td><td>开启</td><td>最近一次慢流输出在 chunk horizon 内复用</td><td>最新 tactile query 驱动动作修正</td><td>训练随机 h:1（1&lt;h&lt;H）；推理固定 3:1</td></tr>
+        </tbody></table></div>
+        <div class="callout warning"><strong>0.04 s 的正确解释</strong><p>这是论文报告的闭环反应/推理速度，不应直接表述成“完整 G3 控制系统 25 Hz”。真实闭环还包含传感器采样、网络传输、预处理、动作后处理、机器人通信和执行器延迟，需要端到端时间戳测量。</p></div>
+        <div class="callout"><strong>公开 deploy 还不是完整 3:1 调度器</strong><p>代码提供 <code>cached_vlm_features</code> 入口，并能将 slow/fast 三路图像分开处理，但当前 debug 主循环仍是一条样本调用一次完整 forward；没有发布常驻的“慢流每 3 次更新一次、快流连续执行”的真机线程/调度逻辑。G3 部署需要自行实现缓存生命周期、并发和安全控制。</p></div>
+      </section>
+
+      <section class="section reveal" id="tensors">
+        <div class="section-heading"><p class="section-index">07 · TACTILE FORMATS & SHAPES</p><h2>三种触觉格式与关键张量</h2></div>
+        <div class="table-scroll"><table class="shape-table"><thead><tr><th>触觉格式</th><th>原始表示</th><th>代码编码器</th><th>优点</th><th>论文四任务平均成功率</th></tr></thead><tbody>
+          <tr><td><strong>Force 6D</strong></td><td>末维 6：三维切向 + 三维法向合力分量</td><td><code>Linear(6,256)→ReLU→Linear(256,768)→Linear(768,1024)</code></td><td>低维、直接描述接触力、对预训练 token 空间扰动较小</td><td><strong>0.50</strong>（完整 AT-VLA）</td></tr>
+          <tr><td><strong>Marker 2D</strong></td><td>N×2 表面标记位移；代码按 4 组压缩为 32 token</td><td>Marker MLP + token reduction + 1024 投影</td><td>保留局部剪切/形变，计算量低于整幅图像</td><td>0.32</td></tr>
+          <tr><td><strong>V-T Image</strong></td><td>左右触觉图拼为 6 通道，缩放到 320×240</td><td>Sparsh/I-JEPA 风格 ViT + token reduction</td><td>信息丰富，可保留接触几何与纹理</td><td>0.40</td></tr>
+        </tbody></table></div>
+        <div class="callout"><strong>论文结论不是“高维触觉一定差”</strong><p>在这套 VLA 注入方式和下游数据规模下，6D force 表现最好。作者推测高维输入产生更多 tactile token，更容易扰动预训练表征。它不等价于视触觉本身无价值；QTac 这类显式任务瓶颈可以先把高维触觉压缩成数量分布，再送入策略。</p></div>
+        <div class="section-heading" style="margin-top:62px"><p class="section-index">DEPLOY SHAPES</p><h2>开放环入口需要对齐的形状</h2></div>
+        <div class="table-scroll"><table class="shape-table"><thead><tr><th>字段</th><th>单样本预期形状/语义</th><th>代码处理</th><th>G3 适配检查</th></tr></thead><tbody>
+          <tr><td><code>cam_tensor_head_top</code></td><td>RGB 图像；debug 最终转为 [3,448,448]</td><td>三路 slow 图像进入 InternVL</td><td>颜色顺序、畸变、裁剪、相机外参、训练时视角</td></tr>
+          <tr><td><code>fast_cam_tensor_*</code></td><td>对应更晚时刻的三路图像</td><td>继承上游 fast visual branch，代码示例注释为领先 slow 10 帧</td><td>不要误当“纯触觉快流”；先定义时间偏移与缓存关系</td></tr>
+          <tr><td><code>state</code> / <code>fast_state</code></td><td>debug 构造成 [1,14]，进入模型后增加 batch 维</td><td>状态与噪声动作共用 adaptor 投影到 1024</td><td>14 维的物理语义、顺序、单位、归一化必须与 checkpoint 一致</td></tr>
+          <tr><td><code>tactile_value</code></td><td>末维必须为 6；可带时间/token 维</td><td>deploy 再加 batch 维，模型内部还会增加一维后送入 MLP</td><td>先打印每一级 shape；统一左右传感器、法向/切向、坐标系和符号</td></tr>
+          <tr><td><code>ctrl_freqs</code></td><td>[B,1]，示例为 30</td><td>经正弦 MLP 嵌入为频率 token</td><td>这是条件变量，不代表真实系统自动达到 30 Hz</td></tr>
+          <tr><td>action output</td><td>部署脚本按 [-1,14] 解码</td><td>模型输出 action chunk；默认配置 horizon=30，但以 checkpoint 为准</td><td>末端位姿表示、左右臂顺序、绝对/增量控制和缩放必须确认</td></tr>
+        </tbody></table></div>
+        <div class="callout warning"><strong>默认配置与部署假设不完全一致</strong><p><code>ActionExpertConfig</code> 默认 <code>action_dim=7</code>，但论文和 debug 脚本按双臂 14 维动作处理。这说明真正形状依赖 checkpoint 的 <code>config.json</code>，不能只看 Python 默认值推断部署接口。</p></div>
+      </section>
+
+      <section class="section reveal" id="objective">
+        <div class="section-heading"><p class="section-index">08 · TRAINING & ACTION GENERATION</p><h2>联合目标与扩散动作头</h2></div>
+        <div class="formula large">L = L<sub>action</sub> + 0.01 · L<sub>gate</sub></div>
+        <div class="card-grid three" style="margin-top:16px">
+          <article class="info-card"><span>ACTION OBJECTIVE</span><h3>L<sub>action</sub></h3><p>GO-1/DiT 动作专家的扩散式动作监督。代码给动作加 DDPM 噪声，并以 MSE 预测干净 action sample。</p></article>
+          <article class="info-card"><span>GATE OBJECTIVE</span><h3>L<sub>gate</sub></h3><p>论文使用接触/非接触标签的 BCE，使触觉编码器和门控网络显式理解接触阶段。</p></article>
+          <article class="info-card"><span>BALANCE</span><h3>λ = 0.01</h3><p>门控损失只作为辅助监督，避免其数值尺度压过动作生成目标。</p></article>
+        </div>
+        <div class="tensor-flow" style="margin-top:16px">
+          <article><span>TRAIN</span><strong>a → a<sub>t</sub></strong><p>随机噪声 + timestep，经 DDPM scheduler 得到 noisy action</p></article><b>→</b>
+          <article><span>CONDITION</span><strong>[t, freq, state, a<sub>t</sub>]</strong><p>投影为 1024 维轨迹 token，与 VLM KV/触觉条件交互</p></article><b>→</b>
+          <article><span>PREDICT</span><strong>â<sub>0</sub></strong><p>取最后 H 个 token，经 final layer 输出动作</p></article>
+        </div>
+        <div class="tensor-flow" style="margin-top:10px">
+          <article><span>INFER</span><strong>a<sub>T</sub>∼N(0,I)</strong><p>初始化 [B,H,D<sub>a</sub>] 高斯动作</p></article><b>→</b>
+          <article><span>ACTION EXPERT</span><strong>condition_sample()</strong><p>门控 Query + 最近 VLM 条件</p></article><b>→</b>
+          <article><span>DPM SOLVER</span><strong>a<sub>T</sub>→a<sub>0</sub></strong><p>公开代码将 inference timesteps 设为 1</p></article>
+        </div>
+        <div class="callout warning"><strong>不要把它讲成 Flow Matching</strong><p>论文将 GO-1 Action Expert 描述为 diffusion-based DiT；公开代码使用 <code>DDPMScheduler</code> 与 <code>DPMSolverMultistepScheduler</code>，且损失实现以 clean sample 为目标。它与 QTac/DiTFlow 的 Flow Matching 训练目标不同，虽然二者都从噪声生成连续动作。</p></div>
+      </section>
+
+      <section class="section reveal" id="experiments">
+        <div class="section-heading"><p class="section-index">09 · EXPERIMENTS</p><h2>实验结果要会解释，不只背数字</h2></div>
+        <div class="table-scroll"><table class="shape-table"><thead><tr><th>任务</th><th>关键接触难点</th><th>GO-1</th><th>π₀.₅</th><th>AT-VLA</th><th>正确结论</th></tr></thead><tbody>
+          <tr><td><strong>Unzip Bag</strong></td><td>沿曲线持续调节，避免拉链卡住</td><td>0.20</td><td>0.00</td><td><strong>0.33</strong></td><td>触觉帮助接触后的路径修正</td></tr>
+          <tr><td><strong>Stamp</strong></td><td>判断按压完成，避免继续向下碰桌</td><td>0.13</td><td>0.20</td><td><strong>0.46</strong></td><td>反馈用于完成状态判断与停止</td></tr>
+          <tr><td><strong>Wipe Vase</strong></td><td>适应曲面并保持接触</td><td>0.07</td><td>0.33</td><td><strong>0.67</strong></td><td>高频力反馈改善顺应性</td></tr>
+          <tr><td><strong>Unscrew Lid</strong></td><td>旋转与夹持力协调、防滑</td><td>0.27</td><td>0.46</td><td><strong>0.53</strong></td><td>AT-VLA 提升，但仍可能因初始抓持不稳失败</td></tr>
+        </tbody></table></div>
+        <div class="metric-grid" style="margin-top:16px">
+          <article><span>VANILLA</span><strong>0.22</strong><p>GO-1 四个接触任务平均成功率</p></article>
+          <article><span>DIRECT TACTILE</span><strong>0.13</strong><p>直接全程注入 6D force，反而下降</p></article>
+          <article><span>+ GATE</span><strong>0.39</strong><p>门控 + Adaptive Attention，同频处理</p></article>
+          <article><span>+ DUAL STREAM</span><strong>0.50</strong><p>完整 AT-VLA，进一步提升 11 个百分点</p></article>
+        </div>
+        <div class="card-grid three" style="margin-top:15px">
+          <article class="info-card"><span>ABLATION 01</span><h3>门控是必要的</h3><p>从 0.13 提升到 0.39，说明“何时使用触觉”比“有没有触觉”更关键。</p></article>
+          <article class="info-card"><span>ABLATION 02</span><h3>反应速度有贡献</h3><p>同样使用触觉，异步双流从 0.39 提升到 0.50，延迟会直接影响卡滞和碰撞。</p></article>
+          <article class="info-card"><span>ROBUSTNESS</span><h3>缺失触觉仍可运行</h3><p>同一权重在无触觉推理时，非接触任务与 VLA 基线相当；但不能据此认为触觉不重要。</p></article>
+        </div>
+        <div class="callout"><strong>基线比较要注意条件</strong><p>GO-1 和 π₀.₅ 在相同下游数据上训练但不使用触觉；VTLA 与 RDP 只训练/测试接触丰富阶段，并由作者手动设置理想初始状态。因此不同列不完全是同难度的端到端比较，面试中应主动说明。</p></div>
+      </section>
+
+      <section class="section reveal" id="code">
+        <div class="section-heading"><p class="section-index">10 · CODE WALKTHROUGH</p><h2>从入口追到动作输出</h2><p>当前仓库的主价值是理解推理结构，而不是直接复现实验表格。</p></div>
+        <div class="architecture-stack">
+          <article class="architecture-layer"><span>01 / ENTRY</span><div><strong>open_loop_test.sh</strong><p>只执行 <code>python internvl_chat/deploy/deploy.py</code>。</p></div><code>debug loop</code></article>
+          <article class="architecture-layer"><span>02 / PAYLOAD</span><div><strong>_build_debug_payload()</strong><p>整理 slow/fast 三路图像、state、fast_state、6D tactile、instruction 与 GT action。</p></div><code>Dict[str, Any]</code></article>
+          <article class="architecture-layer"><span>03 / PREPROCESS</span><div><strong>gen_pixel_values() + gen_input_ids()</strong><p>图像缩放/归一化、构造 InternLM 对话与 image context token。</p></div><code>pixels + tokens</code></article>
+          <article class="architecture-layer"><span>04 / SLOW CACHE</span><div><strong>common_process_fast()</strong><p>slow 图像进入 VLM 得到每层 KV；fast 图像保留为上游快速视觉特征。</p></div><code>projected KV</code></article>
+          <article class="architecture-layer"><span>05 / TACTILE</span><div><strong>forceresultant_encoder</strong><p>当前 deploy 固定 <code>use_tactile='forceresultant'</code>，将末维 6 投影为 tactile token。</p></div><code>…×6 → …×1024</code></article>
+          <article class="architecture-layer"><span>06 / SAMPLE</span><div><strong>condition_sample()</strong><p>生成噪声 action chunk、计算 gate、拼接条件并调用 Action Expert。</p></div><code>[B,H,D<sub>a</sub>]</code></article>
+          <article class="architecture-layer"><span>07 / ADAPT</span><div><strong>ActionExpertModel.forward()</strong><p>用 gate mask 选择触觉分支或 state/action query，结合 VLM KV 更新动作 token。</p></div><code>adaptive query</code></article>
+          <article class="architecture-layer"><span>08 / OUTPUT</span><div><strong>DPMSolver step → action[1]</strong><p>开放环脚本按 14 维重排，与 GT 计算 MSE 和整体 L2 norm。</p></div><code>action chunk</code></article>
+        </div>
+        <div class="table-scroll" style="margin-top:16px"><table class="shape-table"><thead><tr><th>文件</th><th>应该重点看什么</th><th>面试中能回答的问题</th></tr></thead><tbody>
+          <tr><td><code>deploy/deploy.py</code></td><td>模型加载、payload、图像/文本预处理、FastAPI、开放环 MSE</td><td>输入字段是什么？动作从哪里返回？如何接真机服务？</td></tr>
+          <tr><td><code>pi0/modeling_pi0.py</code></td><td>触觉三分支、gate、VLM KV、扩散 scheduler、训练/采样 forward</td><td>触觉怎样编码？慢流怎样缓存？动作 chunk 如何生成？</td></tr>
+          <tr><td><code>pi0/modeling_action_expert.py</code></td><td>Action Expert attention、gate mask、33-token query 重构</td><td>Adaptive Cross-Attention 在代码里如何实现？</td></tr>
+          <tr><td><code>pi0/configuration_*.py</code></td><td>hidden size、层数、head、action dim/horizon</td><td>哪些形状来自 checkpoint，哪些只是默认值？</td></tr>
+          <tr><td><code>pi0/tactile_ijepa_vit.py</code></td><td>6 通道视触觉 ViT 与 Sparsh 预训练权重接口</td><td>视触觉图像分支为什么比 6D force 更重？</td></tr>
+          <tr><td><code>train/dataset.py</code></td><td>通用图像变换和上游 dataset 基础设施</td><td>为什么当前仓库不足以重建论文训练数据管线？</td></tr>
+        </tbody></table></div>
+      </section>
+
+      <section class="section reveal" id="risks">
+        <div class="section-heading"><p class="section-index">11 · REPRODUCTION RISKS</p><h2>公开版本的复现阻塞点</h2></div>
+        <div class="table-scroll"><table class="shape-table"><thead><tr><th>问题</th><th>证据</th><th>影响</th><th>你的处理方式</th></tr></thead><tbody>
+          <tr><td><strong>权重与样例缺失</strong></td><td><code>checkpoints/</code>、<code>test_example/</code> 只有 .gitkeep；Issue #1 仍在询问数据和权重</td><td>无法原样运行 README 的 open-loop test</td><td>将“获得兼容 checkpoint”设为硬前置；没有时先做静态与 mock shape 验证</td></tr>
+          <tr><td><strong>训练未开源</strong></td><td>README 明确不提供完整训练脚本；代码中没有独立 gate BCE</td><td>无法从论文公式直接复现联合训练</td><td>若自行训练，需要实现 contact label、L<sub>g</sub> 与快慢时序采样</td></tr>
+          <tr><td><strong>真机闭环未开源</strong></td><td>没有机器人控制、3:1 调度、缓存线程和安全层</td><td>开放环能出动作不等于真机可部署</td><td>自建 G3 adapter、限幅、急停、watchdog 和端到端延迟统计</td></tr>
+          <tr><td><strong>依赖版本冲突</strong></td><td>pyproject 固定 torch 2.6/vision 0.21；environment.yaml 是 torch 2.5.1/vision 0.20.1</td><td>FlashAttention、CUDA 和 ABI 易冲突</td><td>选择一套一致矩阵，先验证 torch/CUDA/flash-attn，再安装项目</td></tr>
+          <tr><td><strong>CPU 路径不完整</strong></td><td>虽然声明 CPU device，但图像与 token 预处理硬编码 <code>.cuda()</code></td><td>无 GPU 环境会直接失败</td><td>默认按 Linux + NVIDIA GPU 准备；或系统性改为 <code>.to(device)</code></td></tr>
+          <tr><td><strong>样例字段疑似拼写错误</strong></td><td>右腕快图读取键为 <code>fast+cam_tensor_wrist_right</code></td><td>常规字段名会 KeyError</td><td>适配器统一 schema，并为每个必填字段写启动时断言</td></tr>
+          <tr><td><strong>接口语义未说明</strong></td><td>14 维 state/action 的顺序、归一化、绝对/增量控制未公开</td><td>即使 shape 正确，动作物理含义也可能错误</td><td>没有 checkpoint metadata 时禁止直接下发真机；先反归一化与离线可视化</td></tr>
+          <tr><td><strong>快慢流只露出钩子</strong></td><td><code>cached_vlm_features</code> 存在，但 debug 循环未实现持久 3:1 调度</td><td>无法验证论文中的实时收益</td><td>显式实现 slow cache 版本号、有效期和 fast loop 状态机</td></tr>
+        </tbody></table></div>
+        <div class="callout warning"><strong>可复现性结论</strong><p>当前公开版本足以做论文结构与推理代码学习，也能指导接口开发；但在没有权重/数据、完整训练脚本和真机 harness 的情况下，不足以独立复现论文成功率。这个结论应主动写进项目记录，而不是把运行失败简单归因于环境。</p></div>
+      </section>
+
+      <section class="section reveal" id="roadmap">
+        <div class="section-heading"><p class="section-index">12 · G3 INTEGRATION ROADMAP</p><h2>从“代码看懂”到“触觉闭环”</h2></div>
+        <div class="version-rail atvla-roadmap">
+          <article><span class="version-year">M0</span><span class="version-dot">READ</span><div><strong>论文—代码对齐</strong><p>完成模块、入口、shape、论文/代码差异和缺失资源表。</p></div><em>完成标准：能从 payload 讲到 action[1]</em></article>
+          <article><span class="version-year">M1</span><span class="version-dot">ENV</span><div><strong>最小环境验证</strong><p>固定 Python、Torch、CUDA、FlashAttention 版本；完成 import 与模型空配置构造。</p></div><em>完成标准：依赖可重建，有 lock/记录</em></article>
+          <article><span class="version-year">M2</span><span class="version-dot">I/O</span><div><strong>G3 触觉适配器</strong><p>将原始触觉转换为末维 6 的统一表示，处理零点、单位、坐标、左右手和时间戳。</p></div><em>完成标准：离线回放形状稳定、无 NaN、接触边沿清楚</em></article>
+          <article><span class="version-year">M3</span><span class="version-dot">MOCK</span><div><strong>无权重数据流测试</strong><p>用 mock encoder/checkpoint 检查 payload、batch、dtype、device、FastAPI 与动作后处理。</p></div><em>完成标准：每一级 shape 与延迟可观测</em></article>
+          <article><span class="version-year">M4</span><span class="version-dot">OPEN</span><div><strong>真实权重开放环</strong><p>比较 action chunk 与 GT/参考轨迹；做无触觉、门控开关、触觉打乱和延迟扰动。</p></div><em>完成标准：门控概率、动作误差与触觉敏感性合理</em></article>
+          <article><span class="version-year">M5</span><span class="version-dot">SCHED</span><div><strong>3:1 快慢流调度</strong><p>缓存 VLM KV，快流使用最新触觉；维护 cache timestamp、版本号和过期回退。</p></div><em>完成标准：实测端到端频率与 P95 延迟</em></article>
+          <article><span class="version-year">M6</span><span class="version-dot">ROBOT</span><div><strong>安全真机闭环</strong><p>从低速、短时、软限位任务开始，加入动作限幅、力阈值、watchdog 与急停。</p></div><em>完成标准：完成预定义任务和失败恢复测试</em></article>
+        </div>
+        <div class="section-heading" style="margin-top:62px"><p class="section-index">TACTILE ADAPTER</p><h2>触觉数据必须统一的六件事</h2></div>
+        <div class="selection-checklist atvla-checklist">
+          <article><span>01</span><strong>单位</strong><p>N、归一化值还是 ADC；训练和推理一致。</p></article>
+          <article><span>02</span><strong>坐标</strong><p>传感器系、夹爪系或末端系；轴方向固定。</p></article>
+          <article><span>03</span><strong>符号</strong><p>左右传感器镜像后，法向与切向符号统一。</p></article>
+          <article><span>04</span><strong>零漂</strong><p>开机置零、温漂补偿、接触前 baseline。</p></article>
+          <article><span>05</span><strong>时间</strong><p>原始 timestamp、采样延迟、模型时刻与动作时刻。</p></article>
+          <article><span>06</span><strong>有效性</strong><p>掉线、饱和、异常突变与 valid mask。</p></article>
+        </div>
+        <div class="table-scroll" style="margin-top:16px"><table class="shape-table"><thead><tr><th>验证实验</th><th>改变什么</th><th>应该观察什么</th><th>能排除的问题</th></tr></thead><tbody>
+          <tr><td>无触觉基线</td><td>tactile 缺失/全零，Gate 强制关闭</td><td>接触前定位应接近原 VLA</td><td>新触觉支路是否破坏视觉行为</td></tr>
+          <tr><td>接触阶跃</td><td>对 6D force 注入已知阶跃</td><td>gate 概率在合理延迟内越过阈值</td><td>归一化、方向、阈值和缓存延迟</td></tr>
+          <tr><td>触觉打乱</td><td>时间打乱或跨 episode 交换触觉</td><td>性能/动作敏感性应显著下降</td><td>模型是否真的使用触觉，而非视觉捷径</td></tr>
+          <tr><td>人工延迟</td><td>增加 1、2、3 个控制周期延迟</td><td>接触任务随延迟退化</td><td>系统对同步误差的容忍范围</td></tr>
+          <tr><td>轴向翻转</td><td>反转一个切向/法向轴</td><td>动作修正方向应出现可解释变化</td><td>坐标系和左右手符号错误</td></tr>
+          <tr><td>闭环安全</td><td>限制速度、位移和力阈值</td><td>异常时停止或回退，不持续积累动作</td><td>网络超时、动作爆值和传感器失效</td></tr>
+        </tbody></table></div>
+      </section>
+
+      <section class="section reveal" id="resume">
+        <div class="section-heading"><p class="section-index">13 · RESUME & STORY</p><h2>按当前完成度包装，而不是按论文包装</h2></div>
+        <div class="compare-grid">
+          <article class="compare-card good"><span>NOW · RECOMMENDED</span><h3>当前可以写</h3><p><strong>触觉推理链路验证：</strong>负责银河自研 G3 平台的触觉数据接入与推理接口适配，参考 AT-VLA 梳理 6D 触觉编码、门控注入与快慢流推理路径，完成触觉输入规范、关键张量及开放环验证方案设计；端到端真机闭环仍在推进。</p></article>
+          <article class="compare-card bad"><span>AVOID</span><h3>当前不要写</h3><p>“复现 AT-VLA 并在 G3 上完成多任务部署优化”“实现 0.04 s 闭环”“成功率达到论文水平”“开发完整 G3 数据采集系统”。这些表述都需要权重、任务实验、延迟测量和个人工作证据。</p></article>
+        </div>
+        <div class="section-heading" style="margin-top:62px"><p class="section-index">UPGRADE AFTER MILESTONE</p><h2>完成后再逐级升级表述</h2></div>
+        <div class="resume-map atvla-resume-map">
+          <article><span>LEVEL 01 · 接口</span><strong>数据链路跑通</strong><p>“完成 G3 触觉信号的零点、单位、坐标与时序规范化，并接入 AT-VLA 兼容推理接口。”</p><em>证据：schema、回放、shape log</em></article>
+          <article><span>LEVEL 02 · 开放环</span><strong>模型确实使用触觉</strong><p>“完成开放环动作预测及无触觉/触觉打乱/延迟扰动对比，验证触觉条件对门控与动作输出的影响。”</p><em>证据：gate 曲线、动作误差、消融表</em></article>
+          <article><span>LEVEL 03 · 双流</span><strong>调度与延迟</strong><p>“实现慢流 KV 缓存与高频触觉更新调度，测量各阶段延迟并优化推理数据路径。”</p><em>证据：频率、平均/P95 延迟、cache 命中</em></article>
+          <article><span>LEVEL 04 · 真机</span><strong>安全闭环验证</strong><p>“在 G3 接触任务中完成触觉条件动作调整与闭环验证，并开展触觉缺失及延迟消融。”</p><em>证据：任务定义、试验次数、成功率、失败案例</em></article>
+        </div>
+        <div class="section-heading" style="margin-top:62px"><p class="section-index">TWO-MINUTE ANSWER</p><h2>两分钟项目回答</h2></div>
+        <div class="interview-card"><strong>当前版本</strong><p>我在 G3 平台上主要负责触觉侧的数据与推理链路，AT-VLA 是我用于验证这条链路的参考模型。它解决的是预训练 VLA 引入新触觉模态时可能破坏视觉定位，以及大模型推理速度难以响应高频接触反馈的问题。方法上，它先用轻量编码器得到触觉 token，通过接触门控决定是否注入；无接触时尽量保持原有 state query，接触时切换为 tactile query。同时将视觉语言推理作为慢流缓存，触觉和动作专家作为快流更新。我的工作重点是梳理公开源码的输入接口和关键张量，并把 G3 触觉信号统一到模型需要的低维表示，包括单位、坐标、左右手语义和时间戳，再设计开放环与消融验证。由于官方目前没有公开完整训练脚本、真实机器人 harness、数据和权重，我不会把它表述为完整复现；当前阶段是触觉推理接口适配与验证，后续目标是完成权重开放环、快慢流调度和安全真机闭环。</p></div>
+      </section>
+
+      <section class="section reveal">
+        <div class="section-heading"><p class="section-index">AT-VLA vs. QTAC</p><h2>与你论文的关系与区别</h2></div>
+        <div class="table-scroll"><table class="shape-table"><thead><tr><th>维度</th><th>AT-VLA</th><th>QTac</th><th>面试中的联系</th></tr></thead><tbody>
+          <tr><td>任务</td><td>通用接触丰富操作：拉链、按压、擦拭、旋盖</td><td>给定目标数量，从堆叠物体中抓取恰好对应数量</td><td>都将触觉用于视觉无法可靠判断的接触后状态</td></tr>
+          <tr><td>触觉表示</td><td>主实验使用低维 6D force token</td><td>双侧高维视触觉 → 数量概率分布</td><td>前者减少新模态扰动；后者构造任务相关瓶颈</td></tr>
+          <tr><td>融合策略</td><td>Gate 决定何时切换 Action Expert Query</td><td>CountNet 全程提供在手数量概率作为条件</td><td>都是“先提炼触觉语义，再进入动作策略”</td></tr>
+          <tr><td>动作生成</td><td>GO-1 的 diffusion-based DiT Action Expert</td><td>DiTFlow / Flow Matching 连续动作生成</td><td>不要把两种损失和 scheduler 混为一谈</td></tr>
+          <tr><td>闭环方式</td><td>慢 VLM + 高频触觉快流</td><td>依据数量反馈动态调整与迭代重抓</td><td>触觉都不是离线识别终点，而是动作结果反馈</td></tr>
+          <tr><td>你的贡献</td><td>参考模型的触觉数据/推理接口适配，尚未完成</td><td>第一作者，主导任务、算法、系统、训练与真机实验</td><td>回答时必须明确贡献层级不同</td></tr>
+        </tbody></table></div>
+      </section>
+
+      <section class="section reveal" id="interview">
+        <div class="section-heading"><p class="section-index">14 · INTERVIEW DRILLS</p><h2>高频追问与回答骨架</h2></div>
+        <div class="card-grid">
+          <article class="practice-card"><span class="card-label">QUESTION 01</span><h3>AT-VLA 为什么不直接把触觉 token 拼到 VLM 输入？</h3><div class="prompt">从预训练分布、注意力竞争和接触阶段回答。</div><button class="reveal-button" data-reveal="at-answer-1" data-hide-label="隐藏参考回答">查看参考回答</button><div class="solution" id="at-answer-1"><p>预训练 VLA 很少见过触觉，直接追加 token 会改变原有序列与注意力竞争，可能使 Action Expert 的注意力从目标物体偏移，连接触前视觉定位都退化。触觉在非接触阶段通常没有有效信息，因此 AT-VLA 保持 VLM 的图像/语言条件结构，只在 Gate 判断接触后让 tactile token 主导 Action Expert Query。</p></div></article>
+          <article class="practice-card"><span class="card-label">QUESTION 02</span><h3>Tactile Gate 和普通力阈值有什么区别？</h3><div class="prompt">既要说学习能力，也要说工程风险。</div><button class="reveal-button" data-reveal="at-answer-2" data-hide-label="隐藏参考回答">查看参考回答</button><div class="solution" id="at-answer-2"><p>普通阈值直接在原始力上判断，简单、可解释但难适应不同物体、方向和传感器漂移；Tactile Gate 在编码后的触觉 token 上学习接触分类，可利用多维组合关系并与动作目标联合训练。代价是需要接触标签、训练分布和阈值标定，还要防止抖动，工程上可加入迟滞、最小保持时间或安全硬阈值。</p></div></article>
+          <article class="practice-card"><span class="card-label">QUESTION 03</span><h3>快慢双流如何保证条件不过期？</h3><div class="prompt">不要只回答“缓存 KV”。</div><button class="reveal-button" data-reveal="at-answer-3" data-hide-label="隐藏参考回答">查看参考回答</button><div class="solution" id="at-answer-3"><p>slow stream 的视觉语言输出只在 action chunk horizon 内复用；每份 cache 应记录 observation timestamp、版本号和有效期。fast stream 每次读取最新触觉与状态，同时检查 cache 是否仍对应当前任务和场景；如果相机变化、任务切换、缓存超时或 Gate 关闭，应触发慢流更新或回退。真实系统还要防止并发读写时拿到不完整 KV。</p></div></article>
+          <article class="practice-card"><span class="card-label">QUESTION 04</span><h3>为什么 6D force 比触觉图像表现更好？</h3><div class="prompt">限定在论文设置中。</div><button class="reveal-button" data-reveal="at-answer-4" data-hide-label="隐藏参考回答">查看参考回答</button><div class="solution" id="at-answer-4"><p>在 AT-VLA 的数据规模和注入方式下，6D force 是紧凑、任务相关的接触表征，token 少、编码快，也较少扰动预训练表示；触觉图像需要额外 ViT 并产生更多 token。论文结果只说明这套设置下 force 6D 最好，不意味着高维触觉普遍更差，高维信号可以先经过任务相关瓶颈再融合。</p></div></article>
+          <article class="practice-card"><span class="card-label">QUESTION 05</span><h3>AT-VLA 没有触觉时为什么还能运行？</h3><div class="prompt">回答机制，不要说“模型脑补触觉”就结束。</div><button class="reveal-button" data-reveal="at-answer-5" data-hide-label="隐藏参考回答">查看参考回答</button><div class="solution" id="at-answer-5"><p>Gate 关闭时 Query 和输入行为尽量退化到原始 VLA，因此不会强依赖触觉 token；训练中模型仍保留预训练视觉语言能力，并可能从视觉与状态中学到与接触相关的相关性。论文显示无触觉时非接触任务保持基线水平，但接触丰富任务仍明显受益于真实触觉，不能把鲁棒性理解为触觉可有可无。</p></div></article>
+          <article class="practice-card"><span class="card-label">QUESTION 06</span><h3>你目前到底完成了什么？</h3><div class="prompt">用证据和边界回答。</div><button class="reveal-button" data-reveal="at-answer-6" data-hide-label="隐藏参考回答">查看参考回答</button><div class="solution" id="at-answer-6"><p>我负责 G3 平台触觉侧的数据接入和推理接口适配，已经完成 AT-VLA 论文—代码路径梳理，并围绕 6D 输入、坐标/单位/时间统一、门控观测和开放环消融设计推进验证。官方未发布完整训练、真机代码、数据和权重，所以我不声称完整复现；后续里程碑是获得兼容权重后跑通开放环，再实现 3:1 缓存调度和安全闭环。</p></div></article>
+        </div>
+        <div class="quiz-list" style="margin-top:18px">
+          <article class="quiz-item" data-answer="2"><strong>1. AT-VLA 在接触阶段主要切换 Action Expert 的哪一项？</strong><div class="quiz-options"><button>语言 instruction</button><button>VLM 层数</button><button>Query 条件</button><button>相机分辨率</button></div><p class="quiz-note">K/V 保持视觉语言条件，Query 从 state 切向 tactile。</p></article>
+          <article class="quiz-item" data-answer="1"><strong>2. 论文推理时快流与慢流的频率比是？</strong><div class="quiz-options"><button>1:1</button><button>3:1</button><button>10:1</button><button>30:1</button></div><p class="quiz-note">训练时随机 h:1；论文推理设置为 3:1。</p></article>
+          <article class="quiz-item" data-answer="3"><strong>3. 当前公开仓库能够直接提供什么？</strong><div class="quiz-options"><button>完整数据集</button><button>所有任务权重</button><button>真机控制器</button><button>推理结构与开放环工具</button></div><p class="quiz-note">训练脚本、数据、权重和真实机器人 harness 没有完整公开。</p></article>
+          <article class="quiz-item" data-answer="0"><strong>4. 当前简历最合适的说法是？</strong><div class="quiz-options"><button>触觉数据与推理接口适配，闭环推进中</button><button>完整复现论文全部实验</button><button>开发了 G3 整套数采系统</button><button>实现论文 0.04 s 真机闭环</button></div><p class="quiz-note">先陈述已完成、可验证的触觉侧工作。</p></article>
+        </div>
+      </section>
+
+      <section class="section reveal" id="sources">
+        <div class="section-heading"><p class="section-index">15 · PRIMARY SOURCES</p><h2>论文与源码入口</h2><p>页面内容以论文、官方仓库和当前公开代码为准；数据/权重状态可能更新，复现前应重新核对。</p></div>
+        <div class="source-grid">
+          <a class="source-card" href="https://arxiv.org/html/2605.07308v1" target="_blank" rel="noreferrer"><span>PAPER</span><strong>AT-VLA v1 HTML</strong><p>用户提供版本，方法、实验与消融</p></a>
+          <a class="source-card" href="https://arxiv.org/abs/2605.07308" target="_blank" rel="noreferrer"><span>PAPER</span><strong>AT-VLA 最新记录</strong><p>当前 arXiv 版本与提交历史</p></a>
+          <a class="source-card" href="https://github.com/clorislili/AT-VLA" target="_blank" rel="noreferrer"><span>CODE</span><strong>官方仓库</strong><p>推理导向初始发布与范围说明</p></a>
+          <a class="source-card" href="https://github.com/clorislili/AT-VLA/blob/main/internvl_chat/deploy/deploy.py" target="_blank" rel="noreferrer"><span>ENTRY</span><strong>deploy.py</strong><p>开放环输入、模型加载与动作输出</p></a>
+          <a class="source-card" href="https://github.com/clorislili/AT-VLA/blob/main/internvl_chat/internvl/model/pi0/modeling_pi0.py" target="_blank" rel="noreferrer"><span>MODEL</span><strong>modeling_pi0.py</strong><p>触觉编码、Gate、双流与动作采样</p></a>
+          <a class="source-card" href="https://github.com/clorislili/AT-VLA/blob/main/internvl_chat/internvl/model/pi0/modeling_action_expert.py" target="_blank" rel="noreferrer"><span>ATTENTION</span><strong>Action Expert</strong><p>门控 Query 和注意力实现</p></a>
+          <a class="source-card" href="https://github.com/clorislili/AT-VLA/issues/1" target="_blank" rel="noreferrer"><span>STATUS</span><strong>Checkpoint / Dataset Issue</strong><p>当前公开资源缺失状态</p></a>
+          <a class="source-card" href="https://arxiv.org/abs/2503.06669" target="_blank" rel="noreferrer"><span>BACKBONE</span><strong>AgiBot World / GO-1</strong><p>AT-VLA 使用的 vanilla VLA 背景</p></a>
+        </div>
+      </section>
+
+      <section class="section reveal">
+        <div class="section-heading"><p class="section-index">NEXT STEP</p><h2>继续补触觉与 VLA 基础</h2></div>
+        <div class="path-grid">
+          <a class="path-card" href="tactile-interview.html"><span class="number">TACTILE</span><h3>触觉传感与数据流</h3><p>复习传感器选型、标定、时序、LeRobot 数据组织和 QTac。</p><span class="go">进入 →</span></a>
+          <a class="path-card" href="vla-interview.html"><span class="number">VLA</span><h3>VLA 系统架构</h3><p>把 AT-VLA 放回 VLM、状态、动作空间、微调和 Sim2Real 全景。</p><span class="go">进入 →</span></a>
+          <a class="path-card" href="attention.html"><span class="number">CODE</span><h3>Cross-Attention 手撕</h3><p>从 Q/K/V 形状理解 Adaptive Query，而不是只记概念。</p><span class="go">进入 →</span></a>
+        </div>
+      </section>
+
+      <footer class="footer"><span>AT-VLA Paper & Code Guide · 资料核对日期 2026-08-19</span><nav class="footer-links"><a href="index.html">← 总览</a><a href="tactile-interview.html">触觉专题 →</a></nav></footer>
+    </main>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>
