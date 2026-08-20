@@ -1,0 +1,422 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="围绕 QTac、无本体数采、双臂灵巧手遥操作、G3 触觉推理与开源硬件复现，建立具身智能端到端岗位的简历项目深挖与知识图谱。">
+  <meta name="theme-color" content="#0f1715">
+  <title>简历项目深挖｜具身智能端到端面试</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="scroll-progress"><span id="scroll-progress-bar"></span></div>
+  <header class="topbar">
+    <a class="brand" href="index.html"><span class="brand-mark">CV</span><span class="brand-copy"><strong>简历项目深挖</strong><small>Resume · System · Interview</small></span></a>
+    <nav class="topnav"><a href="index.html">总览</a><a class="active" href="resume-end-to-end.html">简历</a><a href="vla-interview.html">VLA</a><a href="tactile-interview.html">触觉</a><a href="at-vla.html">AT-VLA</a><a href="rtc.html">RTC</a><a href="pi-series.html">π 系列</a><a href="attention.html">Attention</a><a href="vla-loss.html">Loss</a><a href="rl.html">RL</a><a href="leetcode.html">算法题</a></nav>
+    <div class="top-actions"><button class="top-button" id="focus-toggle" type="button">专注阅读</button><a class="top-button strong" href="#positioning">开始梳理 ↓</a></div>
+  </header>
+
+  <div class="page-shell">
+    <aside class="sidebar">
+      <p class="eyebrow">END-TO-END INTERVIEW MAP</p>
+      <ol class="side-nav">
+        <li><a href="#positioning"><span>01</span>岗位定位</a></li>
+        <li><a href="#stack"><span>02</span>端到端全栈</a></li>
+        <li><a href="#qtac"><span>03</span>QTac 深挖</a></li>
+        <li><a href="#alignment"><span>04</span>时空对齐</a></li>
+        <li><a href="#teleop"><span>05</span>遥操作与重定向</a></li>
+        <li><a href="#data"><span>06</span>LeRobot 数据引擎</a></li>
+        <li><a href="#policy"><span>07</span>策略训练与选型</a></li>
+        <li><a href="#deployment"><span>08</span>推理部署</a></li>
+        <li><a href="#hardware"><span>09</span>硬件复现</a></li>
+        <li><a href="#evaluation"><span>10</span>评测与数据飞轮</a></li>
+        <li><a href="#roadmap"><span>11</span>补强路线</a></li>
+        <li><a href="#questions"><span>12</span>高频追问</a></li>
+        <li><a href="#sources"><span>13</span>资料索引</a></li>
+      </ol>
+      <div class="sidebar-card"><strong>本页过关标准</strong><p>能把每条简历经历接到端到端链路；能画坐标与时间同步；能解释数据、策略、部署和评测；能明确区分“实际完成”与“下一步补强”。</p></div>
+    </aside>
+
+    <main>
+      <section class="hero compact reveal visible resume-hero" id="top">
+        <div>
+          <p class="kicker">Resume Evidence · End-to-End Embodied AI</p>
+          <h1>把项目经历<br><em>连成完整闭环</em></h1>
+          <p class="hero-lead">你的核心竞争力不是单点模型，而是“触觉感知 + 多模态数据 + 遥操作平台 + 策略训练 + 真机验证”的交叉能力。本页把简历中的真实工作拆成可追问、可证明、可扩展的端到端知识体系。</p>
+          <div class="hero-actions"><a class="primary-button" href="#positioning">先看岗位定位 ↓</a><a class="ghost-button" href="#questions">直接模拟追问 ↗</a></div>
+          <div class="hero-stats"><div><strong>5</strong><span>项目证据</span></div><div><strong>8</strong><span>端到端层级</span></div><div><strong>3</strong><span>重点补强方向</span></div></div>
+        </div>
+        <div class="hero-board resume-hero-board">
+          <div class="terminal-head"><span class="terminal-dots"><i></i><i></i><i></i></span><span>resume_to_system.map</span></div>
+          <div class="resume-stack-mini">
+            <article><span>01 · SENSE</span><strong>视觉 · 触觉 · VR</strong><small>接入、标定、同步</small></article>
+            <b>↓</b><article><span>02 · DATA</span><strong>Teleop · LeRobot</strong><small>采集、转换、质检</small></article>
+            <b>↓</b><article><span>03 · LEARN</span><strong>CountNet · DiTFlow · VLA</strong><small>表征、训练、泛化</small></article>
+            <b>↓</b><article class="accent"><span>04 · ACT</span><strong>Inference · Robot</strong><small>异步、控制、安全</small></article>
+          </div>
+          <div class="formula">感知 → 数据 → 策略 → 执行 → 评测 → 数据回流</div>
+        </div>
+      </section>
+
+      <section class="section reveal" id="positioning">
+        <div class="section-heading split-heading"><div><p class="section-index">01 · POSITIONING</p><h2>你的岗位定位与证据边界</h2></div><p>目标不是把所有方向都说成“精通”，而是让面试官看到一条可信的成长主线。</p></div>
+        <div class="interview-card"><strong>建议的 60 秒自我定位</strong><p>我的研究和工程经历围绕具身机器人的触觉感知与灵巧操作展开。研究上，我以第一作者完成 QTac，负责从任务定义、触觉数量表征、Flow Matching 动作策略到真机评测的完整闭环；工程上，我做过无本体数采、双臂灵巧手遥操作、LeRobot 数据转换以及触觉在线推理链路，并复现过视触觉传感器、低成本灵巧手和触觉反馈硬件。因此我的优势是能把传感器、数据和端到端策略连接起来，而不是只停留在离线模型训练。当前我也在系统补强 ROS2/C++、仿真与强化学习，希望进一步覆盖规模化端到端训练和部署。</p></div>
+        <div class="table-scroll" style="margin-top:16px"><table class="shape-table"><thead><tr><th>招聘能力</th><th>简历中的直接证据</th><th>面试可展开内容</th><th>当前定位</th></tr></thead><tbody>
+          <tr><td><strong>触觉与多模态感知</strong></td><td>QTac CountNet、G3 触觉链路、FSR 指套、PP-Tac</td><td>传感器原理、标定、滤波、接触状态、任务表征、泛化</td><td><span class="level strong">核心优势</span></td></tr>
+          <tr><td><strong>数据采集与遥操作</strong></td><td>OMMO + 触觉手套、T-Rex 风格双臂系统、多模态采集软件</td><td>坐标变换、时间同步、重定向、数据格式、质量控制</td><td><span class="level strong">核心优势</span></td></tr>
+          <tr><td><strong>端到端策略与真机闭环</strong></td><td>QTac、LaWAM/π<sub>0.5</sub> 基线验证、AT-VLA 参考链路</td><td>ACT/DP/FM/VLA 选型、动作 chunk、推理队列、失败诊断</td><td><span class="level medium">有项目证据</span></td></tr>
+          <tr><td><strong>系统工程与部署</strong></td><td>C#/WPF 多线程、Rerun、硬件联调、在线推理优化</td><td>线程模型、背压、延迟预算、日志、回放、安全边界</td><td><span class="level medium">需加强量化</span></td></tr>
+          <tr><td><strong>机器人基础与控制</strong></td><td>Franka、Sharpa Hand、Tracker/手套映射、真机执行</td><td>SE(3)、IK/Jacobian、关节限制、滤波、碰撞与控制频率</td><td><span class="level medium">重点复习</span></td></tr>
+          <tr><td><strong>仿真、RL 与规模化训练</strong></td><td>当前简历缺少直接证据</td><td>Isaac/MuJoCo、Domain Randomization、offline RL、分布式训练</td><td><span class="level gap">明确补强</span></td></tr>
+          <tr><td><strong>C++ / ROS2 工程</strong></td><td>当前以 Python、C#、LeRobot 为主</td><td>ROS2 node/topic/service/action、tf2、message_filters、MoveIt</td><td><span class="level gap">明确补强</span></td></tr>
+        </tbody></table></div>
+        <div class="boundary-grid">
+          <article class="done"><span>你已完成</span><strong>用结果和细节作证</strong><p>QTac、数采系统、遥操作闭环、触觉数据接入、硬件复现。回答时用架构、接口、指标、失败案例支撑。</p></article>
+          <article class="learn"><span>你应掌握</span><strong>作为项目延伸回答</strong><p>标定误差、重定向目标、数据质检、策略选型、部署延迟、安全机制。可以说“项目中涉及，进一步系统梳理”。</p></article>
+          <article class="avoid"><span>不要过度表述</span><strong>明确团队与个人边界</strong><p>不要声称开发了 G3 整套数采系统、完整复现 AT-VLA 论文，或把 T-Rex/LaWAM/π<sub>0.5</sub> 的论文贡献归为自己。</p></article>
+        </div>
+      </section>
+
+      <section class="section reveal" id="stack">
+        <div class="section-heading"><p class="section-index">02 · END-TO-END STACK</p><h2>端到端不等于“一个大模型”</h2><p>招聘中的端到端通常覆盖从真实世界数据产生到机器人安全执行的完整链路。</p></div>
+        <div class="e2e-pipeline">
+          <article><span>01</span><strong>设备与感知</strong><p>相机、触觉、VR/Tracker、机械臂、灵巧手</p><em>采样率 · 坐标系 · 噪声</em></article><b>→</b>
+          <article><span>02</span><strong>采集与对齐</strong><p>遥操作、重定向、时间戳、外参、同步</p><em>可重复 · 低延迟 · 可回放</em></article><b>→</b>
+          <article><span>03</span><strong>数据引擎</strong><p>Episode、schema、LeRobot、清洗、切分</p><em>完整性 · 一致性 · 多样性</em></article><b>→</b>
+          <article><span>04</span><strong>策略学习</strong><p>BC、ACT、Diffusion、Flow、VLA/WAM</p><em>表征 · Loss · 泛化</em></article><b>→</b>
+          <article><span>05</span><strong>在线推理</strong><p>预处理、chunk、队列、异步、后处理</p><em>吞吐 · 延迟 · 连续性</em></article><b>→</b>
+          <article><span>06</span><strong>控制执行</strong><p>IK/关节控制、限幅、碰撞、安全状态机</p><em>稳定 · 实时 · 可恢复</em></article><b>→</b>
+          <article><span>07</span><strong>评测回流</strong><p>成功率、阶段指标、失败标签、再采样</p><em>数据飞轮</em></article>
+        </div>
+        <div class="table-scroll" style="margin-top:18px"><table class="shape-table"><thead><tr><th>简历项目</th><th>覆盖的端到端层级</th><th>最值得证明的工程细节</th><th>面试官可能追问</th></tr></thead><tbody>
+          <tr><td><strong>QTac</strong></td><td>感知 → 数据 → Flow 策略 → 真机 → 评测</td><td>CountNet 的任务瓶颈、双模式示教、迭代重抓、基线与消融</td><td>为什么不直接拼触觉？为什么用概率分布？如何避免数据泄漏？</td></tr>
+          <tr><td><strong>无本体数采</strong></td><td>设备 → 坐标/时间 → 手部轨迹与触觉</td><td>OMMO、手套、相机之间的变换链和同步策略</td><td>坐标如何统一？漂移怎么评估？不同频率怎样对齐？</td></tr>
+          <tr><td><strong>双臂遥操作</strong></td><td>人类输入 → 重定向 → 本体 → LeRobot → 策略闭环</td><td>Tracker/Manus/Avatar 两套输入、双 Franka + Sharpa、数据稳定性</td><td>IK 怎么做？手指如何映射？延迟和奇异点怎么处理？</td></tr>
+          <tr><td><strong>G3 触觉链路</strong></td><td>现有系统 → 触觉适配 → 模型输入 → 在线推理验证</td><td>数据契约、预处理一致性、端到端时延和离线/在线对齐</td><td>AT-VLA 只是参考什么？你具体改了哪一层？如何验证正确？</td></tr>
+          <tr><td><strong>多模态采集软件</strong></td><td>多传感器 → 多线程 → 存储 → Rerun 回放</td><td>生产者/消费者、缓冲区、丢帧、故障隔离与可视化</td><td>为什么用 MVVM？同步写盘怎么保证？出现背压怎么办？</td></tr>
+        </tbody></table></div>
+      </section>
+
+      <section class="section reveal" id="qtac">
+        <div class="section-heading split-heading"><div><p class="section-index">03 · QTAC DEEP DIVE</p><h2>从任务定义讲到闭环决策</h2></div><p>QTac 是你最强的研究证据，回答应形成“问题—方法—为什么—实验—局限”的完整链条。</p></div>
+        <div class="qtac-interview-map">
+          <article><span>INPUT</span><strong>目标数量 n<sup>*</sup></strong><p>用户给定希望抓取并放置的物体数量。</p></article><b>→</b>
+          <article><span>POLICY</span><strong>视觉 + 本体 → 初次抓取</strong><p>密集遮挡使视觉无法可靠判断夹爪内数量。</p></article><b>→</b>
+          <article class="accent"><span>TACTILE BOTTLENECK</span><strong>CountNet → p(n | T)</strong><p>把双侧高维接触信号压缩为在手数量分布。</p></article><b>→</b>
+          <article><span>CORRECTION</span><strong>DiTFlow → 调整/重抓</strong><p>结合目标与当前估计，迭代生成连续动作。</p></article>
+        </div>
+        <div class="card-grid three" style="margin-top:16px">
+          <article class="info-card"><span>WHY TACTILE</span><h3>补足不可观测状态</h3><p>抓取后物体被夹爪和堆叠遮挡，视觉难以判断“手里究竟有几个”；触觉直接观测接触分布与受力形变。</p></article>
+          <article class="info-card"><span>WHY DISTRIBUTION</span><h3>保留不确定性</h3><p>输出概率分布而非单一整数，可以表达“1 个和 2 个都可能”，也便于策略把置信度作为纠错依据。</p></article>
+          <article class="info-card"><span>WHY DECOUPLE</span><h3>显式任务瓶颈</h3><p>CountNet 先把传感器特定的高维输入转为任务相关变量，使策略输入更稳定，也便于向未见物体迁移和独立评测。</p></article>
+          <article class="info-card"><span>WHY FLOW</span><h3>连续多峰动作</h3><p>密集抓取和重抓可能有多种合理轨迹；Flow Matching 学习从噪声到连续动作分布的速度场，适合生成 action chunk。</p></article>
+          <article class="info-card"><span>WHY TWO MODES</span><h3>覆盖状态分布</h3><p>直接抓取示教覆盖“从场景取物”，自由调整示教覆盖“数量不匹配后的纠错”，降低闭环部署时的分布偏移。</p></article>
+          <article class="info-card"><span>WHY ITERATE</span><h3>把一次成败变成反馈控制</h3><p>单次动作不可靠时，通过触觉估计—策略修正—再次估计形成闭环，直到满足目标或触发终止条件。</p></article>
+        </div>
+
+        <div class="section-heading" style="margin-top:64px"><p class="section-index">FORMULATION</p><h2>用 POMDP 视角解释 QTac</h2></div>
+        <div class="formula large">o<sub>t</sub> = {I<sub>t</sub>, q<sub>t</sub>, T<sub>t</sub>, n<sup>*</sup>}　→　a<sub>t:t+H−1</sub>　→　o<sub>t+1</sub></div>
+        <div class="table-scroll" style="margin-top:16px"><table class="shape-table"><thead><tr><th>变量</th><th>含义</th><th>面试解释</th><th>容易被追问的点</th></tr></thead><tbody>
+          <tr><td><code>I<sub>t</sub></code></td><td>场景视觉</td><td>负责目标位置、堆叠结构与粗粒度几何</td><td>相机视角、图像归一化、数据增强、遮挡</td></tr>
+          <tr><td><code>q<sub>t</sub></code></td><td>本体状态</td><td>关节或末端状态，使策略知道当前执行阶段</td><td>绝对/增量、单位、归一化、时间对齐</td></tr>
+          <tr><td><code>T<sub>t</sub></code></td><td>双侧触觉序列</td><td>CountNet 输出数量分布而非直接进入策略大模型</td><td>窗口长度、左右对称、接触前零信号、漂移</td></tr>
+          <tr><td><code>n<sup>*</sup></code></td><td>目标数量</td><td>任务条件，不是标签；策略需根据当前数量误差生成动作</td><td>如何编码、训练是否覆盖所有目标数量</td></tr>
+          <tr><td><code>a<sub>t:t+H−1</sub></code></td><td>连续动作块</td><td>一次预测未来 H 步，降低逐步推理成本并建模时序协调</td><td>action 维度、chunk 长度、执行频率、重规划时机</td></tr>
+        </tbody></table></div>
+
+        <div class="section-heading" style="margin-top:64px"><p class="section-index">COUNTNET & METRICS</p><h2>分类、校准与数量误差</h2></div>
+        <div class="compare-grid">
+          <article class="compare-card good"><span>COUNT HEAD</span><h3>数量概率分布</h3><p>CountNet 可以视为 K 类分类器：<code>p = softmax(z)</code>，预测数量为 <code>argmax p</code>；若需要连续期望，可计算 <code>E[n]=Σk·p(k)</code>。</p><ul><li>交叉熵衡量分类监督</li><li>混淆矩阵看相邻数量混淆</li><li>置信度用于触发重抓或保守策略</li></ul></article>
+          <article class="compare-card"><span>CALIBRATION</span><h3>准确不等于可信</h3><p>若模型给出 0.9 置信度却只有 60% 正确，策略会过度相信触觉。应额外报告 ECE、Brier Score 或可靠性图。</p><ul><li>温度缩放可做后验校准</li><li>低置信度可触发再次接触</li><li>未见物体上重点检查校准漂移</li></ul></article>
+        </div>
+        <div class="metric-grid" style="margin-top:16px">
+          <article><span>EXACT MATCH</span><strong>60.9%</strong><p>已见物体上，最终抓取数量与目标完全一致的比例</p></article>
+          <article><span>COUNT ERROR</span><strong>0.40</strong><p>每次实验平均与目标相差 0.40 个物体</p></article>
+          <article><span>VS. BEST BASELINE</span><strong>+24.2 pp</strong><p>数量完全匹配率相对表现最佳基线的绝对提升</p></article>
+          <article><span>ERROR REDUCTION</span><strong>−49.4%</strong><p>平均数量偏差相对最佳基线的下降比例</p></article>
+        </div>
+        <div class="callout warning"><strong>指标回答必须先说任务标准</strong><p>先说明“成功”指最终放置数量与用户目标完全一致，再解释平均数量偏差。不要只说“成功率 60.9%”，否则面试官不知道这是抓住物体、完成放置还是精确数量匹配。</p></div>
+        <div class="table-scroll" style="margin-top:16px"><table class="shape-table"><thead><tr><th>消融/基线</th><th>它回答的问题</th><th>公平比较要控制</th><th>结果怎样解释</th></tr></thead><tbody>
+          <tr><td>纯视觉策略</td><td>没有接触反馈时上限如何？</td><td>相同数据规模、网络容量、训练步数与真机协议</td><td>证明遮挡后的数量不可观测确实是关键瓶颈</td></tr>
+          <tr><td>端到端视触觉融合</td><td>显式 CountNet 是否必要？</td><td>相同触觉输入、增强、优化器和参数量尽量可比</td><td>若 QTac 更好，说明任务瓶颈和解耦带来数据效率/泛化收益</td></tr>
+          <tr><td>Policy Consensus</td><td>不同策略/阶段聚合能否替代显式数量反馈？</td><td>执行预算、最大重抓次数、终止规则</td><td>比较闭环决策机制而非只比较单次抓取</td></tr>
+          <tr><td>π<sub>0.5</sub></td><td>大规模通用 VLA 是否能直接解决任务？</td><td>输入模态、微调数据、动作空间和推理预算</td><td>强调任务专用触觉表征与通用预训练模型的互补</td></tr>
+        </tbody></table></div>
+        <div class="callout"><strong>主动说局限会更加分</strong><p>可以从目标数量范围、物体类型、传感器依赖、重抓次数、执行速度和失败恢复展开。进一步工作包括跨传感器表征、开放集数量估计、置信度驱动的主动触摸，以及把 CountNet 的显式表征接入更通用的 VLA。</p></div>
+      </section>
+
+      <section class="section reveal" id="alignment">
+        <div class="section-heading split-heading"><div><p class="section-index">04 · SPATIOTEMPORAL ALIGNMENT</p><h2>无本体数采的真正难点</h2></div><p>“设备接上了”只是起点，训练数据是否有意义取决于坐标、时间和语义是否一致。</p></div>
+        <div class="coordinate-chain">
+          <article><span>OMMO / TRACKER</span><strong>{W}</strong><p>空间追踪世界坐标</p></article><b>T<sup>C</sup><sub>W</sub></b>
+          <article class="accent"><span>CAMERA</span><strong>{C}</strong><p>统一监督与视觉坐标</p></article><b>T<sup>C</sup><sub>H</sub></b>
+          <article><span>HAND / WRIST</span><strong>{H}</strong><p>手腕与关键点</p></article><b>T<sup>H</sup><sub>F<sub>i</sub></sub></b>
+          <article><span>FINGERTIP</span><strong>{F<sub>i</sub>}</strong><p>指尖与触觉位置</p></article>
+        </div>
+        <div class="formula large">p<sup>C</sup><sub>finger</sub> = T<sup>C</sup><sub>W</sub> · T<sup>W</sup><sub>H</sub> · p<sup>H</sup><sub>finger</sub></div>
+        <div class="table-scroll" style="margin-top:16px"><table class="shape-table"><thead><tr><th>步骤</th><th>必须明确</th><th>验证方法</th><th>常见错误</th></tr></thead><tbody>
+          <tr><td><strong>坐标约定</strong></td><td>右/左手系，轴方向，单位，齐次矩阵的 source/target 语义</td><td>用单位轴和已知平移做最小测试</td><td>把 <code>T<sup>A</sup><sub>B</sub></code> 与逆矩阵混用；毫米/米混用</td></tr>
+          <tr><td><strong>外参标定</strong></td><td>相机与追踪世界/基座之间固定变换</td><td>多姿态采样，检查重投影或 3D 点残差</td><td>只用一个姿态标定；标定后设备位置改变</td></tr>
+          <tr><td><strong>手眼关系</strong></td><td>Eye-to-Hand 或 Eye-in-Hand；必要时求解 AX=XB</td><td>保留独立验证姿态，报告平移/旋转误差</td><td>采样姿态缺乏旋转多样性导致病态</td></tr>
+          <tr><td><strong>旋转表示</strong></td><td>四元数顺序 xyzw/wxyz、归一化、符号等价</td><td>矩阵正交性、det(R)=1、往返转换</td><td>直接对四元数线性插值；欧拉角跨 ±π 跳变</td></tr>
+          <tr><td><strong>在线变换</strong></td><td>每帧使用同一时刻的 tf/外参，不使用未来信息</td><td>录制动态轨迹，检查相机画面上的 2D/3D 叠加</td><td>使用最新到达变换而非对应时间戳变换</td></tr>
+        </tbody></table></div>
+
+        <div class="section-heading" style="margin-top:64px"><p class="section-index">TIME ALIGNMENT</p><h2>不同频率不能按数组下标硬对齐</h2></div>
+        <div class="sync-map">
+          <article><span>RGB-D · 30 Hz</span><strong>frame timestamp</strong><p>曝光/驱动时间优先于收到消息的主机时间</p></article>
+          <article><span>Tracker · 90/120 Hz</span><strong>pose interpolation</strong><p>位置线性插值，旋转使用 SLERP</p></article>
+          <article><span>Tactile · variable</span><strong>window / hold</strong><p>抗混叠滤波后重采样；按任务保留短时窗口</p></article>
+          <article><span>Robot · 100+ Hz</span><strong>state/action</strong><p>区分观测时刻、命令发送时刻与实际执行时刻</p></article>
+        </div>
+        <div class="formula">t<sub>canonical</sub> = episode_start + k / fps　；　x(t) = Interpolate({t<sub>i</sub>, x<sub>i</sub>})</div>
+        <div class="card-grid three" style="margin-top:16px">
+          <article class="info-card"><span>CLOCK</span><h3>先统一时间基准</h3><p>同机优先使用单调时钟；跨设备/跨机器需要估计时钟偏移与漂移，必要时使用硬件触发、PTP 或同步脉冲。</p></article>
+          <article class="info-card"><span>RESAMPLE</span><h3>按物理量选择插值</h3><p>位置可线性，姿态用 SLERP，离散夹爪状态用最近邻/保持，触觉高频信号先低通再降采样。</p></article>
+          <article class="info-card"><span>LATENCY</span><h3>同步不等于零延迟</h3><p>还要测量曝光、SDK、传输、预处理、模型和执行器延迟；动作标签可能要按实际执行时刻补偿。</p></article>
+        </div>
+        <div class="callout"><strong>面试中的项目表达</strong><p>“我将 OMMO 输出的手部位姿与手套关键点通过标定变换统一到相机坐标系；时间上保留每个设备的原始时间戳，以统一时间轴重采样，并用轨迹叠加、静态点残差和动态同步误差验证时空一致性。”若项目当时没有完整量化某个误差，应说“通过可视化与实验验证”，不要虚构数值。</p></div>
+      </section>
+
+      <section class="section reveal" id="teleop">
+        <div class="section-heading"><p class="section-index">05 · TELEOP & RETARGETING</p><h2>从人的运动到机器人的可执行动作</h2><p>你的系统同时支持 Tracker + Manus 和 Sharpa Avatar，面试时应讲清“腕部映射”和“手指重定向”是两类问题。</p></div>
+        <div class="teleop-flow">
+          <article><span>HUMAN INPUT</span><strong>Vive Tracker 3.0</strong><p>双腕 6D 位姿</p></article><b>+</b>
+          <article><span>HAND INPUT</span><strong>Manus / Avatar</strong><p>手部关键点、关节或外骨骼状态</p></article><b>→</b>
+          <article class="accent"><span>RETARGET</span><strong>Workspace + IK</strong><p>尺度、坐标、关节约束、平滑</p></article><b>→</b>
+          <article><span>ROBOT</span><strong>2× Franka + Sharpa</strong><p>双臂与灵巧手命令</p></article>
+        </div>
+        <div class="table-scroll" style="margin-top:16px"><table class="shape-table"><thead><tr><th>模块</th><th>核心公式/目标</th><th>工程处理</th><th>评测指标</th></tr></thead><tbody>
+          <tr><td><strong>初始对齐</strong></td><td><code>T<sup>R</sup><sub>target</sub> = T<sup>R</sup><sub>0</sub> · S( (T<sup>H</sup><sub>0</sub>)<sup>−1</sup>T<sup>H</sup><sub>t</sub> )</code></td><td>以启动姿态为零点，位置尺度映射，旋转保持相对变化</td><td>零漂、可达工作空间覆盖</td></tr>
+          <tr><td><strong>机械臂 IK</strong></td><td><code>q̇ = J<sup>#</sup>v</code>；阻尼伪逆 <code>J<sup>T</sup>(JJ<sup>T</sup>+λ²I)<sup>−1</sup></code></td><td>关节限位、奇异点阻尼、速度/加速度限制、双臂碰撞</td><td>末端跟踪误差、IK 失败率、jerk</td></tr>
+          <tr><td><strong>零空间目标</strong></td><td><code>q̇ = J<sup>#</sup>v + (I−J<sup>#</sup>J)q̇<sub>null</sub></code></td><td>远离关节极限、保持舒适姿态、规避碰撞</td><td>最小关节裕度、奇异值</td></tr>
+          <tr><td><strong>手指重定向</strong></td><td>最小化指尖位置/方向/关键向量差 + 正则项</td><td>不同手型比例、DoF 差异、关节耦合、接触前预形</td><td>指尖误差、抓取可用性、自碰撞率</td></tr>
+          <tr><td><strong>滤波与离合</strong></td><td>低通/One-Euro；clutch 暂停映射并重设中心</td><td>降低抖动，同时避免过度滤波产生相位延迟</td><td>端到端延迟、噪声 RMS、操作者负担</td></tr>
+          <tr><td><strong>双臂协调</strong></td><td>分别映射 + 相对位姿/碰撞约束</td><td>共享时钟、原子发送双臂动作、失败时同时停止</td><td>相对末端误差、同步偏差</td></tr>
+        </tbody></table></div>
+        <div class="compare-grid" style="margin-top:16px">
+          <article class="compare-card"><span>MANUS + TRACKER</span><h3>轻量、自由度高</h3><p>适合大范围示教，人与机器人结构差异需要更强的重定向；无线/SDK 延迟、遮挡和漂移需要在线监控。</p><ul><li>腕部位姿来自 Tracker</li><li>手部运动来自 Manus</li><li>软件重定向决定最终可用性</li></ul></article>
+          <article class="compare-card good"><span>SHARPA AVATAR</span><h3>更接近本体结构</h3><p>外骨骼可提供更直接的关节/姿态映射，但穿戴舒适性、关节零位、机械限位和用户标定仍需处理。</p><ul><li>映射更直观</li><li>可能降低手型差异</li><li>需要严格安全与限幅</li></ul></article>
+        </div>
+        <div class="callout warning"><strong>“参考 T-Rex”应该怎样说</strong><p>把 T-Rex 作为硬件架构与数据采集协议的参考：Manus + Vive Tracker 进行双臂灵巧手遥操作，并同步记录视觉与触觉。你的贡献是结合公司设备搭建内部实验平台、打通两套遥操作输入、稳定产出并转为 LeRobot 数据，以及在自建平台验证策略数据流；不要说自己复现了 T-Rex 的论文模型与所有实验。</p></div>
+      </section>
+
+      <section class="section reveal" id="data">
+        <div class="section-heading split-heading"><div><p class="section-index">06 · DATA ENGINE</p><h2>LeRobot 格式只是容器，质量体系才是核心</h2></div><p>端到端岗位会追问数据如何产生、如何发现错误、如何切分和如何回流。</p></div>
+        <div class="data-schema">
+          <article><span>OBSERVATION</span><strong>images / state / tactile</strong><p>多视角 RGB、机器人状态、可选深度/力/触觉特征</p></article>
+          <article><span>ACTION</span><strong>a<sub>t</sub> or Δa<sub>t</sub></strong><p>关节/末端、绝对/增量、夹爪/灵巧手命令</p></article>
+          <article><span>INDEX</span><strong>episode · frame · timestamp</strong><p>任务边界、时序顺序、同步与采样</p></article>
+          <article><span>METADATA</span><strong>task · robot · operator · object</strong><p>训练条件、分组切分、数据追溯</p></article>
+        </div>
+        <div class="callout"><strong>LeRobot v3 的面试记忆点</strong><p>低维时序信号使用 Parquet，图像/视频使用 MP4，配套 info、stats、tasks、episodes 等元数据；标准化的 feature schema 让不同机器人和策略共享加载、采样、可视化与 Hub 分发工具。自定义触觉可以作为明确 shape、dtype 和命名空间的 feature 接入，但必须同步发布其物理语义、单位、归一化和标定版本。</p></div>
+        <div class="table-scroll" style="margin-top:16px"><table class="shape-table"><thead><tr><th>质检层</th><th>必须检查</th><th>自动化指标/断言</th><th>发现问题后的动作</th></tr></thead><tbody>
+          <tr><td><strong>Schema</strong></td><td>字段、shape、dtype、单位、动作语义</td><td>每帧 feature 完整；维度固定；NaN/Inf=0</td><td>阻止写入或隔离 episode，不静默填错</td></tr>
+          <tr><td><strong>时间</strong></td><td>时间戳单调、采样间隔、跨模态偏移</td><td>Δt 分布、最大 jitter、重复/倒序帧、丢帧率</td><td>重采样、补偿偏移、标记低质量区间</td></tr>
+          <tr><td><strong>空间</strong></td><td>坐标系、外参版本、动作/状态范围</td><td>重投影误差、关节限位、速度/加速度异常</td><td>重新标定；修复版本标签；删除危险数据</td></tr>
+          <tr><td><strong>视觉</strong></td><td>黑帧、曝光、模糊、编码损坏、视角变化</td><td>亮度/清晰度分布、解码通过率、帧数匹配</td><td>重采、自动告警、保留故障原因</td></tr>
+          <tr><td><strong>触觉</strong></td><td>零漂、饱和、断连、接触前基线、左右通道</td><td>基线均值/方差、饱和占比、跳变、接触占比</td><td>在线零点校正、坏通道 mask、重新采集</td></tr>
+          <tr><td><strong>任务</strong></td><td>起止点、成功标签、无效等待、人工干预</td><td>episode 时长、动作能量、阶段完成率、干预次数</td><td>裁剪静止段、细化失败标签、困难样本再采</td></tr>
+        </tbody></table></div>
+
+        <div class="section-heading" style="margin-top:64px"><p class="section-index">SAMPLING & SPLIT</p><h2>训练样本如何从 episode 中取</h2></div>
+        <div class="formula">sample(t) = {o<sub>t+δ<sub>obs</sub></sub>, a<sub>t+δ<sub>1</sub>:t+δ<sub>H</sub></sub>}　；　δ 由 fps 与 policy horizon 决定</div>
+        <div class="card-grid three" style="margin-top:16px">
+          <article class="info-card"><span>ACTION CHUNK</span><h3>窗口边界</h3><p>靠近 episode 末尾时用 padding 并提供 mask，不能把下一个 episode 的动作拼进来；视觉与动作的 delta timestamp 要对应真实控制延迟。</p></article>
+          <article class="info-card"><span>NORMALIZATION</span><h3>只用训练集统计量</h3><p>图像按预训练规范；state/action 常用 mean/std 或 robust quantile。部署必须使用同一统计量，并对越界输入监控而非盲目 clamp。</p></article>
+          <article class="info-card"><span>SPLIT</span><h3>按实体分组而非随机帧</h3><p>同一 episode 的帧不能跨 train/val；泛化评测应按物体、场景、操作者或任务留出，避免相邻帧泄漏。</p></article>
+        </div>
+        <div class="section-heading" style="margin-top:64px"><p class="section-index">MULTITHREADED RECORDER</p><h2>C#/WPF 多模态采集系统怎么讲</h2></div>
+        <div class="thread-pipeline">
+          <article><span>SENSOR PRODUCERS</span><strong>每设备独立采样</strong><p>SDK 回调只做轻量复制与打时间戳</p></article><b>→</b>
+          <article><span>BOUNDED BUFFER</span><strong>Ring Buffer / Channel</strong><p>限制内存，记录丢帧与队列水位</p></article><b>→</b>
+          <article class="accent"><span>ALIGNER</span><strong>统一时间轴</strong><p>按 timestamp 配对/插值，不阻塞快设备</p></article><b>→</b>
+          <article><span>WRITER + RERUN</span><strong>写盘与可视化分离</strong><p>批量写入、回放、故障定位</p></article>
+        </div>
+        <div class="table-scroll" style="margin-top:16px"><table class="shape-table"><thead><tr><th>工程概念</th><th>正确回答</th><th>失败模式</th><th>改进</th></tr></thead><tbody>
+          <tr><td>MVVM</td><td>View 负责展示，ViewModel 负责状态与命令，采集服务隔离 SDK/硬件</td><td>UI 线程直接读传感器导致卡顿</td><td>异步命令、依赖注入、设备状态机</td></tr>
+          <tr><td>背压</td><td>写盘速度小于生产速度时，必须有有界队列和明确丢帧策略</td><td>无限队列导致内存增长，或阻塞 SDK 回调</td><td>视频允许丢旧帧；关键状态优先保留并告警</td></tr>
+          <tr><td>故障隔离</td><td>单设备断连不能破坏其他数据，episode 标记传感器状态</td><td>线程异常静默退出，数据看似完整</td><td>心跳、重连、错误传播、健康面板</td></tr>
+          <tr><td>安全退出</td><td>先停止采样，再 drain 队列，刷新文件并原子写元数据</td><td>强制退出造成视频/索引损坏</td><td>CancellationToken、finally、临时文件后重命名</td></tr>
+          <tr><td>可复现回放</td><td>原始时间戳、标定版本和配置与数据绑定</td><td>只能看画面，无法重建模型输入</td><td>Rerun/离线工具复现同一预处理与坐标变换</td></tr>
+        </tbody></table></div>
+      </section>
+
+      <section class="section reveal" id="policy">
+        <div class="section-heading split-heading"><div><p class="section-index">07 · POLICY TRAINING</p><h2>策略不是越大越好，要匹配数据和任务</h2></div><p>面试时先问动作空间、数据量、任务跨度、推理预算，再选择 ACT、Diffusion、Flow、VLA 或 WAM。</p></div>
+        <div class="table-scroll"><table class="shape-table"><thead><tr><th>路线</th><th>核心思想</th><th>适合场景</th><th>优点</th><th>主要代价/追问</th></tr></thead><tbody>
+          <tr><td><strong>ACT</strong></td><td>CVAE + Transformer 一次生成 action chunk</td><td>中等数据量、相对固定任务、双臂精细操作</td><td>训练稳定、推理快、chunk 减少复合误差</td><td>多峰动作可能平均化；KL、chunk、temporal ensemble 怎么设</td></tr>
+          <tr><td><strong>Diffusion Policy</strong></td><td>条件扩散逐步去噪动作轨迹</td><td>连续、多峰、接触操作</td><td>表达复杂动作分布、闭环效果强</td><td>多步采样慢；scheduler、prediction target、horizon</td></tr>
+          <tr><td><strong>Flow Matching</strong></td><td>学习概率路径的速度场并积分生成动作</td><td>连续动作、希望减少生成步数</td><td>训练目标直接、可使用少步 ODE 推理</td><td>时间采样、路径设计、积分器、少步误差；QTac 属于此路线</td></tr>
+          <tr><td><strong>VLA</strong></td><td>大规模视觉语言知识与动作专家联合/对齐</td><td>多任务、语言条件、开放世界泛化</td><td>迁移强、可利用互联网/VLM 知识</td><td>数据和算力大、延迟高、动作 tokenizer/专家设计</td></tr>
+          <tr><td><strong>WAM / LaWAM</strong></td><td>先预测未来的潜在视觉子目标，再条件化动作</td><td>需要长时规划但不想生成完整像素视频</td><td>潜在子目标比像素世界模型更轻，提供前瞻条件</td><td>latent 是否包含控制所需信息；世界模型误差怎样传给动作</td></tr>
+        </tbody></table></div>
+        <div class="section-heading" style="margin-top:64px"><p class="section-index">ACTION REPRESENTATION</p><h2>最容易被忽视的接口设计</h2></div>
+        <div class="table-scroll"><table class="shape-table"><thead><tr><th>设计选择</th><th>方案</th><th>权衡</th><th>部署必须一致</th></tr></thead><tbody>
+          <tr><td><strong>控制空间</strong></td><td>关节位置/速度/力矩；末端 SE(3) + 夹爪/手指</td><td>关节空间直接但本体相关；末端空间迁移直观但需要 IK</td><td>训练 action 与控制器接收的命令语义完全相同</td></tr>
+          <tr><td><strong>绝对 vs 增量</strong></td><td><code>a=q<sub>target</sub></code> 或 <code>a=Δq/Δx</code></td><td>绝对动作抗累积误差；增量动作更局部但会漂移</td><td>参考系、累加位置、限幅和控制周期</td></tr>
+          <tr><td><strong>旋转</strong></td><td>Euler、quaternion、axis-angle、6D rotation</td><td>四元数有 ±q 等价；Euler 有奇异；6D 连续但需正交化</td><td>顺序、归一化、局部/世界坐标</td></tr>
+          <tr><td><strong>灵巧手</strong></td><td>所有关节、低维 synergy、指尖目标</td><td>全 DoF 精细但数据难；synergy 易学但限制动作空间</td><td>关节顺序、耦合、零位、范围与手型版本</td></tr>
+          <tr><td><strong>Action chunk</strong></td><td>[B,H,D<sub>a</sub>]</td><td>H 大则推理少但响应慢；H 小则闭环快但计算重</td><td>训练采样、部署队列、重规划步长与 mask</td></tr>
+        </tbody></table></div>
+        <div class="formula large">Flow Matching：x<sub>t</sub> = (1−t)x<sub>0</sub> + tx<sub>1</sub>　；　L = E‖v<sub>θ</sub>(x<sub>t</sub>,t,c) − (x<sub>1</sub>−x<sub>0</sub>)‖²</div>
+        <div class="memory-line"><strong>和你前面代码问题的连接</strong><p><code>t∼p(t)</code> 为每个 batch 样本采一个噪声时间；<code>t[:,None,None]</code> 把 [B] 扩成 [B,1,1]，从而对 [B,H,D<sub>a</sub>] 的动作块广播；<code>velocity_net(x_t,t,global_cond)</code> 预测每个动作位置的速度场；输出限幅只应在明确的归一化动作范围内使用，并监控饱和率。</p></div>
+        <div class="callout"><strong>LaWAM 与 π<sub>0.5</sub> 基线怎样讲</strong><p>“我在自建平台上将它们作为端到端数据流的基线：重点验证观测预处理、动作维度/归一化、推理服务、后处理和机器人执行接口是否闭合。模型论文贡献属于原作者；我的工作是平台适配与闭环验证。”若某个基线只完成离线输出或部分真机实验，应进一步说明验证层级。</p></div>
+      </section>
+
+      <section class="section reveal" id="deployment">
+        <div class="section-heading"><p class="section-index">08 · INFERENCE & DEPLOYMENT</p><h2>离线 loss 正常，不代表真机能够运行</h2></div>
+        <div class="deployment-loop">
+          <article><span>ADAPTER</span><strong>Observation Contract</strong><p>相机、状态、触觉 → 统一字段/shape/dtype</p></article><b>→</b>
+          <article><span>PREPROCESS</span><strong>Train = Deploy</strong><p>裁剪、归一化、堆帧、时间窗口</p></article><b>→</b>
+          <article class="accent"><span>MODEL</span><strong>Action Chunk</strong><p>GPU/服务端生成 [H,D<sub>a</sub>]</p></article><b>→</b>
+          <article><span>POSTPROCESS</span><strong>Denorm + Safety</strong><p>反归一化、坐标变换、限幅、IK</p></article><b>→</b>
+          <article><span>EXECUTOR</span><strong>Queue / RTC</strong><p>定频执行、异步重规划、故障停止</p></article>
+        </div>
+        <div class="table-scroll" style="margin-top:16px"><table class="shape-table"><thead><tr><th>延迟段</th><th>测量边界</th><th>常见瓶颈</th><th>优化方向</th></tr></thead><tbody>
+          <tr><td><strong>传感器</strong></td><td>物理采样 → SDK 可读</td><td>曝光、USB、触觉滤波窗口</td><td>固定曝光/分辨率，零拷贝，缩短但不破坏信号的滤波</td></tr>
+          <tr><td><strong>预处理</strong></td><td>原始 payload → 模型 tensor</td><td>图像 resize/copy、CPU tokenizer、同步等待</td><td>pinned memory、批量/异步搬运、缓存语言 token</td></tr>
+          <tr><td><strong>模型</strong></td><td>GPU 输入 → action 输出</td><td>VLM 重算、多步 diffusion、动态 shape</td><td>混合精度、KV cache、torch.compile/TensorRT、少步采样</td></tr>
+          <tr><td><strong>通信</strong></td><td>client send → server return</td><td>序列化、大图像、网络 jitter</td><td>本地编码、压缩、二进制协议、sequence id、超时</td></tr>
+          <tr><td><strong>后处理</strong></td><td>归一化动作 → 控制命令</td><td>CPU IK、坐标转换、逐点碰撞检查</td><td>并行/增量 IK、预计算、限制检查分层</td></tr>
+          <tr><td><strong>执行</strong></td><td>命令发送 → 机器人实际响应</td><td>控制周期、队列耗尽、执行器滞后</td><td>动作缓冲、异步推理、RTC、低层插值与反馈监控</td></tr>
+        </tbody></table></div>
+        <div class="formula">T<sub>end-to-end</sub> = T<sub>sense</sub> + T<sub>pre</sub> + T<sub>model</sub> + T<sub>net</sub> + T<sub>post</sub> + T<sub>actuator</sub></div>
+        <div class="card-grid three" style="margin-top:16px">
+          <article class="info-card"><span>CORRECTNESS</span><h3>离线回放对齐</h3><p>同一个保存样本分别走训练 dataloader 与部署 adapter，逐字段比较 tensor；再比较 Python 离线、服务端和真机客户端输出。</p></article>
+          <article class="info-card"><span>PERFORMANCE</span><h3>分位数而非平均值</h3><p>报告 P50/P95/P99 延迟、吞吐、队列水位和 deadline miss；只看平均时间会隐藏真机卡顿。</p></article>
+          <article class="info-card"><span>OBSERVABILITY</span><h3>每个动作可追溯</h3><p>记录 observation/action sequence id、时间戳、模型版本、归一化版本和安全修改，才能定位“模型错还是系统错”。</p></article>
+        </div>
+        <div class="section-heading" style="margin-top:64px"><p class="section-index">TACTILE ON G3</p><h2>触觉推理链路的验证层级</h2></div>
+        <div class="version-rail compact-rail">
+          <article><div class="version-dot">L0</div><div><strong>信号可读</strong><p>设备连接、时间戳、通道顺序、单位与零点稳定。</p></div><em>不是模型验证</em></article>
+          <article><div class="version-dot">L1</div><div><strong>模型输入一致</strong><p>shape、dtype、归一化、触觉窗口与训练/参考代码一致。</p></div><em>可做录制回放</em></article>
+          <article><div class="version-dot">L2</div><div><strong>开放环输出合理</strong><p>真实触觉输入能触发模型/门控，动作无 NaN、无异常饱和。</p></div><em>仍未控制机器人</em></article>
+          <article><div class="version-dot">L3</div><div><strong>安全真机闭环</strong><p>低速、软限位、急停、超时和失联保护下执行动作。</p></div><em>验证端到端延迟</em></article>
+          <article><div class="version-dot">L4</div><div><strong>任务与消融评测</strong><p>触觉开/关、不同门控/频率的成功率和失败模式对比。</p></div><em>才可称完整闭环验证</em></article>
+        </div>
+        <div class="callout warning"><strong>AT-VLA 在你的项目中是参考模型</strong><p>最稳妥的表达是：你负责现有 G3 系统中的触觉数据接入、解析、模型输入适配和在线推理流程优化，并以 AT-VLA 的触觉门控/快慢流为参考验证链路。若还没有完成 L3/L4，就不要写成“完成 AT-VLA 真机复现”。具体机制见本站 <a href="at-vla.html"><u>AT-VLA 页面</u></a>，异步 action chunk 见 <a href="rtc.html"><u>RTC 页面</u></a>。</p></div>
+        <div class="table-scroll" style="margin-top:16px"><table class="shape-table"><thead><tr><th>真机安全层</th><th>最小机制</th><th>触发后行为</th></tr></thead><tbody>
+          <tr><td>输入健康</td><td>相机/触觉/状态超时、NaN、时间戳陈旧、标定版本不符</td><td>拒绝推理或保持安全姿态</td></tr>
+          <tr><td>动作约束</td><td>位置/速度/加速度/jerk、关节限位、工作空间和自碰撞</td><td>限幅、投影到安全集或整块拒绝</td></tr>
+          <tr><td>通信保护</td><td>心跳、sequence id、超时、重复/乱序 chunk</td><td>清空队列并进入 hold/stop</td></tr>
+          <tr><td>接触保护</td><td>力/触觉阈值、滑移、卡滞和异常冲击</td><td>降速、撤退、松手或切换恢复状态</td></tr>
+          <tr><td>人工接管</td><td>硬急停、软件急停、dead-man switch</td><td>优先级高于任何模型输出</td></tr>
+        </tbody></table></div>
+      </section>
+
+      <section class="section reveal" id="hardware">
+        <div class="section-heading split-heading"><div><p class="section-index">09 · HARDWARE REPRODUCTION</p><h2>把“能复现”包装成工程判断力</h2></div><p>重点不是罗列制作步骤，而是说明你能从有限资料完成需求拆解、替代选型、工艺迭代与可行性验证。</p></div>
+        <div class="table-scroll"><table class="shape-table"><thead><tr><th>项目</th><th>核心原理/特点</th><th>你能证明的能力</th><th>面试继续追问</th></tr></thead><tbody>
+          <tr><td><strong>PP-Tac</strong><br>指尖视触觉</td><td>低成本、半球形敏感表面、单目 120 fps 视觉触觉；全向接触成像</td><td>依据论文与开源资料完成光机结构、敏感层与成像链路复现</td><td>光照均匀性、弹性体材料、镜头畸变、深度/力标定、滑移检测</td></tr>
+          <tr><td><strong>RAPID Hand</strong><br>20-DoF 灵巧手</td><td>紧凑直驱方案，面向低延迟视觉/触觉/本体操作</td><td>将 Dynamixel 替换为飞特 HLS-3915，完成器件适配，成本降至约 25%</td><td>扭矩/速度/尺寸、通讯总线、编码器、热管理、结构强度、控制带宽</td></tr>
+          <tr><td><strong>Fluid Reality</strong><br>电渗泵触觉反馈</td><td>利用电场驱动流体，在柔性执行单元中产生触觉形变/压力反馈</td><td>在公开资料有限的情况下优化工艺并验证基本原理和可行性</td><td>电极/流体/膜层、绝缘与高压安全、泄漏、响应、寿命和一致性</td></tr>
+        </tbody></table></div>
+        <div class="section-heading" style="margin-top:64px"><p class="section-index">ENGINEERING METHOD</p><h2>通用复现流程</h2></div>
+        <div class="step-list">
+          <article class="step-row"><span>01</span><strong>需求拆解</strong><p>先定义目标性能、自由度、尺寸、采样率、成本与使用场景，不从 BOM 直接照抄。</p></article>
+          <article class="step-row"><span>02</span><strong>关键变量识别</strong><p>找出决定成败的材料、几何、驱动、光学、电气或控制参数，并区分可替代与不可替代项。</p></article>
+          <article class="step-row"><span>03</span><strong>替代器件匹配</strong><p>建立规格矩阵，至少比较性能、机械接口、电气接口、通信协议、供应与成本。</p></article>
+          <article class="step-row"><span>04</span><strong>最小原理样机</strong><p>先验证单指、单关节、单泵或单通道，再扩展整机，降低定位问题的复杂度。</p></article>
+          <article class="step-row"><span>05</span><strong>工艺窗口与 DOE</strong><p>控制变量记录材料配比、固化、层厚、装配和环境条件，避免“偶然做成但不能重复”。</p></article>
+          <article class="step-row"><span>06</span><strong>量化验收</strong><p>功能只是第一层，还需测精度、带宽、重复性、漂移、寿命、热和成本，说明替代方案是否等价。</p></article>
+        </div>
+        <div class="compare-grid" style="margin-top:16px">
+          <article class="compare-card good"><span>RAPID HAND SUBSTITUTION</span><h3>不能只讲“便宜 75%”</h3><p>成本下降是亮点，但面试官会问是否牺牲性能。准备 HLS-3915 与原舵机在额定/峰值扭矩、无载速度、分辨率、回差、协议、尺寸、质量和温升上的对照，并说明结构孔位、驱动 API 和控制参数怎样适配。</p></article>
+          <article class="compare-card"><span>VALIDATION</span><h3>建立等效性证据</h3><p>至少可用关节阶跃响应、跟踪误差、堵转/温升、重复定位、整手动作成功率和连续运行时间验证。若当时只完成基础运动，应坦诚“证明低成本可行”，不要声称与原方案性能完全等价。</p></article>
+        </div>
+      </section>
+
+      <section class="section reveal" id="evaluation">
+        <div class="section-heading"><p class="section-index">10 · EVALUATION & DATA FLYWHEEL</p><h2>从“跑通一次”升级到可比较系统</h2></div>
+        <div class="table-scroll"><table class="shape-table"><thead><tr><th>评测层级</th><th>核心指标</th><th>为什么重要</th><th>对应项目</th></tr></thead><tbody>
+          <tr><td><strong>传感器</strong></td><td>噪声、漂移、饱和、带宽、迟滞、空间分辨率、重复性</td><td>区分模型错误与硬件输入错误</td><td>PP-Tac、FSR、G3 触觉、Fluid Reality</td></tr>
+          <tr><td><strong>标定/遥操作</strong></td><td>平移/旋转误差、指尖误差、抖动、延迟、IK 失败率</td><td>决定示教动作是否可学、是否安全</td><td>OMMO、Tracker/Manus/Avatar</td></tr>
+          <tr><td><strong>数据</strong></td><td>丢帧、同步偏差、episode 完整率、成功/失败分布、多样性</td><td>端到端模型的上限由数据决定</td><td>LeRobot 转换、多模态采集软件</td></tr>
+          <tr><td><strong>离线模型</strong></td><td>loss、数量准确率/MAE、校准、action MSE 仅作诊断</td><td>便于快速迭代，但不能替代真机任务指标</td><td>CountNet、策略基线、AT-VLA 链路</td></tr>
+          <tr><td><strong>在线系统</strong></td><td>P50/P95 延迟、控制 deadline、chunk 接缝 jerk、异常恢复</td><td>判断模型能否成为实时机器人系统</td><td>G3、双臂平台、RTC</td></tr>
+          <tr><td><strong>任务</strong></td><td>严格成功率、阶段完成率、数量误差、时间、重试次数</td><td>衡量真实价值与失败位置</td><td>QTac、策略真机部署</td></tr>
+          <tr><td><strong>泛化</strong></td><td>未见物体/场景/操作者/相机/传感器、扰动恢复</td><td>防止只记住训练环境</td><td>QTac 未见物体、跨设备数采</td></tr>
+        </tbody></table></div>
+        <div class="flywheel">
+          <article><span>DEPLOY</span><strong>真机执行</strong><p>记录所有成功与失败，不只保存好样本</p></article><b>→</b>
+          <article><span>TRIAGE</span><strong>失败分类</strong><p>感知 / 规划 / 控制 / 系统 / 人类示教</p></article><b>→</b>
+          <article class="accent"><span>MINE</span><strong>困难样本</strong><p>低置信度、边界状态、恢复失败、长尾物体</p></article><b>→</b>
+          <article><span>COLLECT</span><strong>定向补数</strong><p>调整任务分布，保留版本与元数据</p></article><b>→</b>
+          <article><span>TRAIN & EVAL</span><strong>受控对比</strong><p>固定评测集、消融与回归测试</p></article>
+        </div>
+        <div class="table-scroll" style="margin-top:16px"><table class="shape-table"><thead><tr><th>失败类别</th><th>可观测症状</th><th>优先诊断</th><th>数据回流策略</th></tr></thead><tbody>
+          <tr><td>感知失败</td><td>目标/接触/数量估计错误</td><td>原始图像/触觉、标定、置信度、输入分布</td><td>补充遮挡、材质、弱接触和传感器漂移样本</td></tr>
+          <tr><td>策略失败</td><td>动作方向错误、恢复行为缺失</td><td>训练动作分布、action 表示、条件是否生效</td><td>定向采集纠错示教；QTac 的双模式数据就是例子</td></tr>
+          <tr><td>控制失败</td><td>跟踪差、抖动、奇异、碰撞</td><td>IK、控制频率、限幅、真实执行与命令差异</td><td>记录 executed action，而不只记录 commanded action</td></tr>
+          <tr><td>系统失败</td><td>卡顿、旧帧、队列空、服务超时</td><td>端到端 trace、P95/P99、sequence id</td><td>加入延迟扰动测试和超时恢复回归集</td></tr>
+        </tbody></table></div>
+      </section>
+
+      <section class="section reveal" id="roadmap">
+        <div class="section-heading split-heading"><div><p class="section-index">11 · TARGETED ROADMAP</p><h2>面向端到端招聘的补强顺序</h2></div><p>优先补“能连接现有经历”的短板，而不是无差别堆新名词。</p></div>
+        <div class="roadmap-grid">
+          <article class="priority"><span>P0 · 立即</span><h3>机器人数学 + ROS2/C++</h3><p>SE(3)、四元数、Jacobian、阻尼 IK、tf2、message_filters、node/topic/service/action、MoveIt 基础。</p><strong>产出：将一段 Tracker → 机械臂目标位姿链路用 ROS2 重写，记录同步与 tf 诊断。</strong></article>
+          <article class="priority"><span>P0 · 立即</span><h3>数据质量与部署量化</h3><p>为现有 LeRobot/触觉数据写 schema、同步、漂移、丢帧、范围检查；给推理链路加 P50/P95 和队列监控。</p><strong>产出：一份自动质检报告 + 一张端到端延迟火焰/时间线。</strong></article>
+          <article><span>P1 · 2–4 周</span><h3>Isaac Lab / MuJoCo</h3><p>URDF/USD、接触与摩擦、传感器建模、Domain Randomization、system identification、Sim2Real。</p><strong>产出：将 Rapid-Hand 或 Franka 简化任务放入仿真，验证随机化到真机的指标。</strong></article>
+          <article><span>P1 · 2–4 周</span><h3>模仿学习 + RL 衔接</h3><p>BC、ACT/DP/FM；DAgger 处理 covariate shift；offline RL 与 RL post-training 的收益和风险。</p><strong>产出：在同一小数据集比较 BC/ACT/FM，并解释失败分布。</strong></article>
+          <article><span>P2 · 持续</span><h3>规模化训练工程</h3><p>DDP/FSDP、混合精度、gradient accumulation、checkpoint、实验追踪、数据版本和可复现实验。</p><strong>产出：配置化训练、断点恢复、固定 seed 与回归指标。</strong></article>
+          <article><span>P2 · 持续</span><h3>VLA Post-training</h3><p>LoRA/全参选择、视觉语言冻结策略、动作 expert、混合数据、指令改写、长尾任务和安全对齐。</p><strong>产出：能解释“何时 LoRA 不够”“机器人数据如何与通用数据混合”。</strong></article>
+        </div>
+        <div class="table-scroll" style="margin-top:16px"><table class="shape-table"><thead><tr><th>补强项</th><th>必须会解释</th><th>最小手撕/实践</th><th>与你简历的连接</th></tr></thead><tbody>
+          <tr><td>C++ / ROS2</td><td>通信模型、QoS、tf 时间语义、实时与非实时边界</td><td>发布多传感器消息并 ApproximateTime 同步</td><td>把无本体数采从 SDK 集成提升到机器人标准中间件</td></tr>
+          <tr><td>Sim2Real</td><td>视觉/动力学/接触 gap、随机化与系统辨识</td><td>随机摩擦/质量/相机并做真实小样本校准</td><td>Rapid-Hand、Franka、触觉硬件都可成为验证对象</td></tr>
+          <tr><td>RL</td><td>DQN/SAC、offline RL、BC + RL、reward 与 safety</td><td>手写 Double DQN target、SAC actor loss</td><td>为 VLA/策略微调和失败恢复建立基础</td></tr>
+          <tr><td>训练系统</td><td>显存、吞吐、数据加载、分布式一致性</td><td>AMP + DDP + checkpoint resume</td><td>把 QTac/基线从研究代码提升为可复现实验</td></tr>
+        </tbody></table></div>
+      </section>
+
+      <section class="section reveal" id="questions">
+        <div class="section-heading"><p class="section-index">12 · INTERVIEW QUESTION BANK</p><h2>按简历条目准备追问</h2><p>每个回答都遵循：结论 → 原因 → 你做了什么 → 如何验证 → 局限/下一步。</p></div>
+        <div class="qa-grid">
+          <article class="interview-card"><strong>Q1 · QTac 为什么不把原始触觉直接和视觉拼接？</strong><p>高维触觉与视觉统计性质不同，样本量有限时端到端融合容易过拟合传感器/物体。CountNet 将其压缩成任务直接相关的数量分布，显式保留不确定性，策略只需要学习“目标数量—当前数量—动作修正”的关系，也便于独立评测和向未见物体迁移。端到端融合仍是重要基线，用于证明解耦瓶颈的贡献。</p></article>
+          <article class="interview-card"><strong>Q2 · 为什么数量预测用分类分布，不直接回归一个数？</strong><p>数量是离散变量，分类天然表达类别概率；接触信号模糊时可以保留多峰不确定性。回归 MSE 容易产生 1.5 这类物理上无意义的均值。部署可以使用 argmax，也可以使用期望与置信度；还应检查 ECE/Brier，避免策略过度信任错误高置信度。</p></article>
+          <article class="interview-card"><strong>Q3 · 你的“坐标系统一”具体做了什么？</strong><p>先定义相机、OMMO 世界、手腕与手部关键点坐标，标定相机到追踪世界的固定外参；再把每时刻手部位姿和局部关键点连乘映射到相机坐标系。验证包括静态点残差、动态轨迹叠加以及变换正逆一致性。时间上按原始时间戳重采样，姿态使用 SLERP。</p></article>
+          <article class="interview-card"><strong>Q4 · Tracker/Manus 如何控制 Franka 与 Sharpa Hand？</strong><p>腕部使用启动时相对位姿、尺度和坐标变换得到机器人末端目标，再通过带阻尼 IK、关节/速度/碰撞约束生成可执行命令；手指则最小化人手与机器人指尖位置或关键向量误差，并加入关节限位和平滑项。系统还需 clutch、滤波、超时和急停。</p></article>
+          <article class="interview-card"><strong>Q5 · 为什么要转成 LeRobot，而不是保留自定义文件？</strong><p>标准 schema 把多模态 observation、action、episode、task、时间戳和统计量统一起来，可直接复用加载、action chunk 采样、可视化、训练和 Hub 分发。但格式化不等于数据正确，仍需维护单位、动作语义、标定版本、同步误差和质检报告。</p></article>
+          <article class="interview-card"><strong>Q6 · LaWAM/π<sub>0.5</sub> 跑通说明了什么？</strong><p>主要说明从保存数据到模型输入、动作输出、反归一化、控制接口和真机执行的系统契约闭合，并不自动证明数据质量高或模型能力强。要进一步做固定评测、不同 checkpoint/seed、失败分类和统计显著性，才能比较策略效果。</p></article>
+          <article class="interview-card"><strong>Q7 · 你在 G3 上的贡献和 AT-VLA 原作者工作的边界？</strong><p>我负责现有 G3 系统中的触觉数据接入、解析、模型输入适配和在线推理流程优化；AT-VLA 是用于理解和验证触觉门控/推理链路的参考模型。完整 AT-VLA 的算法贡献、训练数据和论文实验属于原作者；我会按开放环、低速闭环和完整任务评测区分当前进度。</p></article>
+          <article class="interview-card"><strong>Q8 · 多线程采集如何避免丢帧和数据错位？</strong><p>每个设备独立生产并在采样处打时间戳，进入有界缓冲区；对齐线程按统一时间轴配对/插值，写盘和可视化与 SDK 回调解耦。持续记录队列水位、丢帧、jitter 和设备心跳。写盘跟不上时按数据优先级执行明确的丢帧/降采样策略，而不是无限堆内存。</p></article>
+          <article class="interview-card"><strong>Q9 · Rapid-Hand 换舵机最大的风险是什么？</strong><p>机械尺寸能装上不代表动态性能等价。需要比较扭矩—速度曲线、分辨率/回差、通信频率、电流和温升，并适配孔位、协议、零位和 PID。成本降到约 25% 是结果，但应通过阶跃、跟踪误差、连续运行和整手任务证明替代后的可用边界。</p></article>
+          <article class="interview-card"><strong>Q10 · 如何判断真机问题来自模型还是系统？</strong><p>把链路分层回放：先保存原始观测，比较训练/部署预处理；再固定输入比较本地与服务输出；然后检查后处理、限幅和 commanded/executed action；最后用端到端 trace 看传感器、网络、模型和执行延迟。每层都有 sequence id、时间戳和版本号，才能定位责任边界。</p></article>
+          <article class="interview-card"><strong>Q11 · ACT、Diffusion、Flow、VLA 你怎么选？</strong><p>固定任务和有限数据优先 ACT/轻量生成策略；多峰接触动作可用 Diffusion/Flow；跨任务、语言和开放世界泛化需要 VLA，但数据、算力和延迟更高。Flow 可通过少步积分降低采样成本；真正选择还取决于动作空间、chunk、控制频率、部署硬件和可获得的预训练权重。</p></article>
+          <article class="interview-card"><strong>Q12 · 如果再做一次 QTac，最想改什么？</strong><p>一是把 CountNet 做成校准良好的不确定性模块，用置信度驱动主动再接触；二是扩大目标数量、物体材质与传感器变化，验证跨设备泛化；三是引入异步 action chunk 和更细的延迟评测；四是建立失败数据飞轮，把数量混淆和重抓失败定向转成新示教。</p></article>
+        </div>
+        <div class="memory-line"><strong>回答模板</strong><p>“这个问题的核心是……；我在项目中负责……；具体通过……实现；用……验证；当前局限是……，下一步会……。”避免连续堆名词，也不要把“了解”和“做过”混在一句话里。</p></div>
+      </section>
+
+      <section class="section reveal" id="sources">
+        <div class="section-heading"><p class="section-index">13 · PRIMARY SOURCES</p><h2>继续深挖的官方资料</h2><p>招聘要求用于能力对齐；技术细节优先阅读论文、官方仓库和文档。</p></div>
+        <div class="source-grid">
+          <article><span>YOUR WORK</span><h3>QTac 项目主页</h3><p>任务、论文、实验视频与开源入口。</p><a href="https://kibry-spin.github.io/qtac/" target="_blank" rel="noopener">打开项目主页 ↗</a></article>
+          <article><span>TELEOP</span><h3>T-Rex 官方仓库</h3><p>Manus/Vive、双臂灵巧手、视觉触觉同步与 LeRobot 数据。</p><a href="https://github.com/ZhuoyangLiu2005/T-Rex" target="_blank" rel="noopener">打开 GitHub ↗</a></article>
+          <article><span>DATA</span><h3>LeRobot Dataset v3</h3><p>Parquet/MP4、metadata、episodes、tasks 与标准 feature schema。</p><a href="https://github.com/huggingface/lerobot/blob/main/docs/source/lerobot-dataset-v3.mdx" target="_blank" rel="noopener">阅读官方文档 ↗</a></article>
+          <article><span>VISUALIZATION</span><h3>Rerun 文档</h3><p>多模态、多时间轴数据的记录、查询和回放可视化。</p><a href="https://rerun.io/docs/overview/what-is-rerun" target="_blank" rel="noopener">阅读文档 ↗</a></article>
+          <article><span>SYNC</span><h3>ROS2 message_filters</h3><p>ExactTime/ApproximateTime 同步器与时间戳注意事项。</p><a href="https://docs.ros.org/en/ros2_packages/rolling/api/message_filters/message_filters.html" target="_blank" rel="noopener">阅读 ROS2 文档 ↗</a></article>
+          <article><span>CALIBRATION</span><h3>OpenCV Calibration</h3><p>相机标定、手眼标定与 AX=XB 相关实现。</p><a href="https://docs.opencv.org/5.0/main_modules/calib.html" target="_blank" rel="noopener">阅读 OpenCV 文档 ↗</a></article>
+          <article><span>WORLD ACTION MODEL</span><h3>LaWAM 论文</h3><p>潜在视觉子目标条件化动作生成，而非直接预测像素视频。</p><a href="https://arxiv.org/abs/2606.15768" target="_blank" rel="noopener">阅读 arXiv ↗</a></article>
+          <article><span>TACTILE VLA</span><h3>AT-VLA 论文与代码</h3><p>自适应触觉注入与快慢双流；公开资源边界见本站专题。</p><a href="at-vla.html">打开本站梳理 →</a></article>
+          <article><span>HARDWARE</span><h3>PP-Tac</h3><p>低成本、120 fps、半球形全向接触视觉触觉传感器。</p><a href="https://github.com/bigai-ai/PP-Tac" target="_blank" rel="noopener">打开官方仓库 ↗</a></article>
+          <article><span>HARDWARE</span><h3>RAPID Hand</h3><p>紧凑 20-DoF 灵巧手、低延迟多模态感知与遥操作。</p><a href="https://rapid-hand.github.io/" target="_blank" rel="noopener">打开项目主页 ↗</a></article>
+          <article><span>HAPTICS</span><h3>Fluid Reality</h3><p>电渗泵阵列驱动的高分辨率穿戴式触觉反馈。</p><a href="https://doi.org/10.1145/3586183.3606771" target="_blank" rel="noopener">打开论文页面 ↗</a></article>
+          <article><span>HIRING SIGNAL</span><h3>当前岗位样本</h3><p>VLA、数据、仿真、触觉、遥操作、真实机器人部署的综合要求。</p><a href="https://www.liepin.com/job/1973914753.shtml" target="_blank" rel="noopener">查看岗位示例 ↗</a></article>
+          <article><span>HIRING SIGNAL</span><h3>上海人工智能实验室</h3><p>算法跟踪、真实机器人集成、部署优化与数据驱动迭代。</p><a href="https://www.shlab.org.cn/joinus/detail/7654035482623789375?mode=social" target="_blank" rel="noopener">查看官方招聘 ↗</a></article>
+          <article><span>HIRING SIGNAL</span><h3>视触觉算法岗位样本</h3><p>触觉重建、接触状态、多原理传感器融合、SDK 与机器人集成。</p><a href="https://www.career.zju.edu.cn/jyxt/sczp/zphgl/ckZphdwXq.zf?dwxxid=JG1208161&amp;zphbh=4D31F14CEE8A7BD8E0653A68DD0E9B18&amp;zphsqbh=25ee6f7dcf3eb9890110709b949f96cf" target="_blank" rel="noopener">查看招聘信息 ↗</a></article>
+        </div>
+        <div class="callout warning"><strong>时效说明</strong><p>岗位页面、LeRobot 与模型仓库会持续更新。本页按 2026 年 8 月可获得资料整理；面试前应重新核对目标公司的 JD、代码版本和模型公开状态。</p></div>
+      </section>
+
+      <footer class="footer">
+        <span>简历项目深挖 · 具身智能端到端面试</span>
+        <nav class="footer-links"><a href="vla-interview.html">下一页：VLA 系统 →</a><a href="index.html">返回总览</a></nav>
+      </footer>
+    </main>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>
