@@ -1,0 +1,430 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="具身智能岗位 Transformer 手撕专题：Encoder/Decoder、Pre-Norm、FFN、Mask、Teacher Forcing、完整 PyTorch 实现、现代 LLM 变化及 VLA 多模态融合。">
+  <meta name="theme-color" content="#0f1715">
+  <title>Transformer 从零手写｜具身岗面试专题</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="scroll-progress"><span id="scroll-progress-bar"></span></div>
+  <header class="topbar">
+    <a class="brand" href="index.html"><span class="brand-mark">TF</span><span class="brand-copy"><strong>Transformer 手撕专题</strong><small>Block · Mask · Decode</small></span></a>
+    <nav class="topnav"><a href="index.html">总览</a><a href="resume-end-to-end.html">简历</a><a href="vla-interview.html">VLA</a><a href="tactile-interview.html">触觉</a><a href="at-vla.html">AT-VLA</a><a href="rtc.html">RTC</a><a href="wall-oss.html">WALL</a><a href="pi-series.html">π 系列</a><a href="attention.html">Attention</a><a class="active" href="transformer.html">Transformer</a><a href="act.html">ACT</a><a href="dit.html">DiT</a><a href="vla-loss.html">Loss</a><a href="rl.html">RL</a><a href="leetcode.html">算法题</a></nav>
+    <div class="top-actions"><button class="top-button" id="focus-toggle" type="button">专注阅读</button><a class="top-button strong" href="#blocks">开始搭建 ↓</a></div>
+  </header>
+
+  <div class="page-shell">
+    <aside class="sidebar">
+      <p class="eyebrow">TRANSFORMER PATH</p>
+      <ol class="side-nav">
+        <li><a href="#overview"><span>01</span>一分钟主线</a></li>
+        <li><a href="#taxonomy"><span>02</span>三类架构</a></li>
+        <li><a href="#pipeline"><span>03</span>输入到输出</a></li>
+        <li><a href="#blocks"><span>04</span>Block 组成</a></li>
+        <li><a href="#norm"><span>05</span>Pre / Post Norm</a></li>
+        <li><a href="#encoder"><span>06</span>Encoder Layer</a></li>
+        <li><a href="#decoder"><span>07</span>Decoder Layer</a></li>
+        <li><a href="#mask"><span>08</span>三类 Mask</a></li>
+        <li><a href="#full"><span>09</span>完整模型</a></li>
+        <li><a href="#train"><span>10</span>训练与推理</a></li>
+        <li><a href="#modern"><span>11</span>现代 Transformer</a></li>
+        <li><a href="#vla"><span>12</span>VLA 中的用法</a></li>
+        <li><a href="#interview"><span>13</span>高频追问</a></li>
+        <li><a href="#practice"><span>14</span>默写与自测</a></li>
+        <li><a href="#sources"><span>15</span>参考资料</a></li>
+      </ol>
+      <div class="sidebar-card"><strong>本页过关标准</strong><p>能画完整 Encoder–Decoder；10 分钟写出 Pre-Norm EncoderBlock；解释三种 mask；写对 target shift；说清现代 VLM/VLA 为何多使用 decoder-only 或专用 action expert。</p></div>
+    </aside>
+
+    <main>
+      <section class="hero compact transformer-hero reveal visible" id="overview">
+        <div>
+          <p class="kicker">From Attention to a Complete Model</p>
+          <h1>Transformer<br><em>Attention 只是<br>一个子层</em></h1>
+          <p class="hero-lead">完整 Transformer = Token 表示 + 位置信息 + Attention + FFN + 残差与归一化 + Mask + 训练/解码协议。面试时要从数据流讲成闭环，而不是只背注意力公式。</p>
+          <div class="hero-actions"><a class="primary-button" href="#taxonomy">先看架构边界 ↓</a><a class="ghost-button" href="attention.html">复习 Attention ↗</a></div>
+          <div class="hero-stats"><div><strong>3</strong><span>架构家族</span></div><div><strong>2 / 3</strong><span>Encoder / Decoder 子层</span></div><div><strong>O(L²)</strong><span>全注意力复杂度</span></div></div>
+        </div>
+        <div class="hero-board transformer-hero-board">
+          <div class="terminal-head"><span class="terminal-dots"><i></i><i></i><i></i></span><span>transformer.forward</span></div>
+          <div class="transformer-mini-arch">
+            <article class="source"><span>SOURCE</span><strong>Embedding + PE</strong><small>src [B,S]</small></article>
+            <b>→</b>
+            <article class="encoder"><span>N × ENCODER</span><strong>Self-Attn + FFN</strong><small>memory [B,S,D]</small></article>
+            <b>→ K / V</b>
+            <article class="decoder"><span>N × DECODER</span><strong>Masked Self + Cross + FFN</strong><small>hidden [B,T,D]</small></article>
+            <b>→</b>
+            <article class="logits"><span>LM HEAD</span><strong>Next-token logits</strong><small>[B,T,V]</small></article>
+          </div>
+          <div class="formula">x ← x + Sublayer(LayerNorm(x))</div>
+        </div>
+      </section>
+
+      <section class="section reveal">
+        <div class="section-heading"><p class="section-index">01 · ELEVATOR PITCH</p><h2>先背这一分钟</h2></div>
+        <div class="interview-card"><strong>60 秒回答</strong><p>Transformer 用注意力替代循环结构，使同一序列的 token 能并行计算并直接建立全局依赖。原始模型采用 Encoder–Decoder：Encoder Layer 由双向 Self-Attention 和位置前馈网络组成；Decoder Layer 多一个 Cross-Attention，并在 Self-Attention 中加入 causal mask 防止看到未来。每个子层外都有残差、Dropout 和 LayerNorm。输入 token 先经过 Embedding 与位置编码，Decoder 输出再通过线性层映射为词表 logits。训练时对 target 右移，输入 BOS 到倒数第二个 token，标签是第二个 token 到 EOS；推理时只能自回归生成，并用 KV Cache 复用历史 Key/Value。现代 LLM 通常只保留 Decoder，改用 Pre-Norm、RMSNorm、RoPE 和 SwiGLU；VLA 则进一步把图像、语言、本体状态和动作表示成 token 或交给专用 Action Expert。</p></div>
+        <div class="memory-line"><strong>搭建口诀</strong><p>先做表示 → Attention 交换信息 → FFN 逐 token 变换 → 残差保信息 → Norm 稳训练 → Mask 限制可见性 → Head 输出任务结果。</p></div>
+      </section>
+
+      <section class="section reveal" id="taxonomy">
+        <div class="section-heading split-heading"><div><p class="section-index">02 · ARCHITECTURE FAMILIES</p><h2>“Transformer”不只一种结构</h2></div><p>先判断模型属于哪一类，再讨论 mask、训练目标和推理方式。</p></div>
+        <div class="table-scroll"><table class="shape-table"><thead><tr><th>架构</th><th>可见性与模块</th><th>典型任务</th><th>具身场景理解</th></tr></thead><tbody>
+          <tr><td><strong>Encoder-only</strong></td><td>双向 Self-Attention；每个 token 可看完整输入</td><td>理解、分类、检索、表征学习</td><td>视觉/状态编码器、融合编码器；不能天然自回归生成</td></tr>
+          <tr><td><strong>Decoder-only</strong></td><td>Causal Self-Attention；只能看当前位置及过去</td><td>LLM、VLM、序列生成</td><td>把图像、语言、状态和离散动作串成序列统一预测</td></tr>
+          <tr><td><strong>Encoder–Decoder</strong></td><td>Encoder 双向理解；Decoder 通过 Cross-Attention读取 memory</td><td>翻译、条件生成、序列到序列</td><td>观察编码器 + 动作查询/动作解码器，适合异构模态条件生成</td></tr>
+        </tbody></table></div>
+        <div class="card-grid three" style="margin-top:15px">
+          <article class="info-card"><span>BERT-LIKE</span><h3>Encoder-only</h3><p>重点是得到上下文化表征，不强调逐 token 生成。</p></article>
+          <article class="info-card"><span>GPT / VLM</span><h3>Decoder-only</h3><p>结构统一、扩展简单，是当前语言模型与大量 VLM 的主流。</p></article>
+          <article class="info-card"><span>T5 / ORIGINAL</span><h3>Encoder–Decoder</h3><p>条件输入和生成序列职责清晰，Cross-Attention 显式连接两侧。</p></article>
+        </div>
+        <div class="callout warning"><strong>高频误区</strong><p>“Decoder-only 没有 Encoder，所以不能看图像”不对。视觉编码器可以先产生 image tokens，再把它们作为前缀 token 或通过 Cross-Attention 提供给语言 Decoder。</p></div>
+      </section>
+
+      <section class="section reveal" id="pipeline">
+        <div class="section-heading"><p class="section-index">03 · END-TO-END DATA FLOW</p><h2>以翻译为例，把输入输出对齐</h2></div>
+        <div class="shape-flow">
+          <div class="shape-node"><b>源 token id</b><code>[B,S]</code></div><span class="shape-arrow">→</span>
+          <div class="shape-node"><b>源 Embedding + PE</b><code>[B,S,D]</code></div><span class="shape-arrow">→</span>
+          <div class="shape-node"><b>Encoder memory</b><code>[B,S,D]</code></div><span class="shape-arrow">→</span>
+          <div class="shape-node"><b>右移目标</b><code>[B,T]</code></div><span class="shape-arrow">→</span>
+          <div class="shape-node"><b>Decoder hidden</b><code>[B,T,D]</code></div><span class="shape-arrow">→</span>
+          <div class="shape-node"><b>词表 logits</b><code>[B,T,V]</code></div>
+        </div>
+        <div class="architecture-stack" style="margin-top:16px">
+          <article class="architecture-layer"><span>01 / TOKENIZE</span><div><strong>文本变为 token id</strong><p>分词器负责序列化；PAD 对齐批次，BOS 启动解码，EOS 表示结束。</p></div><code>[B,L]</code></article>
+          <article class="architecture-layer"><span>02 / EMBED</span><div><strong>离散 id 查表为连续向量</strong><p>原始论文将 embedding 乘以 <code>√D</code>，再与同维度位置编码相加并使用 dropout。</p></div><code>[B,L,D]</code></article>
+          <article class="architecture-layer"><span>03 / CONTEXTUALIZE</span><div><strong>堆叠 Block 交换并变换信息</strong><p>Attention 在 token 之间通信，FFN 在每个 token 内独立进行非线性通道变换。</p></div><code>N layers</code></article>
+          <article class="architecture-layer"><span>04 / PROJECT</span><div><strong>映射到输出空间</strong><p>语言任务使用 LM Head 得到词表 logits；机器人策略可映射为动作 token 或连续动作参数。</p></div><code>[B,T,V]</code></article>
+        </div>
+        <div class="formula" style="margin-top:15px">h<sub>0</sub> = Embedding(token)·√D + PositionalEncoding</div>
+      </section>
+
+      <section class="section reveal" id="blocks">
+        <div class="section-heading split-heading"><div><p class="section-index">04 · TRANSFORMER BLOCK</p><h2>Attention 通信，FFN 计算</h2></div><p>Attention 不承担全部建模能力。大量参数和逐 token 非线性来自 FFN。</p></div>
+        <div class="table-scroll"><table class="shape-table"><thead><tr><th>组件</th><th>做什么</th><th>是否跨 token</th><th>典型参数量</th></tr></thead><tbody>
+          <tr><td>Multi-Head Attention</td><td>根据内容动态聚合其他 token</td><td>是</td><td>Q/K/V/O 约 <code>4D²</code></td></tr>
+          <tr><td>Position-wise FFN</td><td>对每个位置执行相同的非线性通道映射</td><td>否</td><td>约 <code>2DDff</code>；若 Dff=4D，则约 <code>8D²</code></td></tr>
+          <tr><td>Residual</td><td>保留恒等路径，改善深层梯度传播</td><td>否</td><td>无参数</td></tr>
+          <tr><td>LayerNorm / RMSNorm</td><td>稳定激活尺度和训练</td><td>只沿特征维</td><td>每层 O(D)</td></tr>
+        </tbody></table></div>
+        <div class="formula large" style="margin-top:16px">FFN(x) = W₂·σ(W₁x+b₁)+b₂</div>
+        <div class="code-card">
+          <div class="code-head"><div><i></i><strong id="ffn-code">feed_forward.py</strong></div><button class="copy-button" data-copy="ffn-source">复制代码</button></div>
+          <pre id="ffn-source">import torch.nn as nn
+
+class FeedForward(nn.Module):
+    def __init__(self, d_model, d_ff, dropout=0.1):
+        super().__init__()
+        self.net = nn.Sequential(
+            nn.Linear(d_model, d_ff),
+            nn.GELU(),
+            nn.Dropout(dropout),
+            nn.Linear(d_ff, d_model),
+        )
+
+    def forward(self, x):
+        # [B,L,D] -> [B,L,Dff] -> [B,L,D]
+        return self.net(x)</pre>
+        </div>
+        <div class="line-explain">
+          <article><span>SAME WEIGHTS</span><strong>位置之间共享 FFN</strong><p>对所有 token 使用同一组线性层，但每层 Transformer Block 的 FFN 参数不同。</p></article>
+          <article><span>CHANNEL MIXER</span><strong>只混合特征维</strong><p>FFN 不改变序列长度，也不让不同位置直接通信。</p></article>
+          <article><span>PARAMETER HEAVY</span><strong>常占大量参数</strong><p>Dff 通常大于 D，因此不能把 Transformer 简化成“只有 Attention”。</p></article>
+        </div>
+      </section>
+
+      <section class="section reveal" id="norm">
+        <div class="section-heading"><p class="section-index">05 · RESIDUAL & NORMALIZATION</p><h2>原论文是 Post-Norm，现代大模型多用 Pre-Norm</h2></div>
+        <div class="compare-grid">
+          <article class="compare-card"><h3>Post-Norm · 原始 Transformer</h3><div class="formula">y = LN(x + Sublayer(x))</div><ul><li>先计算子层与残差，再做归一化</li><li>与原论文结构图一致</li><li>模型很深时，恒等梯度路径会经过 LayerNorm，优化更敏感</li></ul></article>
+          <article class="compare-card good"><h3>Pre-Norm · 常见现代实现</h3><div class="formula">y = x + Sublayer(LN(x))</div><ul><li>残差主干保持直接恒等路径</li><li>深层网络通常更容易训练</li><li>堆叠末尾通常再加一次 final norm</li></ul></article>
+        </div>
+        <div class="formula" style="margin-top:15px">LayerNorm(x) = γ · (x−μ) / √(σ²+ε) + β<small>对每个 token 的最后一个特征维 D 求均值与方差，不依赖 batch 内其他样本。</small></div>
+        <div class="callout"><strong>为什么不用 BatchNorm</strong><p>序列长度和 padding 会变化，小 batch 也很常见；LayerNorm 对每个样本、每个 token 独立归一化，更适合序列建模和自回归推理。</p></div>
+      </section>
+
+      <section class="section reveal" id="encoder">
+        <div class="section-heading"><p class="section-index">06 · ENCODER LAYER</p><h2>两条子层：Self-Attention + FFN</h2></div>
+        <div class="transformer-block-flow">
+          <article><span>INPUT</span><strong>x [B,S,D]</strong><small>源序列表示</small></article><b>→</b>
+          <article class="accent"><span>SUBLAYER 1</span><strong>Bidirectional Self-Attention</strong><small>Q=K=V 来源相同</small></article><b>→</b>
+          <article class="accent"><span>SUBLAYER 2</span><strong>Position-wise FFN</strong><small>每个位置独立</small></article><b>→</b>
+          <article><span>OUTPUT</span><strong>memory [B,S,D]</strong><small>供 Decoder 查询</small></article>
+        </div>
+        <div class="code-card">
+          <div class="code-head"><div><i></i><strong>pre_norm_encoder.py</strong></div><button class="copy-button" data-copy="encoder-code">复制代码</button></div>
+          <pre id="encoder-code">class EncoderBlock(nn.Module):
+    def __init__(self, d_model, n_heads, d_ff, dropout=0.1):
+        super().__init__()
+        self.norm1 = nn.LayerNorm(d_model)
+        self.norm2 = nn.LayerNorm(d_model)
+        self.attn = MultiHeadAttention(d_model, n_heads, dropout)
+        self.ffn = FeedForward(d_model, d_ff, dropout)
+        self.drop = nn.Dropout(dropout)
+
+    def forward(self, x, src_mask=None):
+        # Pre-Norm：Norm -> Sublayer -> Dropout -> Residual
+        h = self.norm1(x)
+        attn_out, _ = self.attn(h, h, h, mask=src_mask)
+        x = x + self.drop(attn_out)
+        x = x + self.drop(self.ffn(self.norm2(x)))
+        return x</pre>
+        </div>
+        <div class="interview-card"><strong>为什么 Encoder 不需要 causal mask？</strong><p>Encoder 的目标是理解完整条件输入，不承担“不能偷看未来”的自回归生成约束，因此通常允许所有有效源 token 双向交互，只屏蔽 padding 或任务指定的不可见区域。</p></div>
+      </section>
+
+      <section class="section reveal" id="decoder">
+        <div class="section-heading"><p class="section-index">07 · DECODER LAYER</p><h2>多一条 Cross-Attention，职责完全不同</h2></div>
+        <div class="transformer-block-flow">
+          <article><span>TARGET</span><strong>y [B,T,D]</strong><small>已知目标前缀</small></article><b>→</b>
+          <article class="accent"><span>SUBLAYER 1</span><strong>Causal Self-Attention</strong><small>Q/K/V 来自目标侧</small></article><b>→</b>
+          <article class="memory"><span>SUBLAYER 2</span><strong>Cross-Attention</strong><small>Q 来自目标；K/V 来自 memory</small></article><b>→</b>
+          <article class="accent"><span>SUBLAYER 3</span><strong>FFN</strong><small>逐 token 非线性变换</small></article>
+        </div>
+        <div class="code-card">
+          <div class="code-head"><div><i></i><strong>pre_norm_decoder.py</strong></div><button class="copy-button" data-copy="decoder-code">复制代码</button></div>
+          <pre id="decoder-code">class DecoderBlock(nn.Module):
+    def __init__(self, d_model, n_heads, d_ff, dropout=0.1):
+        super().__init__()
+        self.norm1 = nn.LayerNorm(d_model)
+        self.norm2 = nn.LayerNorm(d_model)
+        self.norm3 = nn.LayerNorm(d_model)
+        self.self_attn = MultiHeadAttention(d_model, n_heads, dropout)
+        self.cross_attn = MultiHeadAttention(d_model, n_heads, dropout)
+        self.ffn = FeedForward(d_model, d_ff, dropout)
+        self.drop = nn.Dropout(dropout)
+
+    def forward(self, y, memory, tgt_mask=None, memory_mask=None):
+        h = self.norm1(y)
+        out, _ = self.self_attn(h, h, h, mask=tgt_mask)
+        y = y + self.drop(out)
+
+        # Query 长度 T；Key/Value 长度 S，可以不相等
+        q = self.norm2(y)
+        out, _ = self.cross_attn(q, memory, memory, mask=memory_mask)
+        y = y + self.drop(out)
+
+        y = y + self.drop(self.ffn(self.norm3(y)))
+        return y</pre>
+        </div>
+        <div class="table-scroll"><table class="shape-table"><thead><tr><th>注意力</th><th>Q</th><th>K / V</th><th>Scores</th><th>作用</th></tr></thead><tbody>
+          <tr><td>Decoder Self-Attention</td><td>[B,H,T,Dh]</td><td>[B,H,T,Dh]</td><td>[B,H,T,T]</td><td>读取目标前缀，必须 causal</td></tr>
+          <tr><td>Cross-Attention</td><td>[B,H,T,Dh]</td><td>[B,H,S,Dh]</td><td>[B,H,T,S]</td><td>每个目标位置查询完整源条件</td></tr>
+        </tbody></table></div>
+      </section>
+
+      <section class="section reveal" id="mask">
+        <div class="section-heading split-heading"><div><p class="section-index">08 · MASK CONTRACT</p><h2>按“作用位置”和“功能”分别记</h2></div><p>Mask 最容易错的不是下三角，而是不同接口中 True 的含义可能相反。</p></div>
+        <div class="table-scroll"><table class="shape-table"><thead><tr><th>名称</th><th>作用位置</th><th>典型 shape</th><th>屏蔽什么</th></tr></thead><tbody>
+          <tr><td><strong>src_mask</strong></td><td>Encoder Self-Attention</td><td>[B,1,1,S]</td><td>源序列的 PAD key</td></tr>
+          <tr><td><strong>tgt_mask</strong></td><td>Decoder Self-Attention</td><td>[B,1,T,T]</td><td>目标 PAD key + 未来 token</td></tr>
+          <tr><td><strong>memory_mask</strong></td><td>Decoder Cross-Attention</td><td>[B,1,1,S] → 广播到 T</td><td>Encoder memory 中的源 PAD</td></tr>
+        </tbody></table></div>
+        <div class="code-card">
+          <div class="code-head"><div><i></i><strong>make_masks.py</strong></div><button class="copy-button" data-copy="mask-code">复制代码</button></div>
+          <pre id="mask-code">def make_masks(src_ids, tgt_ids, pad_id):
+    # 本页手写 MHA 约定：True = 允许关注
+    src_valid = src_ids.ne(pad_id)              # [B,S]
+    tgt_valid = tgt_ids.ne(pad_id)              # [B,T]
+
+    src_mask = src_valid[:, None, None, :]       # [B,1,1,S]
+    memory_mask = src_mask                       # 广播到 [B,H,T,S]
+
+    T = tgt_ids.size(1)
+    causal = torch.tril(torch.ones(
+        T, T, dtype=torch.bool, device=tgt_ids.device
+    ))                                           # [T,T]
+    tgt_mask = (
+        tgt_valid[:, None, None, :]              # key padding
+        & causal[None, None, :, :]               # no future
+    )                                            # [B,1,T,T]
+    return src_mask, tgt_mask, memory_mask</pre>
+        </div>
+        <div class="card-grid three">
+          <article class="info-card"><span>WHY MASK K</span><h3>Padding 通常屏蔽 Key 列</h3><p>不让任何 query 从 PAD value 聚合信息；PAD query 的输出可在后续清零或被 loss 忽略。</p></article>
+          <article class="info-card"><span>CAUSAL</span><h3>下三角表示过去可见</h3><p>第 i 行只允许关注 j≤i，训练时所有位置仍可并行计算。</p></article>
+          <article class="info-card"><span>API WARNING</span><h3>True 语义不统一</h3><p>自写代码、SDPA、<code>nn.Transformer</code> 的布尔 mask 约定可能不同，调用前必须查接口。</p></article>
+        </div>
+        <div class="callout error"><strong>全行被屏蔽</strong><p>如果一个 query 没有任何有效 key，softmax 可能产生 NaN 或无意义结果。应保证至少一个可见位置，或在 softmax 后清零并安全归一化。</p></div>
+      </section>
+
+      <section class="section reveal" id="full">
+        <div class="section-heading"><p class="section-index">09 · MINIMAL FULL MODEL</p><h2>把各组件拼成 Encoder–Decoder</h2><p>以下代码省略 tokenizer 和采样策略，MHA、FFN 与 Block 使用前文实现。</p></div>
+        <div class="code-card">
+          <div class="code-head"><div><i></i><strong>minimal_transformer.py</strong></div><button class="copy-button" data-copy="full-code">复制代码</button></div>
+          <pre id="full-code">class Transformer(nn.Module):
+    def __init__(self, src_vocab, tgt_vocab, d_model=512,
+                 n_heads=8, n_layers=6, d_ff=2048,
+                 max_len=2048, dropout=0.1):
+        super().__init__()
+        self.d_model = d_model
+        self.src_emb = nn.Embedding(src_vocab, d_model)
+        self.tgt_emb = nn.Embedding(tgt_vocab, d_model)
+        self.pos = SinusoidalPE(d_model, max_len)
+        self.drop = nn.Dropout(dropout)
+
+        self.encoder = nn.ModuleList([
+            EncoderBlock(d_model, n_heads, d_ff, dropout)
+            for _ in range(n_layers)
+        ])
+        self.decoder = nn.ModuleList([
+            DecoderBlock(d_model, n_heads, d_ff, dropout)
+            for _ in range(n_layers)
+        ])
+        self.enc_norm = nn.LayerNorm(d_model)
+        self.dec_norm = nn.LayerNorm(d_model)
+        self.lm_head = nn.Linear(d_model, tgt_vocab, bias=False)
+
+    def encode(self, src_ids, src_mask):
+        x = self.src_emb(src_ids) * math.sqrt(self.d_model)
+        x = self.drop(self.pos(x))
+        for block in self.encoder:
+            x = block(x, src_mask)
+        return self.enc_norm(x)
+
+    def decode(self, tgt_ids, memory, tgt_mask, memory_mask):
+        y = self.tgt_emb(tgt_ids) * math.sqrt(self.d_model)
+        y = self.drop(self.pos(y))
+        for block in self.decoder:
+            y = block(y, memory, tgt_mask, memory_mask)
+        return self.lm_head(self.dec_norm(y))
+
+    def forward(self, src_ids, tgt_ids,
+                src_mask, tgt_mask, memory_mask):
+        memory = self.encode(src_ids, src_mask)
+        return self.decode(tgt_ids, memory, tgt_mask, memory_mask)</pre>
+        </div>
+        <div class="callout warning"><strong>代码接口提醒</strong><p><code>SinusoidalPE</code> 如果内部已经乘过 <code>√D</code>，外面就不能再乘一次。本页选择职责更清晰的写法：Embedding 缩放在模型中完成，PE 类只负责相加。</p></div>
+        <div class="memory-line"><strong>参数主线</strong><p>每个 Encoder 有 1 个 MHA + 1 个 FFN；每个 Decoder 有 2 个 MHA + 1 个 FFN。层数 N 增加时，注意参数不是共享的。</p></div>
+      </section>
+
+      <section class="section reveal" id="train">
+        <div class="section-heading split-heading"><div><p class="section-index">10 · TRAINING VS INFERENCE</p><h2>训练并行，生成串行</h2></div><p>Causal mask 不会让训练变成 for-loop；已知完整标签时，所有目标位置可以一次性预测。</p></div>
+        <div class="compare-grid">
+          <article class="compare-card good"><h3>训练 · Teacher Forcing</h3><ul><li>输入：<code>[BOS, y₁, y₂, …, yₙ₋₁]</code></li><li>标签：<code>[y₁, y₂, …, yₙ, EOS]</code></li><li>一次 forward 得到所有位置 logits</li><li>PAD 使用 <code>ignore_index</code> 排除 loss</li></ul></article>
+          <article class="compare-card"><h3>推理 · Autoregressive</h3><ul><li>开始只有 BOS，每次生成一个新 token</li><li>新 token 追加到前缀，直到 EOS 或最大长度</li><li>Encoder memory 只计算一次</li><li>Decoder 用 KV Cache 避免重复投影历史 K/V</li></ul></article>
+        </div>
+        <div class="code-card">
+          <div class="code-head"><div><i></i><strong>teacher_forcing.py</strong></div><button class="copy-button" data-copy="train-code">复制代码</button></div>
+          <pre id="train-code"># tgt: [BOS, y1, y2, ..., EOS, PAD, ...]
+tgt_in = tgt[:, :-1]                          # [B,T-1]
+labels = tgt[:, 1:]                           # [B,T-1]
+
+src_mask, tgt_mask, memory_mask = make_masks(
+    src, tgt_in, pad_id
+)
+logits = model(src, tgt_in, src_mask, tgt_mask, memory_mask)
+
+loss = F.cross_entropy(
+    logits.reshape(-1, logits.size(-1)),
+    labels.reshape(-1),
+    ignore_index=pad_id,
+)</pre>
+        </div>
+        <div class="code-card">
+          <div class="code-head"><div><i></i><strong>greedy_decode_concept.py</strong></div><button class="copy-button" data-copy="decode-code">复制代码</button></div>
+          <pre id="decode-code">@torch.no_grad()
+def greedy_decode(model, src, src_mask, bos_id, eos_id, pad_id, max_len):
+    memory = model.encode(src, src_mask)       # 只算一次
+    ys = torch.full((src.size(0), 1), bos_id, device=src.device)
+
+    for _ in range(max_len - 1):
+        _, tgt_mask, memory_mask = make_masks(src, ys, pad_id)
+        logits = model.decode(ys, memory, tgt_mask, memory_mask)
+        next_id = logits[:, -1].argmax(dim=-1, keepdim=True)
+        ys = torch.cat([ys, next_id], dim=1)
+        if torch.all(next_id.squeeze(-1).eq(eos_id)):
+            break
+    return ys
+
+# 清晰版会重复计算 Decoder 前缀；生产实现需为每层维护 KV Cache。</pre>
+        </div>
+      </section>
+
+      <section class="section reveal" id="modern">
+        <div class="section-heading"><p class="section-index">11 · MODERN TRANSFORMER</p><h2>原始论文会写，现代变化也要说得出</h2></div>
+        <div class="table-scroll"><table class="shape-table"><thead><tr><th>组件</th><th>原始 Transformer</th><th>现代常见方案</th><th>主要动机</th></tr></thead><tbody>
+          <tr><td>总体架构</td><td>Encoder–Decoder</td><td>LLM 多为 Decoder-only</td><td>统一自回归目标，易规模化</td></tr>
+          <tr><td>归一化</td><td>Post-LayerNorm</td><td>Pre-Norm / RMSNorm</td><td>改善深层训练稳定性、减少计算</td></tr>
+          <tr><td>位置</td><td>绝对 Sin/Cos</td><td>RoPE、ALiBi 等</td><td>更自然地编码相对位置和长上下文</td></tr>
+          <tr><td>FFN</td><td>ReLU FFN</td><td>GELU、SwiGLU</td><td>更强非线性与门控表达</td></tr>
+          <tr><td>Attention heads</td><td>MHA</td><td>GQA / MQA</td><td>减少 KV Cache 容量和带宽</td></tr>
+          <tr><td>Attention kernel</td><td>显式构造 L×L scores</td><td>FlashAttention / SDPA</td><td>减少 HBM 读写，不改变数学结果</td></tr>
+          <tr><td>推理</td><td>逐 token 自回归</td><td>KV Cache、量化、连续批处理</td><td>提高吞吐并降低延迟</td></tr>
+        </tbody></table></div>
+        <div class="callout"><strong>FlashAttention 不是稀疏注意力</strong><p>它仍计算精确注意力，主要通过分块和算子融合减少显存中间结果及 HBM 访问；时间复杂度量级仍是 O(L²)，但实际速度和显存显著改善。</p></div>
+      </section>
+
+      <section class="section reveal" id="vla">
+        <div class="section-heading split-heading"><div><p class="section-index">12 · TRANSFORMER IN VLA</p><h2>文本 token 只是输入的一部分</h2></div><p>具身模型的关键是：每类 token 表示什么、谁能看谁、输出如何变成动作。</p></div>
+        <div class="vla-token-chain">
+          <article><span>VISION</span><strong>Image Tokens</strong><small>ViT patches / projector</small></article><b>+</b>
+          <article><span>LANGUAGE</span><strong>Instruction Tokens</strong><small>tokenizer + embedding</small></article><b>+</b>
+          <article><span>ROBOT</span><strong>State / Tactile Tokens</strong><small>MLP、离散化或专用 encoder</small></article><b>→</b>
+          <article class="accent"><span>POLICY</span><strong>Transformer / MoT</strong><small>融合条件并生成动作表示</small></article><b>→</b>
+          <article><span>ACTION</span><strong>Token / Chunk / Flow</strong><small>离散、回归或连续生成</small></article>
+        </div>
+        <div class="table-scroll" style="margin-top:16px"><table class="shape-table"><thead><tr><th>融合方式</th><th>做法</th><th>优点</th><th>风险</th></tr></thead><tbody>
+          <tr><td>Early token fusion</td><td>图像、语言、状态拼到同一序列 Self-Attention</td><td>接口统一，跨模态交互充分</td><td>token 很多时注意力 O(L²) 昂贵</td></tr>
+          <tr><td>Cross-Attention</td><td>动作 query 主动读取视觉语言 memory</td><td>职责清楚，可控制动作 token 数量</td><td>条件交互依赖 Cross-Attention 设计</td></tr>
+          <tr><td>Mixture-of-Transformers</td><td>按 token 类型路由不同参数，层内共享上下文</td><td>保留 VLM 主干并给动作专用容量</td><td>路由、mask 与梯度路径更复杂</td></tr>
+        </tbody></table></div>
+        <div class="resume-map" style="margin-top:16px">
+          <article><span>QTAC</span><strong>触觉作为条件，而非装饰</strong><p>CountNet 将触觉压缩成数量分布后参与 DiTFlow 条件；也可直接编码 tactile tokens，与视觉/状态做 Cross-Attention。</p><em>追问：显式数量瓶颈和端到端 tactile token 各有什么取舍？</em></article>
+          <article><span>WALL</span><strong>Transformer 不只生成文本</strong><p>VL Expert 处理视觉、语言、状态和离散动作；Action Expert 处理连续 action chunk，联合注意力承担跨模态交互。</p><em>追问：参数路由为什么不等于 stop-gradient？</em></article>
+          <article><span>AT-VLA</span><strong>快慢信息流</strong><p>大模型负责慢速语义规划，轻量触觉路径处理高频接触反馈；缓存和时序对齐决定真实部署效果。</p><em>追问：触觉频率高于视觉时如何对齐 token 和控制周期？</em></article>
+        </div>
+      </section>
+
+      <section class="section reveal" id="interview">
+        <div class="section-heading"><p class="section-index">13 · HIGH-FREQUENCY QUESTIONS</p><h2>面试官通常从这里追问</h2></div>
+        <div class="qa-grid">
+          <div class="interview-card"><strong>Q1：为什么除以 √dₖ？</strong><p>若 q、k 各维独立且方差约为1，点积方差随 dₖ 增长。除以 √dₖ 将方差拉回稳定量级，避免 softmax 饱和导致梯度过小。</p></div>
+          <div class="interview-card"><strong>Q2：为什么多头不是直接切原始 embedding？</strong><p>实现通常先用 D×D 线性层一次性生成全部 heads，再 reshape；每个 head 的特征都来自原始 D 维的学习投影，而非机械截取一段原向量。</p></div>
+          <div class="interview-card"><strong>Q3：Attention 与 FFN 分别做什么？</strong><p>Attention 是 token mixer，让不同位置交换信息；FFN 是 channel mixer，对每个位置独立进行更高维非线性变换。两者缺一都会显著限制表达能力。</p></div>
+          <div class="interview-card"><strong>Q4：训练时为什么能并行预测全部目标 token？</strong><p>完整标签已知，通过右移输入和 causal mask，位置 i 只能读取真实前缀，但所有 i 的矩阵计算可一次完成。推理时后续 token 尚不存在，所以必须逐步生成。</p></div>
+          <div class="interview-card"><strong>Q5：KV Cache 缓存什么？</strong><p>缓存每层历史 token 的 K/V，而不是注意力矩阵，也通常不缓存 Q。新一步只计算新 token 的 Q/K/V，新 Q 查询历史与新增 K/V。</p></div>
+          <div class="interview-card"><strong>Q6：Cross-Attention 为什么 Q 与 K/V 长度可不同？</strong><p>Q 对应要更新的目标位置 T，K/V 对应条件 memory 长度 S，scores 自然是 T×S；注意力要求的是 Q/K 的 head_dim 相同，而不是序列长度相同。</p></div>
+          <div class="interview-card"><strong>Q7：Pre-Norm 为什么更好训练？</strong><p>残差主干保留近似恒等的直接梯度路径，梯度不必在每个 Block 后穿过 LayerNorm；深层堆叠通常更稳定，但最终需配合 final norm。</p></div>
+          <div class="interview-card"><strong>Q8：VLA 为什么不一定用自回归动作 token？</strong><p>离散 token 易融入 VLM，却有量化与逐 token 延迟；ACT、Diffusion、Flow 可一次生成连续 action chunk。现代 VLA 常让 Transformer 做条件融合，再由连续动作头负责执行。</p></div>
+        </div>
+      </section>
+
+      <section class="section reveal" id="practice">
+        <div class="section-heading"><p class="section-index">14 · CLOSED-BOOK PRACTICE</p><h2>按 15 → 30 → 45 分钟练三档</h2></div>
+        <div class="card-grid three">
+          <article class="practice-card"><span class="card-label">LEVEL 1 · 15 MIN</span><h3>EncoderBlock</h3><p class="prompt">从零写 Pre-Norm Encoder Layer，包含 MHA、FFN、两次残差、Dropout 和 src mask。</p><button class="reveal-button" data-reveal="answer-encoder">查看检查项</button><div class="solution" id="answer-encoder"><p>检查：Norm 在子层前；Q/K/V 同源；输出 shape 不变；Dropout 在加残差前；mask 能广播至 scores。</p></div></article>
+          <article class="practice-card"><span class="card-label">LEVEL 2 · 30 MIN</span><h3>DecoderBlock + Masks</h3><p class="prompt">写 causal self-attention、cross-attention，并构造 tgt padding + causal 联合 mask。</p><button class="reveal-button" data-reveal="answer-decoder">查看检查项</button><div class="solution" id="answer-decoder"><p>检查：Cross 的 Q 来自目标，K/V 来自 memory；tgt mask 为 [B,1,T,T]；memory mask 屏蔽源 PAD。</p></div></article>
+          <article class="practice-card"><span class="card-label">LEVEL 3 · 45 MIN</span><h3>训练与 Greedy Decode</h3><p class="prompt">完成 target shift、CE ignore PAD、Encoder 只算一次的 greedy decode，并口述如何加入 KV Cache。</p><button class="reveal-button" data-reveal="answer-train">查看检查项</button><div class="solution" id="answer-train"><p>检查：输入 tgt[:-1]、标签 tgt[1:]；logits/label 展平对齐；eval/no_grad；EOS 退出；KV Cache 按 layer 保存。</p></div></article>
+        </div>
+        <div class="quiz-list" style="margin-top:16px">
+          <div class="quiz-item" data-answer="1"><strong>1. Encoder–Decoder Cross-Attention 的 K/V 来自哪里？</strong><div class="quiz-options"><button>目标序列当前层</button><button>Encoder memory</button><button>词表 Embedding</button><button>上一时刻 logits</button></div><p class="quiz-note">答案：K/V 来自 Encoder memory，Q 来自 Decoder 当前表示。</p></div>
+          <div class="quiz-item" data-answer="2"><strong>2. Teacher Forcing 的正确输入与标签关系是？</strong><div class="quiz-options"><button>输入和标签完全相同</button><button>标签比输入左移一位</button><button>输入去掉最后一个 token，标签去掉第一个 token</button><button>只训练最后一个位置</button></div><p class="quiz-note">答案：tgt_in=tgt[:,:-1]，labels=tgt[:,1:]。</p></div>
+          <div class="quiz-item" data-answer="3"><strong>3. 下列哪项不会跨 token 交换信息？</strong><div class="quiz-options"><button>Self-Attention</button><button>Cross-Attention</button><button>Causal Attention</button><button>Position-wise FFN</button></div><p class="quiz-note">答案：FFN 对每个位置独立使用相同参数，只混合通道维。</p></div>
+          <div class="quiz-item" data-answer="0"><strong>4. Pre-Norm 的正确结构是？</strong><div class="quiz-options"><button>x + Sublayer(LN(x))</button><button>LN(x + Sublayer(x))</button><button>Sublayer(x + LN(x))</button><button>LN(Sublayer(x))</button></div><p class="quiz-note">答案：Pre-Norm 在进入子层前归一化，残差主干直接相加。</p></div>
+        </div>
+      </section>
+
+      <section class="section reveal" id="sources">
+        <div class="section-heading"><p class="section-index">15 · SOURCES</p><h2>参考文章与权威资料</h2></div>
+        <div class="source-grid">
+          <a class="source-card" href="https://wkq9411.github.io/2026-01-01/Code-Transformer.html" target="_blank" rel="noreferrer"><span>REFERENCE NOTE</span><strong>WKQ · 手撕 Transformer</strong><p>从零构建、Mask、翻译训练/预测及 PyTorch 封装用法。</p></a>
+          <a class="source-card" href="https://arxiv.org/abs/1706.03762" target="_blank" rel="noreferrer"><span>ORIGINAL PAPER</span><strong>Attention Is All You Need</strong><p>Encoder–Decoder、MHA、FFN、位置编码和训练设置的原始定义。</p></a>
+          <a class="source-card" href="https://docs.pytorch.org/docs/stable/generated/torch.nn.Transformer.html" target="_blank" rel="noreferrer"><span>PYTORCH DOCS</span><strong>torch.nn.Transformer</strong><p>官方模块参数、shape、mask 与 norm_first 接口。</p></a>
+          <a class="source-card" href="https://docs.pytorch.org/docs/stable/generated/torch.nn.functional.scaled_dot_product_attention.html" target="_blank" rel="noreferrer"><span>PYTORCH SDPA</span><strong>Scaled Dot Product Attention</strong><p>现代 fused attention 接口及 mask 语义。</p></a>
+          <a class="source-card" href="attention.html"><span>LOCAL MODULE</span><strong>Attention 手撕专题</strong><p>MHA 完整代码、维度计算器、位置编码和 KV Cache。</p></a>
+          <a class="source-card" href="vla-interview.html"><span>LOCAL MODULE</span><strong>VLA 系统专题</strong><p>图像、语言、本体状态和动作的融合方式。</p></a>
+        </div>
+        <div class="callout warning"><strong>参考方式</strong><p>本页参考所给笔记的教学主线并重新组织内容，没有复制其长篇代码或翻译 Demo；原始结构定义以 Transformer 论文和 PyTorch 官方接口为校验依据。</p></div>
+      </section>
+
+      <footer class="footer"><span>Transformer · 从 Attention 到完整 VLA 骨干</span><nav class="footer-links"><a href="attention.html">← Attention</a><a href="act.html">下一页：ACT →</a><a href="index.html">返回总览</a></nav></footer>
+    </main>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>

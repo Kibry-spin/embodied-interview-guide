@@ -4,6 +4,159 @@
   const $ = (selector, root = document) => root.querySelector(selector);
   const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 
+  const currentPage = location.pathname.split("/").pop() || "index.html";
+  const navGroups = [
+    {
+      label: "基础",
+      pages: ["attention.html", "transformer.html", "vla-loss.html"],
+      links: [
+        ["attention.html", "Attention", "QKV、Mask、KV Cache"],
+        ["transformer.html", "Transformer", "Encoder–Decoder 与多模态融合"],
+        ["vla-loss.html", "Loss", "CE、MSE、Flow 与 Action Chunk"],
+      ],
+    },
+    {
+      label: "策略",
+      pages: ["act.html", "dit.html"],
+      links: [
+        ["act.html", "ACT", "CVAE、Action Query、Temporal Ensemble"],
+        ["dit.html", "DiT", "Transformer × Diffusion / Flow"],
+        ["index.html#ditflow", "DiTFlow", "完整源码主线（已并入 Main）"],
+      ],
+    },
+    {
+      label: "VLA",
+      pages: ["vla-interview.html", "pi-series.html", "wall-oss.html", "at-vla.html"],
+      links: [
+        ["vla-interview.html", "VLA 总览", "架构、数据与 Sim2Real"],
+        ["pi-series.html", "π 系列", "Flow Action Expert 演进"],
+        ["wall-oss.html", "WALL", "Gradient Bridge 与跨本体"],
+        ["at-vla.html", "AT-VLA", "触觉门控与快慢双流"],
+      ],
+    },
+    {
+      label: "系统",
+      pages: ["resume-end-to-end.html", "tactile-interview.html", "rtc.html"],
+      links: [
+        ["resume-end-to-end.html", "项目主线", "数据—训练—部署闭环"],
+        ["tactile-interview.html", "触觉", "传感器、数据流与策略融合"],
+        ["rtc.html", "RTC", "异步推理与动作衔接"],
+      ],
+    },
+    {
+      label: "训练",
+      pages: ["rl.html", "leetcode.html"],
+      links: [
+        ["rl.html", "强化学习", "DQN、SAC 与重参数化"],
+        ["leetcode.html", "算法题", "BFS、DFS、DP"],
+      ],
+    },
+  ];
+
+  const topnav = $(".topnav");
+  if (topnav) {
+    const mainActive = currentPage === "index.html" ? " active" : "";
+    topnav.innerHTML = `<a class="nav-main${mainActive}" href="index.html">Main</a>${navGroups.map(group => {
+      const active = group.pages.includes(currentPage) ? " active" : "";
+      const menu = group.links.map(([href, title, note]) => `<a href="${href}"><strong>${title}</strong><small>${note}</small></a>`).join("");
+      return `<span class="nav-cluster"><button class="nav-cluster-button${active}" type="button" aria-haspopup="true">${group.label}<i>⌄</i></button><span class="nav-menu">${menu}</span></span>`;
+    }).join("")}`;
+  }
+
+  const relatedMap = {
+    "resume-end-to-end.html": [
+      ["tactile-interview.html", "感知层", "用触觉页补全传感器选型、标定与融合。"],
+      ["act.html", "策略基线", "用 ACT 理解 LeRobot 数据如何变成动作块。"],
+      ["rtc.html", "部署层", "把动作队列继续升级为异步闭环执行。"],
+      ["vla-interview.html", "系统层", "将个人项目放回 VLA 端到端能力图。"],
+    ],
+    "vla-interview.html": [
+      ["pi-series.html", "模型演进", "从 VLA 总览深入 Flow Action Expert 路线。"],
+      ["wall-oss.html", "训练机制", "理解语义模型与连续动作的梯度桥。"],
+      ["at-vla.html", "触觉 VLA", "观察高频触觉如何进入慢速 VLA。"],
+      ["index.html#ditflow", "代码落地", "在 Main 中对照一个完整 LeRobot 生成策略。"],
+    ],
+    "tactile-interview.html": [
+      ["at-vla.html", "模型融合", "从传感原理继续学习触觉门控与双流。"],
+      ["index.html#ditflow", "生成策略", "把触觉编码为 DiTFlow 的全局条件。"],
+      ["rtc.html", "实时闭环", "接触事件发生后如何及时修改动作块。"],
+      ["resume-end-to-end.html", "项目表达", "把硬件、数据和模型组织成简历证据。"],
+    ],
+    "at-vla.html": [
+      ["tactile-interview.html", "输入基础", "回到触觉信号、标定与时序同步。"],
+      ["vla-interview.html", "VLA 骨架", "明确图像、语言、本体与动作的公共框架。"],
+      ["rtc.html", "快慢系统", "比较双流反应与异步动作生成的边界。"],
+      ["index.html#ditflow", "参考实现", "用更小的 DiTFlow 验证触觉条件链路。"],
+    ],
+    "rtc.html": [
+      ["act.html", "动作分块起点", "先理解同步 Action Chunk 与时序集成。"],
+      ["index.html#ditflow", "生成式 Chunk", "对应 ODE 生成、动作队列与执行 horizon。"],
+      ["pi-series.html", "大模型动作头", "理解 RTC 为什么对 Flow VLA 尤其重要。"],
+      ["tactile-interview.html", "事件反馈", "触觉变化是缩短闭环延迟的典型动机。"],
+    ],
+    "wall-oss.html": [
+      ["pi-series.html", "路线对照", "比较 π 系列与 WALL 的动作学习设计。"],
+      ["dit.html", "连续生成", "补全条件 Transformer 与 Flow velocity。"],
+      ["vla-interview.html", "系统定位", "把模型机制放回 VLA 全景。"],
+      ["index.html#ditflow", "最小实现", "用小型策略看清 Flow 的训练和采样。"],
+    ],
+    "pi-series.html": [
+      ["vla-interview.html", "总体框架", "先确定 VLM、融合和动作空间的位置。"],
+      ["dit.html", "Action Expert", "理解 Transformer 如何参数化条件速度场。"],
+      ["wall-oss.html", "同类路线", "比较离散语义与连续控制如何协同。"],
+      ["rtc.html", "实时执行", "把 action chunk 生成接入在线闭环。"],
+    ],
+    "attention.html": [
+      ["transformer.html", "下一层", "把 QKV 拼成完整 Encoder–Decoder。"],
+      ["dit.html", "生成模型", "看 Self-Attention 如何处理带噪动作 token。"],
+      ["act.html", "模仿学习", "看 Action Query 如何 Cross-Attend 观测。"],
+      ["vla-interview.html", "多模态", "把 Self/Cross Attention 放入 VLA 融合。"],
+    ],
+    "transformer.html": [
+      ["attention.html", "前置基础", "复习 QKV、Mask 与位置编码。"],
+      ["act.html", "序列回归", "DETR Query 并行预测未来动作。"],
+      ["dit.html", "条件生成", "从普通 Block 过渡到 adaLN-Zero。"],
+      ["vla-interview.html", "多模态骨架", "理解 Encoder、Decoder 在 VLA 中的变体。"],
+    ],
+    "act.html": [
+      ["transformer.html", "架构前置", "回看 Encoder–Decoder 与 Query 的来源。"],
+      ["index.html#ditflow", "生成式替代", "比较 L1+KL 与 Flow velocity。"],
+      ["rtc.html", "实时升级", "从同步 chunk 走向异步前缀续写。"],
+      ["vla-loss.html", "代码练习", "手写 Action Chunk 与 Temporal Ensemble。"],
+    ],
+    "dit.html": [
+      ["transformer.html", "网络骨架", "复习 Self-Attention、FFN 与残差。"],
+      ["index.html#ditflow", "源码落地", "把 xₜ、t、condition 和 velocity 对回代码。"],
+      ["vla-loss.html", "目标函数", "区分 ε、diffusion-v 与 Flow velocity。"],
+      ["wall-oss.html", "大模型应用", "观察连续 Action Expert 如何桥接 VLM。"],
+    ],
+    "vla-loss.html": [
+      ["act.html", "直接回归", "理解 L1+KL 的 action chunk 策略。"],
+      ["dit.html", "网络实现", "理解 DiT 如何参数化去噪或速度场。"],
+      ["index.html#ditflow", "完整闭环", "从 loss 一直看到 Euler 与动作队列。"],
+      ["rl.html", "目标构造", "继续练习 target、detach 与期望。"],
+    ],
+    "rl.html": [
+      ["vla-loss.html", "监督目标", "对照生成式策略与 TD target。"],
+      ["pi-series.html", "VLA + RL", "理解大模型策略怎样从经验继续学习。"],
+      ["leetcode.html", "手撕训练", "补齐基础数据结构与动态规划。"],
+    ],
+    "leetcode.html": [
+      ["attention.html", "深度学习手撕", "从算法模板切回张量实现。"],
+      ["rl.html", "强化学习手撕", "练 gather、no_grad 与采样。"],
+      ["index.html#review-routes", "复习计划", "回 Main 选择下一条训练路线。"],
+    ],
+  };
+
+  const relatedItems = relatedMap[currentPage];
+  const footer = $("main > .footer");
+  if (relatedItems && footer) {
+    const section = document.createElement("section");
+    section.className = "section related-section reveal visible";
+    section.innerHTML = `<div class="section-heading split-heading"><div><p class="section-index">CONNECTIONS · 融会贯通</p><h2>这一页要和什么一起学</h2></div><p>按“前置概念—相邻方法—工程落地”建立关联，而不是孤立背术语。</p></div><div class="related-grid">${relatedItems.map(([href, tag, text]) => `<a href="${href}"><span>${tag}</span><strong>${href.includes("#ditflow") ? "DiTFlow 主线" : href.replace(".html", "")}</strong><p>${text}</p><i>关联学习 →</i></a>`).join("")}</div>`;
+    footer.before(section);
+  }
+
   const progress = $("#scroll-progress-bar");
   const updateProgress = () => {
     if (!progress) return;

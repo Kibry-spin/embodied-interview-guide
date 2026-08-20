@@ -1,0 +1,284 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="自变量机器人 WALL-OSS-0.5 面试专题：Gradient Bridge、Mixture-of-Transformers、Vision-Aligned RVQ、Flow Matching、跨本体数据、推理优化、实验解读与个人项目追问。">
+  <meta name="theme-color" content="#0f1715">
+  <title>WALL-OSS-0.5 深度解读｜自变量面试专题</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="scroll-progress"><span id="scroll-progress-bar"></span></div>
+  <header class="topbar">
+    <a class="brand" href="index.html"><span class="brand-mark">W</span><span class="brand-copy"><strong>WALL-OSS-0.5</strong><small>Gradient Bridge · Flow VLA</small></span></a>
+    <nav class="topnav"><a href="index.html">总览</a><a href="resume-end-to-end.html">简历</a><a href="vla-interview.html">VLA</a><a href="tactile-interview.html">触觉</a><a href="at-vla.html">AT-VLA</a><a href="rtc.html">RTC</a><a class="active" href="wall-oss.html">WALL</a><a href="pi-series.html">π 系列</a><a href="attention.html">Attention</a><a href="transformer.html">Transformer</a><a href="act.html">ACT</a><a href="dit.html">DiT</a><a href="vla-loss.html">Loss</a><a href="rl.html">RL</a><a href="leetcode.html">算法题</a></nav>
+    <div class="top-actions"><button class="top-button" id="focus-toggle" type="button">专注阅读</button><a class="top-button strong" href="#pitch">开始梳理 ↓</a></div>
+  </header>
+
+  <div class="page-shell">
+    <aside class="sidebar">
+      <p class="eyebrow">WALL INTERVIEW PATH</p>
+      <ol class="side-nav">
+        <li><a href="#overview"><span>01</span>一张图看懂</a></li>
+        <li><a href="#pitch"><span>02</span>90 秒回答</a></li>
+        <li><a href="#problem"><span>03</span>核心矛盾</a></li>
+        <li><a href="#architecture"><span>04</span>MoT 架构</a></li>
+        <li><a href="#bridge"><span>05</span>梯度桥</a></li>
+        <li><a href="#rvq"><span>06</span>RVQ Tokenizer</a></li>
+        <li><a href="#flow"><span>07</span>Flow Matching</a></li>
+        <li><a href="#action"><span>08</span>动作空间</a></li>
+        <li><a href="#data"><span>09</span>数据引擎</a></li>
+        <li><a href="#system"><span>10</span>训练与推理</a></li>
+        <li><a href="#evidence"><span>11</span>实验与边界</a></li>
+        <li><a href="#compare"><span>12</span>横向对比</a></li>
+        <li><a href="#resume"><span>13</span>结合你的简历</a></li>
+        <li><a href="#interview"><span>14</span>高频追问</a></li>
+        <li><a href="#sources"><span>15</span>官方资料</a></li>
+      </ol>
+      <div class="sidebar-card"><strong>本页过关标准</strong><p>不把 WALL 说成“又一个 π₀.₅”；能解释离散动作为什么只训练、不执行；能推导 action-space flow loss；能客观看待零样本、VQA 退化和固定 26D 动作空间。</p></div>
+    </aside>
+
+    <main>
+      <section class="hero compact wall-hero reveal visible" id="overview">
+        <div>
+          <p class="kicker">X-Square Robot · Open-Source VLA</p>
+          <h1>WALL-OSS-0.5<br><em>用离散梯度，<br>训练连续控制</em></h1>
+          <p class="hero-lead">离散 Action Token 擅长把动作知识写进 VLM，连续 Flow Matching 擅长输出可执行动作。WALL 的关键不是二选一，而是让前者成为后者的梯度桥。</p>
+          <div class="hero-actions"><a class="primary-button" href="#pitch">先背 90 秒回答 ↓</a><a class="ghost-button" href="#resume">结合我的经历 ↗</a></div>
+          <div class="hero-stats"><div><strong>≈4B</strong><span>模型规模</span></div><div><strong>&gt;20</strong><span>机器人本体</span></div><div><strong>&gt;1M</strong><span>轨迹 / epoch</span></div><div><strong>90M</strong><span>多模态样本</span></div></div>
+        </div>
+        <div class="hero-board wall-hero-board">
+          <div class="terminal-head"><span class="terminal-dots"><i></i><i></i><i></i></span><span>wall.gradient_bridge</span></div>
+          <div class="wall-bridge-map">
+            <article class="vl"><span>VL EXPERT</span><strong>视觉 · 语言 · 状态</strong><small>Multimodal CE</small></article>
+            <article class="discrete"><span>TRAINING BRIDGE</span><strong>离散 Action Token</strong><small>强 CE 梯度 · 不执行</small></article>
+            <b>⇄ 联合注意力 ⇄</b>
+            <article class="flow"><span>ACTION EXPERT</span><strong>Continuous Flow</strong><small>高精度 · 真机执行</small></article>
+          </div>
+          <div class="wall-loss-strip"><span>语义锚点</span><span>动作梯度桥</span><span>连续动作生成</span></div>
+          <div class="formula">Discrete CE → Action-aware VLM → Continuous Control</div>
+        </div>
+      </section>
+
+      <section class="section reveal" id="pitch">
+        <div class="section-heading"><p class="section-index">01 · ELEVATOR PITCH</p><h2>面试先讲这一分半</h2></div>
+        <div class="interview-card"><strong>90 秒回答</strong><p>WALL-OSS-0.5 是自变量机器人开源的约 4B 参数 VLA，基于 Qwen2.5-VL-3B-Instruct，并增加连续 Action Expert。它采用 Mixture-of-Transformers：视觉、语言、本体状态和离散动作由 VL Expert 处理，带噪连续动作由 Action Expert 处理，两条路径通过联合注意力共享上下文。核心是 gradient-bridged co-training：多模态 CE 保留语义与空间理解，离散动作 CE 以语言模型原生的 next-token 形式向骨干提供强动作梯度，连续 Flow Matching 则负责高精度动作生成。离散动作使用视觉对齐的 RVQ tokenizer，但只在训练中充当梯度桥，推理时不解码，真机只执行连续动作。数据上每轮训练覆盖 20 多种本体、超过 100 万条轨迹，并混合约 9000 万条多模态样本，目标是让预训练模型本身具备可测试的零样本行为，而不只是提供微调初始化。</p></div>
+        <div class="memory-line"><strong>一句话记忆</strong><p>离散路径负责“教会 VLM 怎么行动”，连续路径负责“把动作精确做出来”。</p></div>
+        <div class="memory-strip" style="margin-top:15px">
+          <article><span>BACKBONE</span><strong>Qwen2.5-VL</strong><p>复用视觉语言预训练能力。</p></article>
+          <article><span>BRIDGE</span><strong>RVQ + CE</strong><p>把动作语义强力写入骨干。</p></article>
+          <article><span>EXECUTION</span><strong>Flow Expert</strong><p>生成无量化误差的连续动作。</p></article>
+          <article><span>SCALE</span><strong>Cross-embodiment</strong><p>统一多机器人动作与数据语义。</p></article>
+        </div>
+      </section>
+
+      <section class="section reveal" id="problem">
+        <div class="section-heading split-heading"><div><p class="section-index">02 · MOTIVATION</p><h2>它真正解决什么矛盾</h2></div><p>理解这张表，才能回答“为什么不只用离散动作”以及“为什么不只训练 Flow”。</p></div>
+        <div class="table-scroll"><table class="shape-table"><thead><tr><th>动作路线</th><th>优点</th><th>根本问题</th><th>在 WALL 中的职责</th></tr></thead><tbody>
+          <tr><td><strong>离散 Action Token + CE</strong></td><td>与 LLM next-token 训练完全同构；梯度强、容易作用到大骨干</td><td>量化损失、长 token 序列和误差累积，不适合精细真机控制</td><td><strong>训练桥梁</strong>：塑造 action-aware representation</td></tr>
+          <tr><td><strong>Continuous Flow Matching</strong></td><td>直接输出连续 action chunk；精度高、能表达多模态动作</td><td>小 Action Expert 容易吸收损失，传入巨大 VLM 的动作梯度偏弱</td><td><strong>部署接口</strong>：最终真机只执行这条路径</td></tr>
+          <tr><td><strong>Multimodal CE</strong></td><td>维持视觉、语言、空间和任务理解</td><td>本身不能保证动作可执行</td><td><strong>语义锚点</strong>：避免只学动作而丢失具身认知</td></tr>
+        </tbody></table></div>
+        <div class="callout warning"><strong>常见错误</strong><p>“离散动作更强，所以 WALL 推理时先生成离散动作，再转连续动作”是错的。两种动作 token 在前向传播中相互不可见，推理时离散 token 不被解码；它的价值主要体现在训练梯度。</p></div>
+      </section>
+
+      <section class="section reveal" id="architecture">
+        <div class="section-heading"><p class="section-index">03 · MIXTURE OF TRANSFORMERS</p><h2>分开路由，但不隔离梯度</h2><p>这里的 MoT 不应简单等同于传统 Top-K 稀疏 MoE。</p></div>
+        <div class="architecture-stack">
+          <article class="architecture-layer"><span>INPUT / CONTEXT</span><div><strong>多视角图像、指令、本体状态</strong><p>图像保持长宽比并将长边处理到 448；状态作为数值文本 token 输入，并在训练中随机丢弃或扰动。</p></div><code>I, L, S</code></article>
+          <article class="architecture-layer"><span>VL EXPERT</span><div><strong>预训练视觉语言骨干</strong><p>处理视觉、语言、状态和离散动作 token，学习任务语义与动作相关表征。</p></div><code>Qwen2.5-VL-3B</code></article>
+          <article class="architecture-layer"><span>ACTION EXPERT</span><div><strong>连续动作分支</strong><p>处理带噪 action chunk 与 flow timestep，在条件上下文下预测速度场。</p></div><code>[B,H,D]</code></article>
+          <article class="architecture-layer"><span>JOINT ATTENTION</span><div><strong>跨专家交换上下文</strong><p>不同 token 类型走不同参数，但在层内进行联合注意力，使动作生成读取视觉语言特征。</p></div><code>context sharing</code></article>
+          <article class="architecture-layer"><span>MASK & GRADIENT</span><div><strong>动作路径前向隔离、反向连接</strong><p>离散和连续动作不能直接看到彼此，防止答案泄漏；Flow 梯度仍可通过上下文更新 VL Expert。</p></div><code>route ≠ detach</code></article>
+        </div>
+        <div class="callout"><strong>面试表述</strong><p>WALL 做的是参数路由分解，而不是梯度隔离。若对 VL Expert 使用 stop-gradient，离散路径学到的动作知识不能充分改善连续策略，这正是消融实验要证明的内容。</p></div>
+      </section>
+
+      <section class="section reveal" id="bridge">
+        <div class="section-heading"><p class="section-index">04 · GRADIENT-BRIDGED CO-TRAINING</p><h2>三个 Loss，不是简单相加</h2></div>
+        <div class="formula large">L = L<sub>multimodal CE</sub> + λ<sub>AR</sub>L<sub>action-token CE</sub> + λ<sub>FM</sub>L<sub>flow</sub></div>
+        <div class="card-grid three" style="margin-top:15px">
+          <article class="info-card"><span>SEMANTIC ANCHOR</span><h3>多模态 CE</h3><p>训练 grounding、空间关系、任务进度和下一步规划，维持具身语义。</p></article>
+          <article class="info-card"><span>GRADIENT BRIDGE</span><h3>动作 Token CE</h3><p>以 VLM 最熟悉的自回归目标提供强动作监督，改造视觉语言骨干。</p></article>
+          <article class="info-card"><span>DEPLOYMENT HEAD</span><h3>Flow Matching</h3><p>学习连续动作速度场，保留控制精度与动作多模态性。</p></article>
+        </div>
+        <div class="gradient-diagram" style="margin-top:16px">
+          <article><span>DISCRETE PATH</span><strong>RVQ Action Tokens</strong><p>token-level CE 提供强监督</p></article><b class="forward">↓ 强梯度</b>
+          <article class="vlm"><span>VL EXPERT</span><strong>Action-aware Backbone</strong><p>视觉语言特征逐渐对动作敏感</p></article><b class="context">→ 条件上下文</b>
+          <article class="expert"><span>CONTINUOUS PATH</span><strong>Flow Action Expert</strong><p>精确 action chunk 用于执行</p></article><b class="blocked">← Flow 梯度仍可更新骨干；没有 stop-gradient</b>
+        </div>
+        <div class="table-scroll" style="margin-top:16px"><table class="shape-table"><thead><tr><th>消融设置</th><th>五任务平均进度</th><th>说明</th></tr></thead><tbody>
+          <tr><td>Flow-only</td><td>36.6</td><td>连续监督不足以充分塑造大骨干</td></tr>
+          <tr><td>联合目标，但阻断跨分支梯度</td><td>31.9</td><td>多一个任务不等于形成有效梯度桥</td></tr>
+          <tr><td>先阻断、后开放联合训练</td><td>49.6</td><td>后期开放有帮助，但不如全程共同适应</td></tr>
+          <tr><td><strong>完整端到端联合训练</strong></td><td><strong>57.0</strong></td><td>离散监督与连续生成共同改造表征</td></tr>
+        </tbody></table></div>
+      </section>
+
+      <section class="section reveal" id="rvq">
+        <div class="section-heading split-heading"><div><p class="section-index">05 · VISION-ALIGNED RVQ</p><h2>为什么不直接用 FAST</h2></div><p>动作 token 的任务不是“尽可能像文本”，而是成为能训练视觉语言骨干的动作语义载体。</p></div>
+        <div class="fast-pipeline">
+          <article><span>01 · CONDITION</span><strong>观察条件编码</strong><p>通过时间交叉注意力，将当前观察与 action chunk 一起压缩。</p></article><b>→</b>
+          <article><span>02 · RVQ</span><strong>逐级量化残差</strong><p>早期 codebook 表示粗运动，后续级别补充局部细节。</p></article><b>→</b>
+          <article><span>03 · ALIGN</span><strong>视觉—动作对齐</strong><p>让动作潜变量靠近 VLM 的视觉特征，而非只追求数值重建。</p></article><b>→</b>
+          <article><span>04 · CONSEQUENCE</span><strong>预测动作后果</strong><p>下一帧预测迫使 token 表达动作会如何改变环境。</p></article><b>→</b>
+          <article><span>05 · DCT</span><strong>频域重建</strong><p>突出低频轨迹结构，抑制高频抖动。</p></article>
+        </div>
+        <div class="formula" style="margin-top:16px">h ≈ z<sup>(1)</sup> + z<sup>(2)</sup> + ··· + z<sup>(K)</sup><small>每一级 codebook 量化上一层未解释的残差：先表示大方向，再修正细节。</small></div>
+        <div class="table-scroll" style="margin-top:16px"><table class="shape-table"><thead><tr><th>同等联合训练</th><th>VQA</th><th>真机平均任务进度</th><th>关键结论</th></tr></thead><tbody>
+          <tr><td>FAST Tokenizer</td><td>75.7</td><td>29.3</td><td>动作离散化可用，但桥接特征质量有限</td></tr>
+          <tr><td><strong>Vision-Aligned RVQ</strong></td><td><strong>77.5</strong></td><td><strong>48.1</strong></td><td>更好的离散表征能显著改善最终的连续动作路径</td></tr>
+        </tbody></table></div>
+        <div class="callout"><strong>最该记住的证据</strong><p>真机评测没有执行 RVQ token，却仍因更好的 RVQ 而提升。这直接支持“离散路径的价值是训练表征，而不是充当控制输出”。</p></div>
+      </section>
+
+      <section class="section reveal" id="flow">
+        <div class="section-heading"><p class="section-index">06 · ACTION-SPACE FLOW MATCHING</p><h2>从噪声到动作，为什么监督 clean action</h2></div>
+        <div class="formula large">A<sup>τ</sup> = τA + (1−τ)ε　　v* = A−ε</div>
+        <div class="step-timeline" style="margin-top:15px">
+          <div class="step-row"><span>01</span><strong>采样真实动作</strong><p><code>A ∈ R[B,H,D]</code> 是未来 action chunk，<code>ε</code> 为同形状高斯噪声。</p></div>
+          <div class="step-row"><span>02</span><strong>广播时间</strong><p><code>τ[:,None,None]</code> 从 <code>[B]</code> 变为 <code>[B,1,1]</code>，广播到时间维 H 和动作维 D。</p></div>
+          <div class="step-row"><span>03</span><strong>构造带噪动作</strong><p>τ=0 是纯噪声，τ=1 是真实动作；网络预测条件速度场 <code>vθ(Aτ,τ,c)</code>。</p></div>
+          <div class="step-row"><span>04</span><strong>恢复 clean action</strong><p><code>Â=Aτ+(1−τ)vθ</code>，直接比较它与真实动作，而非均匀监督所有时刻的 velocity。</p></div>
+        </div>
+        <div class="formula" style="margin-top:15px">L<sub>A</sub> = ‖Â−A‖² = (1−τ)²‖v<sub>θ</sub>−(A−ε)‖²</div>
+        <div class="card-grid three" style="margin-top:15px">
+          <article class="info-card"><span>HIGH NOISE</span><h3>τ 较小时权重大</h3><p>高噪声阶段决定轨迹总体形状，应优先学稳。</p></article>
+          <article class="info-card"><span>LOW FREQUENCY</span><h3>机器人动作较平滑</h3><p>整体方向比最后几步的高频细节更决定任务成败。</p></article>
+          <article class="info-card"><span>TIME SAMPLING</span><h3>Beta 偏置采样</h3><p><code>u~Beta(1.5,1)</code>，再令 <code>τ≈1−u</code>，增加高噪声训练样本。</p></article>
+        </div>
+        <div class="callout warning"><strong>时间方向要先确认</strong><p>WALL 报告的 τ 从 0 噪声走向 1 数据；其他 diffusion/flow 代码可能反过来定义时间。面试推公式前先声明约定，不能只凭变量名判断。</p></div>
+      </section>
+
+      <section class="section reveal" id="action">
+        <div class="section-heading"><p class="section-index">07 · UNIFIED ACTION SPACE</p><h2>跨本体训练首先是数据工程</h2></div>
+        <div class="table-scroll"><table class="shape-table"><thead><tr><th>动作组</th><th>表达</th><th>维度</th><th>统一逻辑</th></tr></thead><tbody>
+          <tr><td>左臂</td><td>相对位置 3 + 相对旋转 6 + 夹爪 1</td><td>10</td><td>任务空间增量动作，降低绝对工作空间差异</td></tr>
+          <tr><td>右臂</td><td>相对位置 3 + 相对旋转 6 + 夹爪 1</td><td>10</td><td>与左臂采用相同语义</td></tr>
+          <tr><td>移动底盘</td><td>速度</td><td>3</td><td>覆盖移动操作本体</td></tr>
+          <tr><td>升降机构</td><td>标量动作</td><td>1</td><td>适配可升降平台</td></tr>
+          <tr><td>头部</td><td>两自由度</td><td>2</td><td>适配主动视觉或头部机构</td></tr>
+          <tr><td><strong>总计</strong></td><td>固定接口 + DOF mask</td><td><strong>26</strong></td><td>不同本体缺失的自由度不参与损失和执行</td></tr>
+        </tbody></table></div>
+        <div class="card-grid three" style="margin-top:15px">
+          <article class="info-card"><span>RELATIVE ACTION</span><h3>为什么用增量</h3><p>更容易跨工作空间、机器人尺度和场景坐标迁移，也减轻绝对标定偏差。</p></article>
+          <article class="info-card"><span>6D ROTATION</span><h3>为什么不用欧拉角</h3><p>连续、没有万向节锁和周期跳变，更适合神经网络回归。</p></article>
+          <article class="info-card"><span>ONE SECOND</span><h3>统一时间而非帧数</h3><p>两条动作路径预测约 1 秒未来；各数据源根据控制频率调整 chunk 帧数。</p></article>
+        </div>
+        <div class="callout warning"><strong>固定 26D 的边界</strong><p>它不能自然覆盖 20 自由度灵巧手或全身人形。接入 Sharpa Hand 需要扩展动作 schema、加入 finger group 与 dataset-specific mask，并重新处理 tokenizer、归一化和各自由度损失尺度。</p></div>
+      </section>
+
+      <section class="section reveal" id="data">
+        <div class="section-heading split-heading"><div><p class="section-index">08 · DATA ENGINE</p><h2>规模只是结果，统一语义才是难点</h2></div><p>WALL 约 60% 使用自采轨迹、40% 使用开源轨迹；动作数据与多模态数据约按 9:1 混合。</p></div>
+        <div class="metric-grid">
+          <article><span>ROBOT TRAJECTORIES</span><strong>&gt;1M / epoch</strong><p>自采与多个开放数据源共同组成。</p></article>
+          <article><span>EMBODIMENTS</span><strong>&gt;20</strong><p>双臂桌面、移动操作及无本体采集。</p></article>
+          <article><span>MULTIMODAL</span><strong>90M</strong><p>约 78M 开源图文 + 12M 具身桥接数据。</p></article>
+          <article><span>BATCH MIX</span><strong>9 : 1</strong><p>动作样本 : 多模态样本。</p></article>
+        </div>
+        <div class="architecture-stack" style="margin-top:16px">
+          <article class="architecture-layer"><span>01 / VALIDATE</span><div><strong>时间戳、图像与动作合理性检查</strong><p>检测帧异常、动作—观察不匹配、相机错位和不可修复样本。</p></div><code>quality gate</code></article>
+          <article class="architecture-layer"><span>02 / CANONICALIZE</span><div><strong>坐标系与动作语义统一</strong><p>统一 x 前、y 左、z 上；夹爪值越大代表打开；姿态最终转为 6D rotation。</p></div><code>semantic schema</code></article>
+          <article class="architecture-layer"><span>03 / CONVERT</span><div><strong>关节动作转任务空间</strong><p>对只有关节状态的数据利用 URDF 正运动学获得末端位姿。</p></div><code>FK(q)</code></article>
+          <article class="architecture-layer"><span>04 / SEGMENT</span><div><strong>长轨迹切成原子子任务</strong><p>匹配 goal-level 与 step-level 指令，并生成语言改写，减少长指令歧义。</p></div><code>episode → skills</code></article>
+          <article class="architecture-layer"><span>05 / BALANCE</span><div><strong>幂律采样与静止帧过滤</strong><p><code>wᵢ=nᵢ^0.5</code> 防止大数据源垄断；过滤长时间无动作片段。</p></div><code>balanced mix</code></article>
+        </div>
+        <div class="callout"><strong>具身桥接数据</strong><p>从真实机器人轨迹衍生 object grounding、pointing、空间关系、任务进度、affordance 和 next-step planning，使 VLM 语义真正与物理行为对齐，而不是简单混入无关互联网图文。</p></div>
+      </section>
+
+      <section class="section reveal" id="system">
+        <div class="section-heading"><p class="section-index">09 · TRAINING & SERVING</p><h2>从大规模训练到实时执行</h2></div>
+        <div class="compare-grid">
+          <article class="compare-card good"><h3>训练侧</h3><ul><li>2D Expert 矩阵使用 Muon，视觉 embedding 与 LM head 使用 AdamW</li><li>DMuon 将矩阵所有权分布到设备，降低正交化通信与重复计算</li><li>预训练全局 batch 8192、BF16、梯度裁剪 1.0、峰值学习率 1e−4</li><li>下游微调保持全模块可训练，并保留离散 + 连续联合目标</li></ul></article>
+          <article class="compare-card"><h3>推理侧</h3><ul><li>多步 Flow denoising 的瓶颈常是显存读写和 kernel launch，而非纯 FLOPs</li><li>CUDA Graph 捕获固定去噪计算图，减少 CPU 发射空窗</li><li>融合 RoPE、RMSNorm、逐元素与 reduction 算子，减少中间张量回写</li><li>官方仓库提供 WebSocket serving、LIBERO 评估和 action chunk 可视化</li></ul></article>
+        </div>
+        <div class="table-scroll" style="margin-top:16px"><table class="shape-table"><thead><tr><th>官方单卡条件</th><th>224×224</th><th>448×448</th><th>如何正确引用</th></tr></thead><tbody>
+          <tr><td>RTX 5090、三视角、10 次 denoising</td><td>约 21 Hz</td><td>约 15 Hz</td><td>只在相同硬件、视角、分辨率和去噪步数下可比；不能说模型固定为 15 Hz</td></tr>
+        </tbody></table></div>
+        <div class="memory-line"><strong>工程判断</strong><p>Flow 推理优化要先 profile：若 GPU 利用率不高却耗时长，优先排查 kernel launch 和 HBM traffic；若视觉 token 激增，则 ViT 的二次注意力和 KV cache 可能成为主瓶颈。</p></div>
+      </section>
+
+      <section class="section reveal" id="evidence">
+        <div class="section-heading split-heading"><div><p class="section-index">10 · RESULTS & CAVEATS</p><h2>实验数字要会讲，也要会质疑</h2></div><p>“任务进度”不是二分类成功率；“未见”也不等于从未见过任何相关技能。</p></div>
+        <div class="table-scroll"><table class="shape-table"><thead><tr><th>实验</th><th>WALL</th><th>对比</th><th>准确解读</th></tr></thead><tbody>
+          <tr><td>零样本真机：12 已见 + 5 未见任务</td><td>400k checkpoint：已见 50.0、未见 53.6</td><td>每项 10 条轨迹</td><td>按 milestone 计算 0–100 任务进度，不是严格成功率</td></tr>
+          <tr><td>15 任务微调，每任务约 500 demos</td><td><strong>60.5</strong></td><td>π₀.₅ 43.0；DreamZero 33.4</td><td>相对 π₀.₅ 提高 <strong>17.5 个百分点</strong>，不是“17.5%”</td></tr>
+          <tr><td>具身 Grounding</td><td>30.8</td><td>原始骨干 9.0</td><td>具身空间定位明显增强</td></tr>
+          <tr><td>RealWorld VQA</td><td>44.2</td><td>原始骨干 59.2</td><td>通用 VQA 下降，存在专业化权衡</td></tr>
+        </tbody></table></div>
+        <div class="card-grid three" style="margin-top:15px">
+          <article class="info-card"><span>UNSEEN ≠ NOVEL SKILL</span><h3>未见组合</h3><p>当前本体上没有完全相同任务，但预训练可能包含语义相关动作或物体。</p></article>
+          <article class="info-card"><span>MANUAL RUBRIC</span><h3>进度评分</h3><p>适合部分完成任务，但 milestone 人工定义会引入主观性。</p></article>
+          <article class="info-card"><span>SPECIALIZATION</span><h3>能力有取舍</h3><p>不能笼统声称动作训练后“所有通用 VLM 能力都无损保留”。</p></article>
+        </div>
+        <div class="callout warning"><strong>作者明确承认的边界</strong><p>当前验证主要集中在 3B 级 VLM、单帧图像和固定 26D 动作接口；缺少显式时序记忆，高自由度灵巧手、全身控制、长时域开放世界评测仍不充分。</p></div>
+      </section>
+
+      <section class="section reveal" id="compare">
+        <div class="section-heading"><p class="section-index">11 · MODEL LANDSCAPE</p><h2>不要把 WALL 说成 π₀.₅ 换皮</h2></div>
+        <div class="table-scroll"><table class="shape-table"><thead><tr><th>路线</th><th>动作输出</th><th>核心优势</th><th>与 WALL 的差异</th></tr></thead><tbody>
+          <tr><td>RT-2 / OpenVLA</td><td>离散动作 token</td><td>与语言建模统一、语义迁移直接</td><td>WALL 只把离散动作当训练桥梁，执行仍为连续 Flow</td></tr>
+          <tr><td>Diffusion Policy / ACT</td><td>连续动作 / action chunk</td><td>小规模任务精度高、训练部署更轻</td><td>缺少 WALL 的大规模语言语义与跨本体预训练</td></tr>
+          <tr><td>π₀</td><td>VLM + Flow Expert</td><td>连续动作与跨本体训练</td><td>WALL 明确针对 Flow 梯度难以改造骨干的问题</td></tr>
+          <tr><td>π₀.₅</td><td>FAST + Flow</td><td>开放世界泛化、知识迁移与知识隔离</td><td>WALL 使用视觉对齐 RVQ，并强调离散 CE 的梯度桥作用</td></tr>
+          <tr><td>DreamZero / WAM</td><td>先预测未来视觉，再导出动作</td><td>显式建模未来世界状态</td><td>WALL 直接从条件生成动作，链路短但缺少显式视觉世界模型</td></tr>
+        </tbody></table></div>
+        <div class="memory-line"><strong>对比主线</strong><p>π₀.₅ 更关心如何带着互联网知识进入开放世界；WALL 更关心如何让连续动作训练真正改变 VLM，使骨干形成可执行的动作表征。</p></div>
+      </section>
+
+      <section class="section reveal" id="resume">
+        <div class="section-heading split-heading"><div><p class="section-index">12 · YOUR RESUME</p><h2>把 WALL 与你的经历连起来</h2></div><p>你的优势不是声称训练过同等规模模型，而是能从触觉、数据和真机系统三个层面指出如何扩展与验证 WALL。</p></div>
+        <div class="resume-map">
+          <article><span>QTAC / DITFLOW</span><strong>Flow Matching 经验</strong><p>解释 <code>[B,H,D]</code> 动作张量、时间广播、速度场目标、action-space loss，以及为什么连续生成适合精细抓取。</p><em>追问：QTac 的显式 CountNet 与 WALL 的通用隐式表征各有什么优势？</em></article>
+          <article><span>TACTILE</span><strong>触觉如何接入 WALL</strong><p>增加 tactile encoder/token 或独立 expert；构造接触位置、滑移、数量和 affordance 等桥接监督；保留连续动作执行路径。</p><em>追问：如何处理高分辨率视触觉与低维 FSR 的模态差异？</em></article>
+          <article><span>OMMO + GLOVE</span><strong>无本体跨本体数据</strong><p>强调坐标系统一、手部关键点到相机系标定、动作重定向、时间同步和统一 action schema。</p><em>追问：跟踪器轨迹怎样映射为相对末端动作，怎样验证坐标方向没有错？</em></article>
+          <article><span>LEROBOT</span><strong>数据格式与训练闭环</strong><p>讲清 feature schema、camera key、state/action normalization、chunk、控制频率、时间戳及反归一化。</p><em>追问：不同机器人的动作维度、相机数量和频率怎样进入同一训练 batch？</em></article>
+          <article><span>G3 DEPLOYMENT</span><strong>触觉推理流验证</strong><p>把模型、传感器和控制链拆开测试：同步质量、推理延迟、动作队列、触觉缺失回退与真机安全限幅。</p><em>追问：如何证明提升来自触觉而非视觉或数据分布差异？</em></article>
+        </div>
+        <div class="callout"><strong>推荐定位</strong><p>“我没有复现 WALL 的百万轨迹预训练，但我的项目覆盖它落地时最难的下游环节：多模态同步、跨坐标系动作构建、Flow 策略训练、LeRobot 数据转换以及触觉真机推理闭环。”</p></div>
+      </section>
+
+      <section class="section reveal" id="interview">
+        <div class="section-heading"><p class="section-index">13 · INTERVIEW Q&A</p><h2>自变量面试高频追问</h2></div>
+        <div class="qa-grid">
+          <div class="interview-card"><strong>Q1：为什么 Flow-only 不能充分训练 VLM？</strong><p>动作 token 数量少，且 Action Expert 可以在较小参数空间内吸收大部分连续动作损失；传入巨大骨干的梯度弱。离散动作 CE 与 VLM 原生目标同构，能直接迫使视觉语言特征编码动作相关信息。</p></div>
+          <div class="interview-card"><strong>Q2：为什么不直接执行 RVQ token？</strong><p>离散化必然引入量化误差，细粒度动作还可能需要较长 token 序列。WALL 利用其强训练梯度，但把精度敏感的执行留给连续 Flow，实现训练效率与控制精度分工。</p></div>
+          <div class="interview-card"><strong>Q3：两条动作路径会不会互相抄答案？</strong><p>离散与连续动作 token 在前向 attention 中相互屏蔽，因此不能直接读取对方输出；它们都读取观察条件，Flow 梯度仍能通过共享上下文更新 VL Expert。</p></div>
+          <div class="interview-card"><strong>Q4：action-space loss 与 velocity loss 有什么关系？</strong><p>由 <code>Â=Aτ+(1−τ)vθ</code> 可得，clean-action MSE 等价于带 <code>(1−τ)²</code> 权重的 velocity MSE，因此自然强调高噪声阶段的全局轨迹学习。</p></div>
+          <div class="interview-card"><strong>Q5：如果加入触觉，你会放在哪里？</strong><p>先按传感器类型编码为 tactile tokens，并与视觉、语言、状态一起作为 Action Expert 的上下文；同时增加接触状态等辅助 CE 构成触觉梯度桥。对高带宽视触觉要控制 token 数与时序对齐，并用随机模态 dropout 保证缺失时可退化运行。</p></div>
+          <div class="interview-card"><strong>Q6：如何验证触觉真的有效？</strong><p>固定视觉、动作数据量和训练配置，对比无触觉、触觉 token、触觉辅助损失与完整模型；按接触前后、遮挡程度和物体未见性分组，并评估成功率、动作误差、滑移/数量估计和恢复行为。</p></div>
+          <div class="interview-card"><strong>Q7：WALL 的零样本能力应该怎么描述？</strong><p>它证明了跨场景和新物体组合的直接部署潜力，但“未见”仍可能共享预训练技能，且使用人工 milestone 进度而非全部严格成功。应说具有一定零样本泛化，不宜说已经解决开放世界操作。</p></div>
+          <div class="interview-card"><strong>Q8：你认为下一版最值得改什么？</strong><p>加入多帧或显式记忆以增强长时域状态估计；把固定26维扩展成分组可组合动作空间；增强高自由度手部和接触数据；建立跨机器人、长周期、严格成功率统一评测。</p></div>
+        </div>
+      </section>
+
+      <section class="section reveal">
+        <div class="section-heading"><p class="section-index">14 · ACTIVE RECALL</p><h2>不看答案做一次检查</h2></div>
+        <div class="quiz-list">
+          <div class="quiz-item" data-answer="2"><strong>1. WALL 推理时怎样使用离散动作 token？</strong><div class="quiz-options"><button>先生成离散 token，再转成连续动作</button><button>与连续动作加权平均</button><button>不解码，只执行 Flow Action Expert</button><button>只在低噪声阶段解码</button></div><p class="quiz-note">答案：不解码。离散 token 的核心作用是训练阶段的梯度桥。</p></div>
+          <div class="quiz-item" data-answer="1"><strong>2. 阻断 Flow 到 VL Expert 的梯度，为什么会变差？</strong><div class="quiz-options"><button>因为 RVQ 无法重建动作</button><button>因为路由分开不应等于梯度隔离</button><button>因为图像分辨率降低</button><button>因为动作变成绝对坐标</button></div><p class="quiz-note">答案：联合目标需要共同塑造上下文表征，stop-gradient 会破坏梯度桥。</p></div>
+          <div class="quiz-item" data-answer="0"><strong>3. action-space flow loss 主要强调哪个区域？</strong><div class="quiz-options"><button>高噪声、τ 较小区域</button><button>低噪声、τ 接近 1 区域</button><button>只强调夹爪动作</button><button>所有时间完全相同</button></div><p class="quiz-note">答案：等价权重为 (1−τ)²，因此更强调高噪声阶段。</p></div>
+          <div class="quiz-item" data-answer="3"><strong>4. 下列哪句对 WALL 实验的表述最准确？</strong><div class="quiz-options"><button>零样本严格成功率超过 50%</button><button>所有通用 VQA 都得到提升</button><button>相对 π₀.₅ 提高 17.5%</button><button>微调任务进度比 π₀.₅ 高 17.5 个百分点</button></div><p class="quiz-note">答案：数值是 60.5 对 43.0，差值为17.5个百分点；零样本报告的是 milestone 任务进度。</p></div>
+        </div>
+      </section>
+
+      <section class="section reveal" id="sources">
+        <div class="section-heading"><p class="section-index">15 · PRIMARY SOURCES</p><h2>只记可追溯的公开事实</h2></div>
+        <div class="source-grid">
+          <a class="source-card" href="https://arxiv.org/html/2605.30877" target="_blank" rel="noreferrer"><span>TECHNICAL REPORT</span><strong>WALL-OSS-0.5 论文</strong><p>架构、数据、目标函数、消融、真机结果与局限。</p></a>
+          <a class="source-card" href="https://github.com/X-Square-Robot/wall-x" target="_blank" rel="noreferrer"><span>OFFICIAL CODE</span><strong>Wall-X Repository</strong><p>模型、训练、推理服务、数据准备和评估入口。</p></a>
+          <a class="source-card" href="https://huggingface.co/x-square-robot/wall-oss-0.5" target="_blank" rel="noreferrer"><span>MODEL CARD</span><strong>Hugging Face 模型</strong><p>权重、基础说明和使用入口。</p></a>
+          <a class="source-card" href="https://github.com/huggingface/lerobot/blob/main/docs/source/walloss.mdx" target="_blank" rel="noreferrer"><span>LEROBOT</span><strong>LeRobot 接入文档</strong><p>转换模型、配置、输入输出与运行方式。</p></a>
+          <a class="source-card" href="https://x2robot.com" target="_blank" rel="noreferrer"><span>COMPANY</span><strong>自变量机器人</strong><p>公司技术路线、产品与业务方向。</p></a>
+          <a class="source-card" href="https://x2robot.com/join/school" target="_blank" rel="noreferrer"><span>INTERVIEW</span><strong>官方校园招聘</strong><p>岗位方向、流程和团队价值观。</p></a>
+        </div>
+        <div class="callout warning"><strong>资料边界</strong><p>本页区分论文事实与面试推导。模型内部未公开的训练权重、数据细节和公司后续路线，不应凭经验补写；招聘信息和模型版本也应以面试当天官方页面为准。</p></div>
+      </section>
+
+      <footer class="footer"><span>WALL-OSS-0.5 · 自变量面试专题</span><nav class="footer-links"><a href="rtc.html">← RTC</a><a href="pi-series.html">下一页：π 系列 →</a><a href="index.html">返回总览</a></nav></footer>
+    </main>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,420 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="DiT 深度面试专题：从 DDPM 扩散目标到 Transformer 去噪器、adaLN-Zero、图像 Latent DiT、机器人 Action DiT、Flow Matching 与 DiTFlow 训练采样。">
+  <meta name="theme-color" content="#0f1715">
+  <title>DiT：Transformer × Diffusion｜具身岗面试专题</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="scroll-progress"><span id="scroll-progress-bar"></span></div>
+  <header class="topbar">
+    <a class="brand" href="index.html"><span class="brand-mark">DiT</span><span class="brand-copy"><strong>Diffusion Transformer</strong><small>Noise · Tokens · Flow</small></span></a>
+    <nav class="topnav"><a href="index.html">总览</a><a href="resume-end-to-end.html">简历</a><a href="vla-interview.html">VLA</a><a href="tactile-interview.html">触觉</a><a href="at-vla.html">AT-VLA</a><a href="rtc.html">RTC</a><a href="wall-oss.html">WALL</a><a href="pi-series.html">π 系列</a><a href="attention.html">Attention</a><a href="transformer.html">Transformer</a><a href="act.html">ACT</a><a class="active" href="dit.html">DiT</a><a href="vla-loss.html">Loss</a><a href="rl.html">RL</a><a href="leetcode.html">算法题</a></nav>
+    <div class="top-actions"><button class="top-button" id="focus-toggle" type="button">专注阅读</button><a class="top-button strong" href="#boundary">先分清概念 ↓</a></div>
+  </header>
+
+  <div class="page-shell">
+    <aside class="sidebar">
+      <p class="eyebrow">DIT LEARNING PATH</p>
+      <ol class="side-nav">
+        <li><a href="#overview"><span>01</span>一句话主线</a></li>
+        <li><a href="#boundary"><span>02</span>架构与目标分层</a></li>
+        <li><a href="#diffusion"><span>03</span>Diffusion 基础</a></li>
+        <li><a href="#image-pipeline"><span>04</span>图像 DiT 张量流</a></li>
+        <li><a href="#block"><span>05</span>adaLN-Zero Block</a></li>
+        <li><a href="#conditioning"><span>06</span>条件如何注入</a></li>
+        <li><a href="#train-ddpm"><span>07</span>DDPM 训练</a></li>
+        <li><a href="#sample-ddpm"><span>08</span>采样与 CFG</a></li>
+        <li><a href="#action-dit"><span>09</span>机器人 Action DiT</a></li>
+        <li><a href="#velocity-net"><span>10</span>velocity_net 拆解</a></li>
+        <li><a href="#flow"><span>11</span>DiTFlow / FM</a></li>
+        <li><a href="#compare"><span>12</span>U-Net 与 DiT</a></li>
+        <li><a href="#resume"><span>13</span>结合你的项目</a></li>
+        <li><a href="#interview"><span>14</span>高频追问</a></li>
+        <li><a href="#practice"><span>15</span>自测与资料</a></li>
+      </ol>
+      <div class="sidebar-card"><strong>本页过关标准</strong><p>能把“目标函数”和“网络架构”分开；画出 Latent DiT 的 shape；手推 adaLN-Zero；解释 Action DiT 的 [B,H,D]; 区分 ε-pred、v-pred 与 Flow velocity；写出训练与 Euler 采样。</p></div>
+    </aside>
+
+    <main>
+      <section class="hero compact dit-hero reveal visible" id="overview">
+        <div>
+          <p class="kicker">Transformer as a Denoising Vector Field</p>
+          <h1>DiT<br><em>用 Transformer<br>学习去噪方向</em></h1>
+          <p class="hero-lead">Diffusion 决定如何从数据走向噪声、模型应预测什么；Transformer 决定如何在所有图像 patch 或动作时间步之间交换信息。DiT 把两者组合成可扩展的条件生成器。</p>
+          <div class="hero-actions"><a class="primary-button" href="#boundary">先分清两层概念 ↓</a><a class="ghost-button" href="#action-dit">直接看 Action DiT ↗</a></div>
+          <div class="hero-stats"><div><strong>x<sub>t</sub></strong><span>带噪样本</span></div><div><strong>t</strong><span>噪声等级</span></div><div><strong>c</strong><span>条件信息</span></div><div><strong>f<sub>θ</sub></strong><span>预测场</span></div></div>
+        </div>
+        <div class="hero-board dit-hero-board">
+          <div class="terminal-head"><span class="terminal-dots"><i></i><i></i><i></i></span><span>dit.forward(x_t, t, cond)</span></div>
+          <div class="dit-hero-equation"><span>NOISY SAMPLE</span><strong>x<sub>t</sub></strong><b>+</b><span>TIME</span><strong>t</strong><b>+</b><span>CONDITION</span><strong>c</strong></div>
+          <div class="dit-hero-transformer"><span>PATCH / ACTION EMBED</span><strong>N × DiT Block</strong><small>Self-Attention · adaLN-Zero · FFN</small></div>
+          <div class="dit-output-row"><article><span>DDPM</span><strong>ε / x₀ / v</strong></article><b>or</b><article><span>FLOW MATCHING</span><strong>dx/dt</strong></article></div>
+          <div class="formula">prediction = DiT(x<sub>t</sub>, t, condition)</div>
+        </div>
+      </section>
+
+      <section class="section reveal">
+        <div class="section-heading"><p class="section-index">01 · ELEVATOR PITCH</p><h2>先背这一分钟</h2></div>
+        <div class="interview-card"><strong>60 秒回答</strong><p>DiT，即 Diffusion Transformer，本质是把扩散模型中常用的 U-Net 去噪网络替换为 Transformer。标准图像 DiT 先用冻结 VAE 将图像压缩到 latent space，对 latent 加噪，再像 ViT 一样把带噪 latent patchify 成 token；扩散时间 t 与类别或文本条件 c 被编码后，通过 adaLN-Zero 调制每个 Transformer Block。Block 用 Self-Attention 建模所有 patch 的全局关系，用 FFN 做逐 token 非线性变换，最后将 token unpatchify 为与 latent 同形状的噪声或速度预测。关键是 DiT 只是网络架构：使用 DDPM 时可以预测 ε、x₀ 或 diffusion v；使用 Flow Matching 时同一类 DiT 改为预测概率路径的 velocity。机器人策略里不再 patchify 图像 latent，而是把 action chunk [B,H,Dₐ] 的每个时间步线性投影成 token，再用视觉、语言、本体与触觉作为条件，联合生成整个动作块。</p></div>
+        <div class="memory-line"><strong>一句话</strong><p>Diffusion / Flow Matching 规定“老师给什么题和答案”，DiT 规定“学生用什么网络解题”。</p></div>
+      </section>
+
+      <section class="section reveal" id="boundary">
+        <div class="section-heading split-heading"><div><p class="section-index">02 · CONCEPT BOUNDARY</p><h2>三层分开，理解就不会乱</h2></div><p>同一个 DiT Backbone 可以配不同概率路径、不同预测目标和不同采样器。</p></div>
+        <div class="dit-three-layers">
+          <article><span>LAYER 01 · PATH</span><strong>数据怎样变成噪声</strong><p>DDPM 的 α/σ 调度、VP/VE path，或 Flow Matching 的直线路径。</p><code>x<sub>t</sub> = path(x<sub>data</sub>, ε, t)</code></article>
+          <b>↓</b>
+          <article class="accent"><span>LAYER 02 · TARGET</span><strong>网络应该预测什么</strong><p>噪声 ε、干净样本 x₀、diffusion v、score，或 ODE velocity。</p><code>target = ε / x₀ / v / dxdt</code></article>
+          <b>↓</b>
+          <article><span>LAYER 03 · BACKBONE</span><strong>用什么函数拟合目标</strong><p>U-Net、1D CNN、Transformer 或 DiT 都只是参数化网络。</p><code>pred = f<sub>θ</sub>(x<sub>t</sub>,t,c)</code></article>
+        </div>
+        <div class="table-scroll" style="margin-top:16px"><table class="shape-table"><thead><tr><th>概念</th><th>它决定什么</th><th>改变后什么必须一起变</th><th>什么可以不变</th></tr></thead><tbody>
+          <tr><td><strong>Noise / probability path</strong></td><td>x<sub>t</sub> 如何构造、时间方向与分布</td><td>训练 target 与 sampler 方程</td><td>DiT 主体结构可以不变</td></tr>
+          <tr><td><strong>Parameterization</strong></td><td>预测 ε、x₀、v 或 velocity</td><td>loss target、预测结果恢复公式</td><td>tokenization 与大部分 Block 不变</td></tr>
+          <tr><td><strong>Backbone</strong></td><td>如何从 x<sub>t</sub>,t,c 计算预测</td><td>输入输出投影、条件注入与容量</td><td>扩散路径和理论目标可以不变</td></tr>
+          <tr><td><strong>Sampler</strong></td><td>从噪声数值积分到数据</td><td>更新公式、步数与时间网格</td><td>已训练模型权重有时可复用</td></tr>
+        </tbody></table></div>
+        <div class="callout warning"><strong>最常见误解</strong><p>“DiT 一定预测噪声”“Flow Matching 不能用 DiT”都不对。官方 DiT 使用 DDPM ε/方差参数化，但 DiT 这个架构完全可以输出 Flow velocity；这正是 Action DiTFlow 的核心。</p></div>
+      </section>
+
+      <section class="section reveal" id="diffusion">
+        <div class="section-heading"><p class="section-index">03 · DIFFUSION FOUNDATION</p><h2>先理解训练样本 x<sub>t</sub> 从哪里来</h2></div>
+        <div class="formula large">x<sub>t</sub> = α<sub>t</sub>x₀ + σ<sub>t</sub>ε，　ε ~ N(0,I)</div>
+        <div class="diffusion-track" style="margin-top:16px">
+          <article><span>t = 0</span><strong>x₀</strong><small>真实数据，结构完整</small></article><b>＋ noise →</b>
+          <article><span>EARLY</span><strong>x<sub>t₁</sub></strong><small>轻微破坏细节</small></article><b>＋ noise →</b>
+          <article><span>MIDDLE</span><strong>x<sub>t₂</sub></strong><small>只剩粗略结构</small></article><b>＋ noise →</b>
+          <article><span>t = T</span><strong>ε</strong><small>近似标准高斯</small></article>
+        </div>
+        <div class="card-grid three" style="margin-top:16px">
+          <article class="info-card"><span>FORWARD</span><h3>训练时直接采样</h3><p>利用闭式公式，从 x₀、随机 t 和 ε 一步得到 x<sub>t</sub>，无需真的循环加噪 T 次。</p></article>
+          <article class="info-card"><span>REVERSE</span><h3>生成时逐步反推</h3><p>从高斯噪声开始，反复调用网络估计方向，逐步恢复结构。</p></article>
+          <article class="info-card"><span>CONDITION</span><h3>c 决定生成哪一种样本</h3><p>图像类别、文本、视觉观察或机器人状态都可作为条件。</p></article>
+        </div>
+        <div class="table-scroll" style="margin-top:16px"><table class="shape-table"><thead><tr><th>预测目标</th><th>监督</th><th>直觉</th><th>注意</th></tr></thead><tbody>
+          <tr><td><strong>ε-pred</strong></td><td>‖ε<sub>θ</sub>(x<sub>t</sub>,t,c)−ε‖²</td><td>告诉模型当前样本里混入了什么噪声</td><td>官方 DiT 的主要简单损失</td></tr>
+          <tr><td><strong>x₀-pred</strong></td><td>‖x̂₀−x₀‖²</td><td>直接恢复干净数据</td><td>不同 t 的信噪比会改变难度与权重</td></tr>
+          <tr><td><strong>diffusion v-pred</strong></td><td>v=α<sub>t</sub>ε−σ<sub>t</sub>x₀</td><td>旋转后的稳定参数化</td><td>不是 Flow Matching 的 dx/dt，名字相同但定义不同</td></tr>
+          <tr><td><strong>score-pred</strong></td><td>∇<sub>x</sub>log p<sub>t</sub>(x)</td><td>指向高概率数据区域</td><td>与 ε 可通过 σ<sub>t</sub> 换算</td></tr>
+        </tbody></table></div>
+        <div class="callout error"><strong>两个 velocity 必须区分</strong><p>Diffusion 的 v-parameterization 通常是 ε 与 x₀ 的线性组合；Flow Matching velocity 是概率路径的时间导数 dx/dt。面试时若只说“模型预测 v”，必须补充具体定义。</p></div>
+      </section>
+
+      <section class="section reveal" id="image-pipeline">
+        <div class="section-heading split-heading"><div><p class="section-index">04 · LATENT IMAGE DIT</p><h2>逐个追踪官方 DiT 的张量</h2></div><p>例子采用 256×256 图像、VAE 下采样8倍、latent通道4、patch size=2。</p></div>
+        <div class="shape-flow">
+          <div class="shape-node"><b>RGB image</b><code>[B,3,256,256]</code></div><span class="shape-arrow">VAE →</span>
+          <div class="shape-node"><b>clean latent z₀</b><code>[B,4,32,32]</code></div><span class="shape-arrow">＋ε →</span>
+          <div class="shape-node"><b>noisy latent zₜ</b><code>[B,4,32,32]</code></div><span class="shape-arrow">patchify →</span>
+          <div class="shape-node"><b>latent tokens</b><code>[B,256,D]</code></div><span class="shape-arrow">N blocks →</span>
+          <div class="shape-node"><b>patch outputs</b><code>[B,256,2²·2C]</code></div><span class="shape-arrow">unpatchify →</span>
+          <div class="shape-node"><b>ε + Σ</b><code>[B,8,32,32]</code></div>
+        </div>
+        <div class="architecture-stack" style="margin-top:16px">
+          <article class="architecture-layer"><span>01 / VAE</span><div><strong>先压缩空间，再做生成</strong><p>冻结 VAE 把 256×256×3 压成 32×32×4，DiT 在 latent 而非像素空间工作。</p></div><code>8× downsample</code></article>
+          <article class="architecture-layer"><span>02 / PATCHIFY</span><div><strong>2×2 latent patch 变成一个 token</strong><p>32/2=16，因此 token 数为16×16=256；每个 patch 线性投影到 hidden size D。</p></div><code>T=(I/p)²</code></article>
+          <article class="architecture-layer"><span>03 / POSITION</span><div><strong>加入固定二维 sin/cos 位置编码</strong><p>Self-Attention 本身不知道 patch 在二维网格中的位置。</p></div><code>[1,256,D]</code></article>
+          <article class="architecture-layer"><span>04 / CONDITION</span><div><strong>timestep 与 class embedding 相加</strong><p>官方类条件 DiT 使用 c=Embed(t)+Embed(y)，再通过 adaLN-Zero 调制各 Block。</p></div><code>c [B,D]</code></article>
+          <article class="architecture-layer"><span>05 / UNPATCHIFY</span><div><strong>每个 token 还原一个输出 patch</strong><p>learn_sigma 时输出2C通道，对应噪声预测与反向方差参数。</p></div><code>[B,2C,32,32]</code></article>
+        </div>
+        <div class="callout warning"><strong>patch size 的计算影响</strong><p>p 减半会让每个空间方向 token 数翻倍，总 token 数变为4倍；Self-Attention 的 L² 部分理论上可增至16倍。参数量变化不大，但 GFLOPs 和显存显著增加。</p></div>
+      </section>
+
+      <section class="section reveal" id="block">
+        <div class="section-heading"><p class="section-index">05 · ADALN-ZERO</p><h2>标准 Transformer Block 如何变成 DiT Block</h2></div>
+        <div class="compare-grid">
+          <article class="compare-card"><h3>标准 Pre-Norm Transformer</h3><div class="formula">x ← x + MSA(LN(x))<br>x ← x + MLP(LN(x))</div><ul><li>所有样本使用同一组 LayerNorm affine 参数</li><li>Block 不知道当前噪声等级</li><li>需要额外方式注入生成条件</li></ul></article>
+          <article class="compare-card good"><h3>DiT adaLN-Zero</h3><div class="formula">x ← x + g<sub>attn</sub>·MSA((1+s<sub>a</sub>)LN(x)+b<sub>a</sub>)<br>x ← x + g<sub>mlp</sub>·MLP((1+s<sub>m</sub>)LN(x)+b<sub>m</sub>)</div><ul><li>shift、scale、gate 都由条件 c 预测</li><li>不同 t/类别得到不同调制</li><li>gate 初始为0，Block 从恒等映射开始</li></ul></article>
+        </div>
+        <div class="dit-block-map" style="margin-top:16px">
+          <article class="condition"><span>GLOBAL CONDITION</span><strong>c = t_emb + y_emb</strong><small>[B,D]</small></article><b>MLP → 6D</b>
+          <article><span>ATTENTION MOD</span><strong>shift₁ / scale₁ / gate₁</strong><small>调制 LN → MSA → residual</small></article>
+          <article><span>FFN MOD</span><strong>shift₂ / scale₂ / gate₂</strong><small>调制 LN → MLP → residual</small></article>
+        </div>
+        <div class="code-card">
+          <div class="code-head"><div><i></i><strong id="adaln-code">minimal_adaln_zero.py</strong></div><button class="copy-button" data-copy="adaln-source">复制代码</button></div>
+          <pre id="adaln-source">def modulate(x, shift, scale):
+    # x:[B,L,D], shift/scale:[B,D]
+    return x * (1 + scale[:, None, :]) + shift[:, None, :]
+
+class DiTBlock(nn.Module):
+    def __init__(self, dim, heads, mlp_ratio=4):
+        super().__init__()
+        self.norm1 = nn.LayerNorm(dim, elementwise_affine=False)
+        self.norm2 = nn.LayerNorm(dim, elementwise_affine=False)
+        self.attn = MultiHeadAttention(dim, heads)
+        self.mlp = FeedForward(dim, int(dim * mlp_ratio))
+        self.to_mod = nn.Sequential(nn.SiLU(), nn.Linear(dim, 6 * dim))
+
+        # 使 shift/scale/gate 初始全为 0
+        nn.init.zeros_(self.to_mod[-1].weight)
+        nn.init.zeros_(self.to_mod[-1].bias)
+
+    def forward(self, x, c):
+        sa, sca, ga, sm, scm, gm = self.to_mod(c).chunk(6, dim=-1)
+
+        h = modulate(self.norm1(x), sa, sca)
+        attn_out, _ = self.attn(h, h, h)
+        x = x + ga[:, None, :] * attn_out
+
+        h = modulate(self.norm2(x), sm, scm)
+        x = x + gm[:, None, :] * self.mlp(h)
+        return x</pre>
+        </div>
+        <div class="line-explain">
+          <article><span>NO AFFINE LN</span><strong>LayerNorm 不自己学 γ/β</strong><p>仿射调制完全由条件网络产生，避免固定 affine 与动态 affine 重复。</p></article>
+          <article><span>GLOBAL CONDITION</span><strong>同一 c 调制所有 token</strong><p>计算高效，但空间/时间位置之间使用相同调制函数。</p></article>
+          <article><span>IDENTITY INIT</span><strong>初始 residual gate=0</strong><p>每个 Block 初始近似 x→x，深层 Transformer 从稳定状态开始学习。</p></article>
+        </div>
+      </section>
+
+      <section class="section reveal" id="conditioning">
+        <div class="section-heading split-heading"><div><p class="section-index">06 · CONDITION INJECTION</p><h2>t 和任务条件怎样进入 Transformer</h2></div><p>时间 t 不是序列位置：它表示整个样本当前被破坏到什么程度。</p></div>
+        <div class="table-scroll"><table class="shape-table"><thead><tr><th>方式</th><th>实现</th><th>优点</th><th>局限 / 适用场景</th></tr></thead><tbody>
+          <tr><td><strong>In-context tokens</strong></td><td>把 t、类别或条件向量当额外 token 拼入序列</td><td>保持标准 Transformer 不变</td><td>条件需压成少量 token；最后移除条件 token</td></tr>
+          <tr><td><strong>Cross-Attention</strong></td><td>x token 作 Q，文本/视觉 context 作 K/V</td><td>支持可变长度丰富条件</td><td>每层增加 Cross-Attention 计算与参数</td></tr>
+          <tr><td><strong>adaLN</strong></td><td>条件预测 LayerNorm shift/scale</td><td>开销小，适合全局向量条件</td><td>同一调制广播给所有 token</td></tr>
+          <tr><td><strong>adaLN-Zero</strong></td><td>adaLN + residual gate + 零初始化</td><td>官方 DiT 中效果和计算效率最好</td><td>复杂文本仍常需 Cross-Attention 或先池化</td></tr>
+          <tr><td><strong>Hybrid</strong></td><td>t 用 adaLN，视觉/语言用 Cross-Attention</td><td>同时保留噪声级全局调制和细粒度条件</td><td>工程结构与 mask 更复杂</td></tr>
+        </tbody></table></div>
+        <div class="formula" style="margin-top:16px">t [B] → Sin/Cos Frequency Embedding [B,D<sub>f</sub>] → MLP → t<sub>emb</sub> [B,D]</div>
+        <div class="card-grid three" style="margin-top:15px">
+          <article class="info-card"><span>TIMESTEP</span><h3>控制去噪策略</h3><p>高噪声阶段应建立全局结构，低噪声阶段应修细节；网络必须知道当前阶段。</p></article>
+          <article class="info-card"><span>POSITION</span><h3>告诉 token 在哪里</h3><p>图像使用二维位置，动作使用时间步位置；它与 diffusion timestep t 是两个独立概念。</p></article>
+          <article class="info-card"><span>SEMANTIC COND</span><h3>告诉模型生成什么</h3><p>类别、文本、视觉、本体、触觉决定样本属于哪一类条件分布。</p></article>
+        </div>
+      </section>
+
+      <section class="section reveal" id="train-ddpm">
+        <div class="section-heading"><p class="section-index">07 · DDPM TRAINING</p><h2>训练不是从噪声循环去噪</h2><p>一次训练迭代只随机抽一个 t，直接构造 x<sub>t</sub>，调用一次 DiT 并计算监督。</p></div>
+        <div class="step-timeline">
+          <div class="step-row"><span>01</span><strong>得到干净数据</strong><p>图像先经冻结 VAE 得到 z₀；动作策略则直接使用归一化 action chunk。</p></div>
+          <div class="step-row"><span>02</span><strong>随机采样 t 与 ε</strong><p>每个 batch 样本可使用不同 t；ε 与数据张量同 shape。</p></div>
+          <div class="step-row"><span>03</span><strong>闭式构造 x<sub>t</sub></strong><p>根据 schedule 取 α<sub>t</sub>、σ<sub>t</sub>，广播后混合 x₀ 和 ε。</p></div>
+          <div class="step-row"><span>04</span><strong>DiT 预测目标</strong><p>输入 x<sub>t</sub>、t 和条件 c，一次输出整个 latent 或 action chunk 的预测。</p></div>
+          <div class="step-row"><span>05</span><strong>计算 MSE</strong><p>ε-pred 比较真实噪声；x₀/v/flow 参数化则换成对应 target。</p></div>
+        </div>
+        <div class="code-card">
+          <div class="code-head"><div><i></i><strong>dit_ddpm_train_step.py</strong></div><button class="copy-button" data-copy="ddpm-train-code">复制代码</button></div>
+          <pre id="ddpm-train-code">def train_step(images, labels, vae, dit, alpha_bar):
+    with torch.no_grad():
+        x0 = vae.encode(images).sample()         # [B,C,H,W]
+
+    B = x0.size(0)
+    t = torch.randint(0, len(alpha_bar), (B,), device=x0.device)
+    eps = torch.randn_like(x0)
+
+    a = alpha_bar[t].sqrt()[:, None, None, None]
+    s = (1 - alpha_bar[t]).sqrt()[:, None, None, None]
+    x_t = a * x0 + s * eps
+
+    model_out = dit(x_t, t, labels)
+    eps_pred = model_out[:, :x0.size(1)]         # learn_sigma 时取前 C 通道
+    loss = F.mse_loss(eps_pred, eps)
+    return loss</pre>
+        </div>
+        <div class="callout"><strong>为什么训练便宜、采样贵</strong><p>训练可一步构造任意 t 的样本并只调用网络一次；生成时 x₀ 未知，只能从噪声开始多次调用 DiT 逐步积分，因此推理步数直接影响延迟。</p></div>
+      </section>
+
+      <section class="section reveal" id="sample-ddpm">
+        <div class="section-heading split-heading"><div><p class="section-index">08 · SAMPLING & CFG</p><h2>每一步都并行处理全部 token</h2></div><p>扩散生成不是像语言模型那样逐 patch 自回归；每个 denoising step 同时更新整张 latent 或整个 action chunk。</p></div>
+        <div class="diffusion-track reverse">
+          <article><span>STEP T</span><strong>x<sub>T</sub> ~ N(0,I)</strong><small>纯噪声</small></article><b>DiT →</b>
+          <article><span>STEP T−1</span><strong>x<sub>T−1</sub></strong><small>出现全局结构</small></article><b>DiT →</b>
+          <article><span>STEP …</span><strong>x<sub>t</sub></strong><small>不断修正</small></article><b>DiT →</b>
+          <article><span>STEP 0</span><strong>x̂₀</strong><small>干净样本</small></article>
+        </div>
+        <div class="formula large" style="margin-top:16px">ε̂<sub>cfg</sub> = ε̂<sub>uncond</sub> + s(ε̂<sub>cond</sub> − ε̂<sub>uncond</sub>)</div>
+        <div class="card-grid three" style="margin-top:15px">
+          <article class="info-card"><span>TRAIN CFG</span><h3>随机丢弃条件</h3><p>训练时一部分样本用 null condition，使同一网络学会有条件与无条件预测。</p></article>
+          <article class="info-card"><span>SAMPLE CFG</span><h3>每步做两种预测</h3><p>放大条件方向通常增强一致性，但 scale 过大可能损害多样性与稳定性。</p></article>
+          <article class="info-card"><span>SAMPLER</span><h3>DDPM / DDIM / ODE</h3><p>不同更新器决定随机性、数值误差和所需步数，但都反复调用同一去噪网络。</p></article>
+        </div>
+        <div class="callout warning"><strong>机器人策略中的 CFG</strong><p>动作生成不一定需要图像生成式的大 guidance scale；过强指导可能放大动作幅度或导致不平滑。是否使用应通过任务成功率、动作连续性和安全约束验证。</p></div>
+      </section>
+
+      <section class="section reveal" id="action-dit">
+        <div class="section-heading"><p class="section-index">09 · ACTION DIT</p><h2>从二维 Patch Token 换成一维动作 Token</h2></div>
+        <div class="table-scroll"><table class="shape-table"><thead><tr><th>环节</th><th>图像 DiT</th><th>机器人 Action DiT</th><th>保持不变的思想</th></tr></thead><tbody>
+          <tr><td>干净数据 x₀</td><td>VAE latent [B,C,H,W]</td><td>action chunk [B,H,Dₐ]</td><td>都来自目标数据分布</td></tr>
+          <tr><td>Tokenization</td><td>p×p patch 线性投影</td><td>每个动作时间步 Dₐ→D</td><td>连续数据映射为 token sequence</td></tr>
+          <tr><td>位置编码</td><td>二维 patch 位置</td><td>一维 action horizon 位置</td><td>告诉 Self-Attention token 顺序/位置</td></tr>
+          <tr><td>条件 c</td><td>类别或文本</td><td>视觉、语言、本体、触觉、目标</td><td>决定生成哪一类样本</td></tr>
+          <tr><td>输出</td><td>[B,C,H,W] 噪声/速度</td><td>[B,H,Dₐ] 噪声/速度</td><td>必须与被生成变量同 shape</td></tr>
+          <tr><td>生成</td><td>全 latent 同时去噪</td><td>整个 action chunk 同时去噪</td><td>不是沿序列自回归生成</td></tr>
+        </tbody></table></div>
+        <div class="shape-flow" style="margin-top:16px">
+          <div class="shape-node"><b>clean action</b><code>x₀ [B,H,Dₐ]</code></div><span class="shape-arrow">noise →</span>
+          <div class="shape-node"><b>noisy action</b><code>xₜ [B,H,Dₐ]</code></div><span class="shape-arrow">Linear →</span>
+          <div class="shape-node"><b>action tokens</b><code>[B,H,D]</code></div><span class="shape-arrow">DiT Blocks →</span>
+          <div class="shape-node"><b>hidden tokens</b><code>[B,H,D]</code></div><span class="shape-arrow">Head →</span>
+          <div class="shape-node"><b>prediction</b><code>[B,H,Dₐ]</code></div>
+        </div>
+        <div class="card-grid three" style="margin-top:15px">
+          <article class="info-card"><span>SELF-ATTENTION</span><h3>建模跨时间动作关系</h3><p>第1步的接近与第H步的闭合并非独立，Attention 联合建模整段轨迹。</p></article>
+          <article class="info-card"><span>MULTIMODAL COND</span><h3>观察决定动作分布</h3><p>同一场景可能有多条合理轨迹，条件让模型选择与任务和接触状态一致的模式。</p></article>
+          <article class="info-card"><span>CHUNK</span><h3>一次生成未来 H 步</h3><p>减少逐动作调用模型的延迟，并维持局部动作连贯性。</p></article>
+        </div>
+      </section>
+
+      <section class="section reveal" id="velocity-net">
+        <div class="section-heading split-heading"><div><p class="section-index">10 · YOUR CODE LINE</p><h2><code>velocity_net(x_t, t, global_cond)</code> 到底做了什么</h2></div><p>它不是“根据 t 算一个速度”，而是对带噪动作场做条件化时序建模。</p></div>
+        <div class="architecture-stack">
+          <article class="architecture-layer"><span>INPUT 01 / x_t</span><div><strong>当前带噪 action chunk</strong><p>每个动作维和每个未来时间步都被扰动；这是网络真正需要更新的状态。</p></div><code>[B,H,Dₐ]</code></article>
+          <article class="architecture-layer"><span>INPUT 02 / t</span><div><strong>当前概率路径位置</strong><p>同一个 x 值在高噪声和低噪声阶段应采取不同去噪策略。</p></div><code>[B] → [B,D]</code></article>
+          <article class="architecture-layer"><span>INPUT 03 / global_cond</span><div><strong>从观察提取的任务条件</strong><p>可包含视觉、本体、语言、目标数量和触觉表征，决定应该生成哪条动作轨迹。</p></div><code>[B,C] or [B,Lc,D]</code></article>
+          <article class="architecture-layer"><span>NETWORK</span><div><strong>Action Embed + DiT Blocks</strong><p>Linear 将动作投影为 tokens；Self-Attention 建模 H 步关系；adaLN/Cross-Attn 注入 t 与条件。</p></div><code>[B,H,D]</code></article>
+          <article class="architecture-layer"><span>OUTPUT / pred</span><div><strong>每个动作位置的预测向量</strong><p>具体语义取决于 loss：可以是 ε、x₀、diffusion v 或 Flow velocity。</p></div><code>[B,H,Dₐ]</code></article>
+        </div>
+        <div class="code-card">
+          <div class="code-head"><div><i></i><strong>minimal_action_dit.py</strong></div><button class="copy-button" data-copy="action-dit-code">复制代码</button></div>
+          <pre id="action-dit-code">class ActionDiT(nn.Module):
+    def __init__(self, action_dim, cond_dim, model_dim, horizon,
+                 depth=8, heads=8):
+        super().__init__()
+        self.action_in = nn.Linear(action_dim, model_dim)
+        self.time_mlp = TimestepEmbedder(model_dim)
+        self.cond_proj = nn.Linear(cond_dim, model_dim)
+        self.pos = nn.Parameter(torch.zeros(1, horizon, model_dim))
+        self.blocks = nn.ModuleList([
+            DiTBlock(model_dim, heads) for _ in range(depth)
+        ])
+        self.final_norm = nn.LayerNorm(model_dim)
+        self.action_out = nn.Linear(model_dim, action_dim)
+
+        # 初始预测接近 0，让迭代从稳定状态开始
+        nn.init.zeros_(self.action_out.weight)
+        nn.init.zeros_(self.action_out.bias)
+
+    def forward(self, x_t, t, global_cond):
+        # x_t: [B,H,Da], t:[B], global_cond:[B,C]
+        x = self.action_in(x_t) + self.pos[:, :x_t.size(1)]
+        c = self.time_mlp(t) + self.cond_proj(global_cond)  # [B,D]
+        for block in self.blocks:
+            x = block(x, c)                                # [B,H,D]
+        return self.action_out(self.final_norm(x))          # [B,H,Da]</pre>
+        </div>
+        <div class="formula">pred = self.velocity_net(x_t, t, global_cond)<small>函数名 velocity_net 只是作者声明“输出会按速度场监督”；真正语义由 target 和 loss 决定，不能只看名字。</small></div>
+      </section>
+
+      <section class="section reveal" id="flow">
+        <div class="section-heading"><p class="section-index">11 · DITFLOW & FLOW MATCHING</p><h2>同一个 DiT，换一套路径与监督</h2></div>
+        <div class="formula large">x<sub>t</sub> = (1−t)ε + tx₁，　u<sub>t</sub> = dx<sub>t</sub>/dt = x₁−ε</div>
+        <div class="table-scroll" style="margin-top:16px"><table class="shape-table"><thead><tr><th>维度</th><th>DDPM / Diffusion</th><th>直线 Flow Matching</th></tr></thead><tbody>
+          <tr><td>概率路径</td><td>x<sub>t</sub>=α<sub>t</sub>x₀+σ<sub>t</sub>ε，常由噪声调度定义</td><td>x<sub>t</sub>=(1−t)ε+tx₁，噪声到数据直线插值</td></tr>
+          <tr><td>常见 target</td><td>ε、x₀、diffusion v 或 score</td><td>路径速度 u<sub>t</sub>=x₁−ε</td></tr>
+          <tr><td>网络</td><td>DiT(x<sub>t</sub>,t,c)</td><td>同样可以是 DiT(x<sub>t</sub>,t,c)</td></tr>
+          <tr><td>训练</td><td>回归选择的 diffusion parameterization</td><td>回归条件向量场，MSE(pred, x₁−ε)</td></tr>
+          <tr><td>生成</td><td>反向扩散、DDIM 或 probability-flow ODE</td><td>直接积分 dx/dt=v<sub>θ</sub>(x,t,c)</td></tr>
+          <tr><td>时间约定</td><td>论文/代码可能 t=0 数据、T 噪声</td><td>此处 t=0 噪声、1 数据；代码也可能反向</td></tr>
+        </tbody></table></div>
+        <div class="code-card">
+          <div class="code-head"><div><i></i><strong>flow_matching_train.py</strong></div><button class="copy-button" data-copy="fm-train-code">复制代码</button></div>
+          <pre id="fm-train-code">def flow_matching_loss(action, global_cond, velocity_net):
+    # action: x1 [B,H,Da]
+    B = action.size(0)
+    noise = torch.randn_like(action)             # x0
+    t = torch.rand(B, device=action.device)      # [B]
+    t3 = t[:, None, None]                        # [B,1,1]
+
+    x_t = (1 - t3) * noise + t3 * action         # [B,H,Da]
+    target_velocity = action - noise             # dx_t / dt
+
+    pred = velocity_net(x_t, t, global_cond)     # DiT: [B,H,Da]
+    return F.mse_loss(pred, target_velocity)</pre>
+        </div>
+        <div class="code-card">
+          <div class="code-head"><div><i></i><strong>euler_sample.py</strong></div><button class="copy-button" data-copy="fm-sample-code">复制代码</button></div>
+          <pre id="fm-sample-code">@torch.no_grad()
+def sample_actions(velocity_net, shape, global_cond, steps=10):
+    x = torch.randn(shape, device=global_cond.device)  # t=0, pure noise
+    grid = torch.linspace(0, 1, steps + 1, device=x.device)
+
+    for i in range(steps):
+        t = grid[i].expand(shape[0])
+        dt = grid[i + 1] - grid[i]
+        v = velocity_net(x, t, global_cond)
+        x = x + dt * v                              # Euler ODE update
+    return x</pre>
+        </div>
+        <div class="card-grid three">
+          <article class="info-card"><span>t3</span><h3>为什么扩成 [B,1,1]</h3><p>让每个样本的标量 t 同时广播到 action horizon H 和动作维 Dₐ。</p></article>
+          <article class="info-card"><span>PRED SHAPE</span><h3>为什么输出与 x<sub>t</sub> 同形</h3><p>向量场必须为样本空间中的每个坐标给出瞬时变化方向。</p></article>
+          <article class="info-card"><span>STEPS</span><h3>为何10步也能采样</h3><p>直线路径和较平滑动作常允许较粗 ODE 积分，但步数过少仍会产生离散化误差。</p></article>
+        </div>
+        <div class="callout"><strong>DiTFlow 的准确含义</strong><p>“DiT”描述 Transformer 型速度网络；“Flow”描述训练目标和 ODE 采样。把它称为扩散策略在工程语境中可以理解，但严格说 Flow Matching 不必对应随机扩散过程，它属于更一般的连续概率流框架。</p></div>
+      </section>
+
+      <section class="section reveal" id="compare">
+        <div class="section-heading split-heading"><div><p class="section-index">12 · U-NET VS DIT</p><h2>为什么生成模型逐渐采用 Transformer</h2></div><p>DiT 的优势不是“Attention 永远比卷积好”，而是统一架构、全局交互和可预测的规模化收益。</p></div>
+        <div class="table-scroll"><table class="shape-table"><thead><tr><th>维度</th><th>U-Net</th><th>DiT</th></tr></thead><tbody>
+          <tr><td>归纳偏置</td><td>卷积局部性、多尺度下采样/上采样很强</td><td>较弱空间先验，通过数据学习全局关系</td></tr>
+          <tr><td>长距离关系</td><td>依赖多层感受野，常在低分辨率加 Attention</td><td>所有 token 可直接 Self-Attention</td></tr>
+          <tr><td>多模态条件</td><td>需在多尺度 Block 设计注入</td><td>token、Cross-Attn、adaLN 接口统一</td></tr>
+          <tr><td>扩展性</td><td>通道/层级设计较领域化</td><td>深度、宽度、头数、token 数均易规模化</td></tr>
+          <tr><td>计算</td><td>高分辨率卷积成本稳定但多尺度复杂</td><td>全注意力 O(L²)，patch/token 数非常关键</td></tr>
+          <tr><td>动作序列</td><td>1D U-Net 局部时序偏置强、常见于 Diffusion Policy</td><td>Action DiT 全局建模 action chunk，易融合 VLM 条件</td></tr>
+        </tbody></table></div>
+        <div class="callout warning"><strong>DiT scaling 的正确表述</strong><p>原始论文观察到在其 ImageNet latent diffusion 设置中，提高模型深度/宽度或增加 token 带来的 GFLOPs，与更低 FID 强相关；这不等于任何任务上简单增加参数都必然提升，机器人数据规模和过拟合同样是约束。</p></div>
+      </section>
+
+      <section class="section reveal" id="resume">
+        <div class="section-heading"><p class="section-index">13 · CONNECT TO YOUR PROJECTS</p><h2>把理论落到你的简历</h2></div>
+        <div class="resume-map">
+          <article><span>QTAC / DITFLOW</span><strong>条件化 Action DiT</strong><p>x<sub>t</sub> 是带噪 action chunk；t 表示 Flow 路径位置；global_cond 融合视觉、本体、目标数量与 CountNet 触觉数量分布；输出是动作 velocity。</p><em>追问：为什么数量分布作为显式条件，比直接塞高维触觉 token 更容易解释？</em></article>
+          <article><span>TACTILE</span><strong>高频信号怎样进入慢速 DiT</strong><p>可将最近触觉窗口编码为全局向量调制 adaLN，也可保留 tactile tokens 通过 Cross-Attention；必须解决采样率、延迟和缺失模态问题。</p><em>追问：触觉变化发生在 action chunk 执行中途时，如何避免开环 chunk 反应过慢？</em></article>
+          <article><span>RTC</span><strong>生成时约束新旧动作块</strong><p>RTC 可在 Flow/DiT 采样过程中用旧 chunk 前缀引导新 chunk，而不是只在输出后做平均，从而保持连续性和实时反应。</p><em>追问：inference-time guidance 为什么需要 VJP，training-time prefix conditioning 又省掉了什么？</em></article>
+          <article><span>WALL</span><strong>Action Expert 也是条件向量场</strong><p>VL Expert 提供动作相关上下文，连续 Action Expert 读取带噪 action token 和 timestep，预测 Flow 场；Gradient Bridge 决定骨干能否学到动作表征。</p><em>追问：DiT Block 的条件信息怎样从 VL Expert 传到 Action Expert？</em></article>
+          <article><span>DEPLOYMENT</span><strong>速度不是只看参数量</strong><p>真实延迟由视觉编码、token 数、denoising steps、kernel launch 和动作队列共同决定；要分别 profile，而不是只报单次 forward。</p><em>追问：采样步数从10减到5，应监控成功率、轨迹平滑度还是单步 MSE？</em></article>
+        </div>
+      </section>
+
+      <section class="section reveal" id="interview">
+        <div class="section-heading"><p class="section-index">14 · INTERVIEW Q&A</p><h2>必须能够连续追答</h2></div>
+        <div class="qa-grid">
+          <div class="interview-card"><strong>Q1：DiT 与普通 Transformer 最大区别是什么？</strong><p>主体仍是 Pre-Norm Self-Attention + FFN，但输入是带噪连续样本 token；额外接收 diffusion timestep 和生成条件，并通常用 adaLN-Zero 动态调制每个 Block，输出也映射回连续样本空间。</p></div>
+          <div class="interview-card"><strong>Q2：DiT 为什么不是自回归模型？</strong><p>Transformer 只是一种并行序列处理架构。DiT 每个 denoising step 同时更新全部 patch/action tokens；它沿 diffusion time 迭代，而不是沿 token position 逐个生成。</p></div>
+          <div class="interview-card"><strong>Q3：为什么必须输入 t？</strong><p>不同噪声阶段的最优预测函数不同：高噪声时重建全局结构，低噪声时修正细节。没有 t，同一个网络无法判断当前信噪比和应采取的去噪幅度。</p></div>
+          <div class="interview-card"><strong>Q4：adaLN-Zero 为什么有效？</strong><p>条件产生 shift/scale/gate，实现不同 t 和任务的动态调制；gate 与调制层零初始化使每个残差 Block 初始近似恒等映射，深层训练更稳定且几乎不增加 token 级计算。</p></div>
+          <div class="interview-card"><strong>Q5：为什么 Action DiT 不需要 VAE？</strong><p>图像 VAE 是为压缩高维像素空间；机器人 action chunk 维度通常较低，可直接归一化并线性投影。若动作极高维或包含复杂手部轨迹，也可研究 learned action latent，但不是必需。</p></div>
+          <div class="interview-card"><strong>Q6：Flow velocity 与 diffusion v 有什么区别？</strong><p>Flow velocity 是选定概率路径的 dx/dt；diffusion v-pred 常定义为 αε−σx₀，是用于扩散模型的参数化。两者可能都叫 v，但 target、恢复公式和 sampler 不同。</p></div>
+          <div class="interview-card"><strong>Q7：为什么一次生成 action chunk 而非单步动作？</strong><p>能联合建模未来动作相关性、表达多模态轨迹并摊薄推理开销；代价是对新观察的响应变慢，因此需 execution horizon、replanning、temporal ensemble 或 RTC。</p></div>
+          <div class="interview-card"><strong>Q8：条件用 adaLN 还是 Cross-Attention？</strong><p>固定长度全局向量适合 adaLN，计算便宜；可变长度图像/语言/tactile tokens 适合 Cross-Attention，保留细粒度信息。实际 VLA 常让 t 用 adaLN、丰富 context 用 Cross-Attention。</p></div>
+        </div>
+      </section>
+
+      <section class="section reveal" id="practice">
+        <div class="section-heading"><p class="section-index">15 · ACTIVE RECALL</p><h2>用四道题检查是否真正理解</h2></div>
+        <div class="quiz-list">
+          <div class="quiz-item" data-answer="2"><strong>1. DiT 最准确的定义是？</strong><div class="quiz-options"><button>只预测 diffusion v 的模型</button><button>一种固定的噪声调度</button><button>使用 Transformer 参数化去噪/向量场的架构</button><button>逐 patch 自回归模型</button></div><p class="quiz-note">答案：DiT 描述 Backbone；它可服务多种扩散或 Flow 目标。</p></div>
+          <div class="quiz-item" data-answer="1"><strong>2. adaLN-Zero 中 c 通常生成多少组 D 维量？</strong><div class="quiz-options"><button>2组</button><button>6组</button><button>H组</button><button>只生成一个 token</button></div><p class="quiz-note">答案：Attention 与 MLP 各需要 shift、scale、gate，共6组。</p></div>
+          <div class="quiz-item" data-answer="3"><strong>3. Action DiT 输入 [B,H,Dₐ] 中 H 表示什么？</strong><div class="quiz-options"><button>注意力头数</button><button>图像高度</button><button>隐藏层宽度</button><button>动作预测时域长度</button></div><p class="quiz-note">答案：H 是 action horizon；不要和 attention heads 混淆。</p></div>
+          <div class="quiz-item" data-answer="0"><strong>4. 直线 Flow Matching 的正确 target 是？</strong><div class="quiz-options"><button>x₁−ε</button><button>ε</button><button>αε−σx₁</button><button>softmax(xₜ)</button></div><p class="quiz-note">答案：若 xₜ=(1−t)ε+tx₁，则 dxₜ/dt=x₁−ε。</p></div>
+        </div>
+        <div class="card-grid three" style="margin-top:16px">
+          <article class="practice-card"><span class="card-label">10 MIN</span><h3>画张量图</h3><p class="prompt">从 [B,4,32,32] 画到 DiT/2 的 [B,256,D]，再画回 [B,8,32,32]。</p></article>
+          <article class="practice-card"><span class="card-label">15 MIN</span><h3>手写 adaLN-Zero</h3><p class="prompt">要求写对 6D chunk、[B,D] 到 [B,1,D] 广播、两个 residual gate。</p></article>
+          <article class="practice-card"><span class="card-label">20 MIN</span><h3>手写 Action Flow</h3><p class="prompt">从 t3、x_t、target velocity、loss 写到 10 步 Euler sampling。</p></article>
+        </div>
+
+        <div class="section-heading" style="margin-top:70px"><p class="section-index">PRIMARY SOURCES</p><h2>继续阅读</h2></div>
+        <div class="source-grid">
+          <a class="source-card" href="https://arxiv.org/abs/2212.09748" target="_blank" rel="noreferrer"><span>ORIGINAL DIT</span><strong>Scalable Diffusion Models with Transformers</strong><p>Latent DiT、条件注入、adaLN-Zero、模型规模与实验。</p></a>
+          <a class="source-card" href="https://github.com/facebookresearch/DiT" target="_blank" rel="noreferrer"><span>OFFICIAL CODE</span><strong>facebookresearch/DiT</strong><p>时间编码、DiTBlock、FinalLayer、unpatchify 与 CFG。</p></a>
+          <a class="source-card" href="https://arxiv.org/abs/2210.02747" target="_blank" rel="noreferrer"><span>FLOW MATCHING</span><strong>Flow Matching for Generative Modeling</strong><p>概率路径、条件向量场、CFM 目标与 ODE 采样。</p></a>
+          <a class="source-card" href="https://arxiv.org/abs/2303.04137" target="_blank" rel="noreferrer"><span>ROBOT POLICY</span><strong>Diffusion Policy</strong><p>扩散生成在机器人 action sequence 上的应用。</p></a>
+          <a class="source-card" href="transformer.html"><span>LOCAL MODULE</span><strong>Transformer 从零手写</strong><p>Self-Attention、FFN、Pre-Norm 与条件融合基础。</p></a>
+          <a class="source-card" href="index.html#ditflow"><span>MAIN · CODE GUIDE</span><strong>Main 中的 DiTFlow 主线</strong><p>对照 x_t、t、global_cond、训练与采样代码，回到统一复习主线。</p></a>
+        </div>
+      </section>
+
+      <footer class="footer"><span>DiT · Transformer × Diffusion × Action Flow</span><nav class="footer-links"><a href="act.html">← ACT</a><a href="vla-loss.html">下一页：Loss / Flow →</a><a href="index.html">返回总览</a></nav></footer>
+    </main>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>

@@ -3,199 +3,331 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="具身智能端到端岗位面试指南：简历项目深挖、VLA、触觉、Attention、Loss、强化学习与高频算法题。">
+  <meta name="description" content="具身智能端到端面试 Main：从传感器、数据、Transformer、ACT、DiTFlow、VLA 到 RTC 真机部署的统一知识地图和复习路线。">
   <meta name="theme-color" content="#0f1715">
-  <title>具身岗手撕代码｜面试训练营</title>
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%230f1715'/%3E%3Ctext x='32' y='41' text-anchor='middle' font-family='Arial' font-size='25' font-weight='700' fill='%23b9e0d2'%3EAI%3C/text%3E%3C/svg%3E">
+  <title>具身智能面试 Main｜统一复习地图</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%230f1715'/%3E%3Ctext x='32' y='41' text-anchor='middle' font-family='Arial' font-size='22' font-weight='700' fill='%23b9e0d2'%3EM%3C/text%3E%3C/svg%3E">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
   <div class="scroll-progress" aria-hidden="true"><span id="scroll-progress-bar"></span></div>
   <header class="topbar">
-    <a class="brand" href="index.html">
-      <span class="brand-mark">AI</span>
-      <span class="brand-copy"><strong>具身岗手撕代码</strong><small>Interview Coding Guide</small></span>
-    </a>
-    <nav class="topnav" aria-label="专题导航">
-      <a class="active" href="index.html">总览</a>
-      <a href="resume-end-to-end.html">简历</a>
-      <a href="vla-interview.html">VLA</a>
-      <a href="tactile-interview.html">触觉</a>
-      <a href="at-vla.html">AT-VLA</a>
-      <a href="rtc.html">RTC</a>
-      <a href="pi-series.html">π 系列</a>
-      <a href="attention.html">Attention</a>
-      <a href="vla-loss.html">Loss</a>
-      <a href="rl.html">RL</a>
-      <a href="leetcode.html">算法题</a>
-    </nav>
-    <div class="top-actions">
-      <button class="top-button" id="focus-toggle" type="button">专注阅读</button>
-      <a class="top-button strong" href="attention.html">开始学习 →</a>
-    </div>
+    <a class="brand" href="#top"><span class="brand-mark">M</span><span class="brand-copy"><strong>Embodied Interview Main</strong><small>Sense · Learn · Act</small></span></a>
+    <nav class="topnav" aria-label="统一专题导航"><a class="active" href="index.html">Main</a></nav>
+    <div class="top-actions"><button class="top-button" id="focus-toggle" type="button">专注阅读</button><a class="top-button strong" href="#review-routes">选择路线 ↓</a></div>
   </header>
 
-  <div class="page-shell no-sidebar">
+  <div class="page-shell" id="top">
+    <aside class="sidebar">
+      <p class="eyebrow">MAIN REVIEW MAP</p>
+      <ol class="side-nav">
+        <li><a href="#overview"><span>01</span>统一主线</a></li>
+        <li><a href="#knowledge-map"><span>02</span>知识地图</a></li>
+        <li><a href="#review-routes"><span>03</span>复习路线</a></li>
+        <li><a href="#module-groups"><span>04</span>专题分组</a></li>
+        <li><a href="#connections"><span>05</span>概念关联</a></li>
+        <li><a href="#ditflow"><span>06</span>DiTFlow 主线</a></li>
+        <li><a href="#ditflow-architecture"><span>07</span>条件与张量</a></li>
+        <li><a href="#ditflow-training"><span>08</span>Flow 训练</a></li>
+        <li><a href="#ditflow-inference"><span>09</span>采样与执行</a></li>
+        <li><a href="#ditflow-code"><span>10</span>源码地图</a></li>
+        <li><a href="#ditflow-relations"><span>11</span>方法对照</a></li>
+        <li><a href="#ditflow-interview"><span>12</span>面试追问</a></li>
+        <li><a href="#practice-plan"><span>13</span>训练计划</a></li>
+        <li><a href="#final-check"><span>14</span>最终检查</a></li>
+      </ol>
+      <div class="sidebar-card"><strong>使用方式</strong><p>先在 Main 建立“输入—表示—策略—执行—评测”的全局坐标，再进入专题页。每学完一页，都用页面末尾的关联卡回到相邻概念，避免孤立背诵。</p></div>
+    </aside>
+
     <main>
-      <section class="hero reveal visible">
+      <section class="hero compact hub-hero reveal visible" id="overview">
         <div>
-          <p class="kicker">Embodied AI · Coding Interview</p>
-          <h1>从“看懂”到<br><em>现场写出来</em></h1>
-          <p class="hero-lead">围绕具身智能算法岗高频手撕题，按“原理—尺寸—最小实现—易错点—面试表达”拆解。先完成深度学习核心，再补强化学习与算法题。</p>
-          <div class="hero-actions">
-            <a class="primary-button" href="#learning-path">查看学习路径 ↓</a>
-            <a class="ghost-button" href="../ditflow-interview-guide/index.html">回到 DiTFlow 源码指南 ↗</a>
+          <p class="kicker">One System · Multiple Interview Angles</p>
+          <h1>把传感器、数据、模型和控制<br><em>串成一条主线</em></h1>
+          <p class="hero-lead">具身面试不是十四篇互不相关的论文问答。真正的主线始终是：机器人如何获得同步观测，怎样形成可学习的数据，模型如何生成连续动作，动作怎样在实时控制器中闭环执行，最后如何用任务指标证明有效。</p>
+          <div class="hero-actions"><a class="primary-button" href="#knowledge-map">先看系统地图 ↓</a><a class="ghost-button" href="#ditflow">进入 DiTFlow 源码主线 ↗</a></div>
+          <div class="hero-stats"><div><strong>14</strong><span>专题模块</span></div><div><strong>5</strong><span>系统层级</span></div><div><strong>4</strong><span>复习路线</span></div><div><strong>1</strong><span>统一 Main</span></div></div>
+        </div>
+        <div class="hero-board hub-hero-board">
+          <div class="terminal-head"><span class="terminal-dots"><i></i><i></i><i></i></span><span>embodied_system.forward(task)</span></div>
+          <div class="hub-pipeline">
+            <article><span>01</span><strong>Sense</strong><small>RGB · State · Tactile</small></article><b>→</b>
+            <article><span>02</span><strong>Dataset</strong><small>Sync · LeRobot · QA</small></article><b>→</b>
+            <article><span>03</span><strong>Policy</strong><small>ACT · DiTFlow · VLA</small></article><b>→</b>
+            <article><span>04</span><strong>Runtime</strong><small>Queue · RTC · Safety</small></article><b>→</b>
+            <article><span>05</span><strong>Evidence</strong><small>Success · MAE · Latency</small></article>
           </div>
-          <div class="hero-stats">
-            <div><strong>18</strong><span>高频实现</span></div>
-            <div><strong>10</strong><span>学习模块</span></div>
-            <div><strong>3×</strong><span>建议默写次数</span></div>
-          </div>
-        </div>
-
-        <div class="hero-board" aria-label="手写代码练习示意">
-          <div class="terminal-head"><span class="terminal-dots"><i></i><i></i><i></i></span><span>minimal_attention.py</span></div>
-          <div class="hero-code">
-            <span class="kw">def</span> <span class="fn">attention</span>(q, k, v, mask=<span class="kw">None</span>):<br>
-            &nbsp;&nbsp;scale = q.size(-<span class="num">1</span>) ** -<span class="num">0.5</span><br>
-            &nbsp;&nbsp;scores = q @ k.transpose(-<span class="num">2</span>, -<span class="num">1</span>) * scale<br>
-            &nbsp;&nbsp;<span class="kw">if</span> mask <span class="kw">is not None</span>: <span class="cm"># TODO</span><br>
-            &nbsp;&nbsp;attn = scores.softmax(dim=-<span class="num">1</span>)<br>
-            &nbsp;&nbsp;<span class="kw">return</span> attn @ v
-          </div>
-          <div class="hero-track"><span>01 · 不看答案默写</span><span>02 · 说清每个 shape</span><span>03 · 补边界条件</span></div>
+          <div class="hub-loop-note"><span>真实闭环</span><strong>观测变化 → 重新规划 → 动作执行 → 新观测</strong></div>
         </div>
       </section>
 
-      <section class="section reveal" id="learning-path">
-        <div class="section-heading">
-          <p class="section-index">01 · LEARNING PATH</p>
-          <h2>按面试收益排序</h2>
-          <p>时间有限时，不需要平均用力。Attention 与 VLA/Loss 是第一优先级。</p>
+      <section class="section reveal" id="knowledge-map">
+        <div class="section-heading split-heading"><div><p class="section-index">01 · GLOBAL SYSTEM MAP</p><h2>所有知识点放回五层系统</h2></div><p>遇到陌生模型时，先判断它改的是哪一层、上一层给它什么、下一层怎样使用。</p></div>
+        <div class="hub-layer-map">
+          <article><span>LAYER 01 · TASK & EVIDENCE</span><strong>任务定义与证据边界</strong><p>定义成功、失败、MAE、延迟和泛化；明确论文贡献、复现工作与个人职责。</p><div><a href="resume-end-to-end.html">简历项目主线</a><a href="vla-interview.html#action">动作空间</a></div></article>
+          <b>↓ 任务决定需要什么数据</b>
+          <article><span>LAYER 02 · SENSOR & DATA</span><strong>观测、同步、标定与数据组织</strong><p>机械臂、灵巧手、RGB-D、VR/Tracker 与触觉在统一时钟和坐标系中形成 episode。</p><div><a href="tactile-interview.html">触觉系统</a><a href="resume-end-to-end.html#data">数据工程</a></div></article>
+          <b>↓ 数据决定模型能学到什么</b>
+          <article><span>LAYER 03 · REPRESENTATION & BACKBONE</span><strong>Attention、Transformer 与多模态条件</strong><p>不同模态先编码成 token 或全局向量，再通过 Self/Cross Attention、AdaLN 或拼接交换信息。</p><div><a href="attention.html">Attention</a><a href="transformer.html">Transformer</a><a href="vla-interview.html">VLA 融合</a></div></article>
+          <b>↓ 表示进入动作生成器</b>
+          <article class="accent"><span>LAYER 04 · ACTION POLICY</span><strong>直接回归、CVAE、Diffusion 与 Flow</strong><p>ACT 用 L1+KL 并行回归 Action Chunk；DiTFlow 学条件速度场；VLA Action Expert 把语义与连续控制结合。</p><div><a href="act.html">ACT</a><a href="#ditflow">DiTFlow</a><a href="dit.html">DiT</a><a href="vla-loss.html">Loss</a></div></article>
+          <b>↓ 生成动作必须进入实时系统</b>
+          <article><span>LAYER 05 · RUNTIME & LEARNING LOOP</span><strong>动作队列、RTC、真机部署与经验学习</strong><p>选择执行 horizon、处理推理延迟、动作衔接、安全限幅，并根据 rollout 结果继续监督学习或强化学习。</p><div><a href="rtc.html">RTC</a><a href="rl.html">RL</a><a href="pi-series.html">π 系列</a><a href="wall-oss.html">WALL</a></div></article>
         </div>
-        <div class="path-grid">
-          <a class="path-card priority" href="resume-end-to-end.html">
-            <span class="number">MODULE CV</span>
-            <h3>简历项目深挖</h3>
-            <p>把 QTac、无本体数采、双臂遥操作、G3 触觉与硬件复现连成端到端闭环。</p>
-            <ul><li>简历证据与岗位能力矩阵</li><li>时空对齐、重定向与数据引擎</li><li>部署评测、高频追问与补强路线</li></ul>
-            <span class="go">进入模块 →</span>
-          </a>
-          <a class="path-card priority" href="vla-interview.html">
-            <span class="number">MODULE 00</span>
-            <h3>VLA 系统面试</h3>
-            <p>建立从多模态输入、模型架构到数据与真机部署的完整认知。</p>
-            <ul><li>VLM 架构与多模态融合</li><li>π / RT / OpenVLA</li><li>LoRA、LeRobot 与 Sim2Real</li></ul>
-            <span class="go">进入模块 →</span>
-          </a>
-          <a class="path-card priority" href="tactile-interview.html">
-            <span class="number">MODULE TAC</span>
-            <h3>机器人触觉专题</h3>
-            <p>从换能原理、工程选型与标定数据流，一直讲到 QTac 中的触觉闭环。</p>
-            <ul><li>八类传感器横向对比</li><li>选型、标定与故障诊断</li><li>简历经历与面试问答</li></ul>
-            <span class="go">进入模块 →</span>
-          </a>
-          <a class="path-card priority" href="at-vla.html">
-            <span class="number">MODULE AT</span>
-            <h3>AT-VLA 论文与源码</h3>
-            <p>理解触觉门控、Adaptive Query、快慢双流和公开代码的复现边界。</p>
-            <ul><li>论文机制与实验消融</li><li>源码入口和关键张量</li><li>G3 适配路线与简历表达</li></ul>
-            <span class="go">进入模块 →</span>
-          </a>
-          <a class="path-card priority" href="rtc.html">
-            <span class="number">MODULE RTC</span>
-            <h3>实时动作分块 RTC</h3>
-            <p>从异步 ActionQueue 到推理时 inpainting，再到训练时 prefix conditioning。</p>
-            <ul><li>H / s / d 时间线与约束</li><li>Soft Mask、VJP 与训练目标</li><li>LeRobot 源码及真机调试</li></ul>
-            <span class="go">进入模块 →</span>
-          </a>
-          <a class="path-card priority" href="pi-series.html">
-            <span class="number">MODULE π</span>
-            <h3>π 系列版本演进</h3>
-            <p>按“上一版痛点—本版改动—收益与代价”理解 π0 到 π*0.6。</p>
-            <ul><li>Flow 与 FAST 动作路线</li><li>π0.5 与知识隔离</li><li>π0.6、RECAP 与开源状态</li></ul>
-            <span class="go">进入模块 →</span>
-          </a>
-          <a class="path-card priority" href="attention.html">
-            <span class="number">MODULE 01</span>
-            <h3>Attention 系列</h3>
-            <p>从 scaled dot-product 到多头拆分、位置编码和 KV Cache。</p>
-            <ul><li>Self / Cross Attention</li><li>Multi-Head Attention</li><li>Positional Encoding</li><li>KV Cache</li></ul>
-            <span class="go">进入模块 →</span>
-          </a>
-          <a class="path-card priority" href="vla-loss.html">
-            <span class="number">MODULE 02</span>
-            <h3>VLA 与 Loss</h3>
-            <p>把动作生成、损失函数和时序执行写成可靠的最小代码。</p>
-            <ul><li>CE / MSE / Flow Matching</li><li>Temporal Ensemble</li><li>Action Chunk 滑窗</li></ul>
-            <span class="go">进入模块 →</span>
-          </a>
-          <a class="path-card" href="rl.html">
-            <span class="number">MODULE 03</span>
-            <h3>强化学习</h3>
-            <p>重点掌握 target 的构造，以及哪些量需要停止梯度。</p>
-            <ul><li>DQN / Double DQN</li><li>SAC Actor Loss</li><li>重参数化采样</li></ul>
-            <span class="go">进入模块 →</span>
-          </a>
-          <a class="path-card" href="leetcode.html">
-            <span class="number">MODULE 04</span>
-            <h3>高频算法题</h3>
-            <p>用少量代表题覆盖 BFS、DFS、DP 与字符串基本套路。</p>
-            <ul><li>矩阵最短路 / 岛屿数量</li><li>完全平方数 / LCS</li><li>回文字符串</li></ul>
-            <span class="go">进入模块 →</span>
-          </a>
+        <div class="memory-line"><strong>回答模板</strong><p>“这个方法位于第 X 层，输入来自上一层的……，主要解决……，输出交给下一层……；收益是……，代价和失败模式是……。”</p></div>
+      </section>
+
+      <section class="section reveal" id="review-routes">
+        <div class="section-heading"><p class="section-index">02 · REVIEW ROUTES</p><h2>不要按文件顺序平均复习</h2><p>根据面试类型选一条主路线，遇到不懂的概念再沿关联卡回补。</p></div>
+        <div class="hub-route-grid">
+          <article class="priority"><span>ROUTE A · 端到端算法</span><h3>Transformer → ACT → DiTFlow → RTC</h3><p>从序列建模开始，依次理解直接动作回归、生成式动作策略和实时执行。</p><ol><li><a href="transformer.html">完整 Transformer 骨架</a></li><li><a href="act.html">Action Chunk + CVAE</a></li><li><a href="#ditflow">Flow Matching 源码闭环</a></li><li><a href="rtc.html">异步与平滑衔接</a></li></ol><em>适合：端到端控制、模仿学习、策略岗位</em></article>
+          <article><span>ROUTE B · VLA 模型</span><h3>VLA → π 系列 → WALL → DiT / RTC</h3><p>先建立全景，再比较语义模型与连续 Action Expert 的耦合方式。</p><ol><li><a href="vla-interview.html">VLA 系统总览</a></li><li><a href="pi-series.html">π0 到 π0.6</a></li><li><a href="wall-oss.html">Gradient Bridge</a></li><li><a href="dit.html">条件向量场</a></li></ol><em>适合：VLA、基础模型、跨本体岗位</em></article>
+          <article><span>ROUTE C · 触觉具身</span><h3>触觉 → AT-VLA → QTac / DiTFlow → RTC</h3><p>从传感器原理走到时序数据、模型融合和接触后的实时重规划。</p><ol><li><a href="tactile-interview.html">触觉分类与工程链路</a></li><li><a href="at-vla.html">触觉门控与快慢流</a></li><li><a href="resume-end-to-end.html#qtac">QTac 项目表达</a></li><li><a href="#ditflow-relations">触觉条件化 Flow</a></li></ol><em>适合：触觉系统、灵巧操作、感知融合岗位</em></article>
+          <article><span>ROUTE D · 手撕冲刺</span><h3>Attention → Loss → RL → 算法题</h3><p>按现场代码收益排序，集中训练 shape、mask、target、detach 和边界条件。</p><ol><li><a href="attention.html">MHA / PE / KV Cache</a></li><li><a href="vla-loss.html">CE / MSE / Flow</a></li><li><a href="rl.html">DQN / SAC</a></li><li><a href="leetcode.html">BFS / DFS / DP</a></li></ol><em>适合：手撕轮、基础算法轮</em></article>
         </div>
       </section>
 
-      <section class="section reveal" id="routine">
-        <div class="section-heading split-heading">
-          <div><p class="section-index">02 · PRACTICE LOOP</p><h2>每道题练四遍</h2></div>
-          <p>“会解释”和“能手写”是两种能力。训练时需要主动移除提示。</p>
-        </div>
-        <div class="memory-strip">
-          <article><span>ROUND 01</span><strong>看答案理解</strong><p>逐行跟踪张量尺寸，弄清每个算子的目的。</p></article>
-          <article><span>ROUND 02</span><strong>关答案默写</strong><p>只保留函数签名和输入输出约束。</p></article>
-          <article><span>ROUND 03</span><strong>边写边讲</strong><p>模拟面试，先说思路、复杂度和边界情况。</p></article>
-          <article><span>ROUND 04</span><strong>制造错误测试</strong><p>主动检查 mask、device、dtype、detach 和维度。</p></article>
+      <section class="section reveal" id="module-groups">
+        <div class="section-heading"><p class="section-index">03 · MODULE GROUPS</p><h2>十四个专题，归入四个知识簇</h2></div>
+        <div class="hub-module-groups">
+          <article><div><span>FOUNDATION</span><h3>序列建模与目标函数</h3><p>回答“信息怎样交换、网络究竟监督什么”。</p></div><ul><li><a href="attention.html"><strong>Attention</strong><small>QKV、Mask、PE、KV Cache</small></a></li><li><a href="transformer.html"><strong>Transformer</strong><small>Encoder–Decoder、Pre-Norm、Teacher Forcing</small></a></li><li><a href="vla-loss.html"><strong>Loss</strong><small>CE、MSE、Flow、Action Chunk</small></a></li></ul></article>
+          <article class="accent"><div><span>ACTION POLICY</span><h3>动作序列生成</h3><p>回答“为什么输出一段动作，怎样表达多模态轨迹”。</p></div><ul><li><a href="act.html"><strong>ACT</strong><small>CVAE、DETR Query、Temporal Ensemble</small></a></li><li><a href="#ditflow"><strong>DiTFlow</strong><small>已完整并入 Main：条件、训练、采样、队列</small></a></li><li><a href="dit.html"><strong>DiT</strong><small>adaLN-Zero、DDPM 与 Action Flow</small></a></li><li><a href="rtc.html"><strong>RTC</strong><small>异步推理、inpainting、prefix conditioning</small></a></li></ul></article>
+          <article><div><span>VLA & MULTIMODAL</span><h3>大模型与多模态策略</h3><p>回答“语义知识如何与连续动作结合”。</p></div><ul><li><a href="vla-interview.html"><strong>VLA 总览</strong><small>架构、数据、微调、Sim2Real</small></a></li><li><a href="pi-series.html"><strong>π 系列</strong><small>Flow Expert、FAST、开放世界与 RL</small></a></li><li><a href="wall-oss.html"><strong>WALL</strong><small>MoT、Gradient Bridge、跨本体</small></a></li><li><a href="at-vla.html"><strong>AT-VLA</strong><small>触觉门控、Adaptive Query、快慢双流</small></a></li></ul></article>
+          <article><div><span>ENGINEERING & INTERVIEW</span><h3>数据、真机与代码能力</h3><p>回答“系统是否真正跑通、个人证据是什么”。</p></div><ul><li><a href="resume-end-to-end.html"><strong>简历项目</strong><small>QTac、数采、遥操作、部署闭环</small></a></li><li><a href="tactile-interview.html"><strong>触觉工程</strong><small>选型、标定、数据流、故障诊断</small></a></li><li><a href="rl.html"><strong>强化学习</strong><small>DQN、Double DQN、SAC</small></a></li><li><a href="leetcode.html"><strong>算法题</strong><small>BFS、DFS、DP 与字符串</small></a></li></ul></article>
         </div>
       </section>
 
-      <section class="section reveal" id="checklist">
-        <div class="section-heading">
-          <p class="section-index">03 · UNIVERSAL CHECKLIST</p>
-          <h2>写完代码先检查这些</h2>
-          <p>多数现场手撕失分并不是公式不会，而是接口、尺寸或梯度处理不完整。</p>
+      <section class="section reveal" id="connections">
+        <div class="section-heading split-heading"><div><p class="section-index">04 · CONCEPT BRIDGES</p><h2>同一个概念在不同方法中怎样变化</h2></div><p>面试官常从你的项目跳到相邻模型；这张表用于练“横向比较”。</p></div>
+        <div class="table-scroll"><table class="shape-table hub-bridge-table"><thead><tr><th>共同概念</th><th>基础/小模型</th><th>生成策略</th><th>VLA/大模型</th><th>实时与工程</th></tr></thead><tbody>
+          <tr><td><strong>Action Chunk</strong><small>一次预测未来 H 步</small></td><td><a href="act.html">ACT：k 个 Action Query</a></td><td><a href="#ditflow">DiTFlow：整段动作 ODE</a></td><td><a href="pi-series.html">π：Action Expert 输出 chunk</a></td><td><a href="rtc.html">RTC：旧前缀后续写</a></td></tr>
+          <tr><td><strong>条件注入</strong><small>观测怎样影响动作</small></td><td><a href="transformer.html">拼 token / Cross-Attention</a></td><td><a href="dit.html">AdaLN shift/scale/gate</a></td><td><a href="wall-oss.html">VL Expert → Action Expert</a></td><td>检查时间对齐与缺失模态</td></tr>
+          <tr><td><strong>多模态</strong><small>视觉、本体、语言、触觉</small></td><td><a href="vla-interview.html">各自编码后融合</a></td><td><a href="#ditflow-architecture">拼成 global condition</a></td><td><a href="at-vla.html">门控与快慢双流</a></td><td><a href="tactile-interview.html">标定、频率、同步</a></td></tr>
+          <tr><td><strong>多解动作</strong><small>同一观测有多条合理轨迹</small></td><td><a href="act.html">CVAE latent z</a></td><td><a href="#ditflow-training">高斯噪声 → Flow</a></td><td><a href="pi-series.html">条件 Flow Expert</a></td><td>用成功率和轨迹分布评测</td></tr>
+          <tr><td><strong>连续性</strong><small>chunk 交界不能跳变</small></td><td><a href="act.html#ensemble">Temporal Ensemble</a></td><td>整段联合生成</td><td>高层语义与低层动作解耦</td><td><a href="rtc.html">inpainting / prefix</a></td></tr>
+          <tr><td><strong>训练目标</strong><small>模型到底预测什么</small></td><td>ACT：L1 + KL</td><td><a href="vla-loss.html">DDPM ε / FM velocity</a></td><td>Token CE + Action Loss</td><td><a href="rl.html">TD / Actor objective</a></td></tr>
+        </tbody></table></div>
+        <div class="callout"><strong>横向回答模板</strong><p>先说共同问题，再说每种方法的表示、目标函数、推理代价和闭环方式。例如：“ACT 与 DiTFlow 都输出 Action Chunk；ACT 一次直接回归并用 CVAE 建模风格，DiTFlow 从噪声经 ODE 生成，表达力更强但推理更慢；两者都要额外决定执行 horizon 和重规划频率。”</p></div>
+      </section>
+
+      <section class="section reveal ditflow-main" id="ditflow">
+        <div class="section-heading split-heading"><div><p class="section-index">05 · DITFLOW · ELEVATOR PITCH</p><h2>DiTFlow 不再是独立页面</h2></div><p>以下从源码定位、张量、训练、采样、配置到面试追问全部放在 Main 中，并与 ACT、DiT、RTC、触觉和 VLA 联合理解。</p></div>
+        <div class="interview-card ditflow-pitch"><strong>30 秒回答</strong><p>DiTFlow 是接入 LeRobot 的生成式机器人策略：它用 ResNet 编码最近多帧、多相机图像，并与本体状态拼成全局条件 c；训练时在高斯噪声 ε 与真实动作轨迹 a 之间采样直线插值点 x<sub>t</sub>，让条件 DiT 回归速度 a−ε；推理时从随机噪声出发，通过 Euler 法沿模型速度场从 t=0 积分到 t=1，得到完整 Action Chunk；策略再从当前时刻对应的索引开始截取若干动作放入队列，队列耗尽后结合新观测重新规划。</p></div>
+        <div class="ditflow-spine">
+          <article><span>OBS</span><strong>state + images</strong><small>[B,S,·]</small></article><b>→ encode</b>
+          <article><span>CONDITION</span><strong>global c</strong><small>[B,S·D<sub>cond</sub>]</small></article><b>→ modulate</b>
+          <article class="accent"><span>FLOW STATE</span><strong>x<sub>t</sub>, t</strong><small>[B,H,D<sub>a</sub>]</small></article><b>→ DiT</b>
+          <article><span>VELOCITY</span><strong>v<sub>θ</sub></strong><small>dx/dt</small></article><b>→ Euler</b>
+          <article><span>CONTROL</span><strong>action deque</strong><small>execute e steps</small></article>
         </div>
-        <div class="card-grid three">
-          <article class="info-card"><span>SHAPE</span><h3>尺寸是否闭合</h3><p>先在注释里写输入输出 shape，特别检查 <strong>transpose、reshape 和广播</strong>。</p></article>
-          <article class="info-card"><span>NUMERICS</span><h3>数值是否稳定</h3><p>softmax 前减最大值、log 前 clamp，方差和标准差加 <strong>epsilon</strong>。</p></article>
-          <article class="info-card"><span>GRADIENT</span><h3>梯度流向是否正确</h3><p>target 计算通常放进 <strong>torch.no_grad()</strong>；重参数化保留采样梯度。</p></article>
-          <article class="info-card"><span>DEVICE</span><h3>设备与类型一致</h3><p>新建 tensor 时继承输入的 <strong>device 和 dtype</strong>，避免 CPU/GPU 混用。</p></article>
-          <article class="info-card"><span>EDGE CASE</span><h3>边界条件完整</h3><p>考虑空输入、全 mask、序列长度为 1、终止状态和不可达路径。</p></article>
-          <article class="info-card"><span>COMPLEXITY</span><h3>复杂度讲得出来</h3><p>至少能说明时间、空间复杂度，以及优化前后的主要瓶颈。</p></article>
+        <div class="ditflow-facts" style="margin-top:16px">
+          <article><span>训练输入</span><strong>x<sub>t</sub>, t, c</strong><p>网络不是直接读取干净动作后复制动作。</p></article>
+          <article><span>监督目标</span><strong>a − ε</strong><p>直线路径对 t 求导得到的常速度。</p></article>
+          <article><span>推理起点</span><strong>x₀ ~ N(0,I)</strong><p>从与动作块同 shape 的随机噪声开始。</p></article>
+          <article><span>输出</span><strong>[B,H,D<sub>a</sub>]</strong><p>整段连续动作，不是离散 action token。</p></article>
+        </div>
+        <div class="callout warning"><strong>代码边界</strong><p>它是第三方 LeRobot policy 插件，不是完整训练框架。插件提供配置、策略、Flow loss、DiT 速度网络、采样与 processor；LeRobot 提供数据集、训练循环、统计量、policy factory、保存加载和机器人接口。复现时必须锁定兼容版本。</p></div>
+      </section>
+
+      <section class="section reveal" id="ditflow-architecture">
+        <div class="section-heading"><p class="section-index">06 · DITFLOW · CONDITION & SHAPES</p><h2>先把 global condition 和动作 token 分开</h2></div>
+        <div class="ditflow-architecture">
+          <article><span>IMAGES</span><strong>[B,S,N,C,H,W]</strong><p>最近 S 个观测步、N 路相机。先合并 B/S/N 进入共享 ResNet18 + SpatialSoftmax，再恢复时间维。</p></article><b>＋</b>
+          <article><span>ROBOT STATE</span><strong>[B,S,D<sub>s</sub>]</strong><p>本体状态按数据统计量归一化，与同一时刻图像特征对齐。</p></article><b>→</b>
+          <article class="condition"><span>GLOBAL CONDITION</span><strong>[B,S·D<sub>cond</sub>]</strong><p>各模态沿特征维拼接，再跨观测时间展平。它通过 AdaLN 调制 DiT，而不是作为动作 token。</p></article><b>＋</b>
+          <article><span>NOISY ACTION</span><strong>[B,H,D<sub>a</sub>]</strong><p>H 个动作时间步分别投影为 token，加可学习时间位置编码。</p></article>
+        </div>
+        <div class="table-scroll" style="margin-top:16px"><table class="shape-table"><thead><tr><th>符号</th><th>含义</th><th>默认阅读基准</th><th>面试要点</th></tr></thead><tbody>
+          <tr><td><strong>B</strong></td><td>batch size</td><td>由训练配置决定</td><td>所有模态必须批次一致</td></tr>
+          <tr><td><strong>S</strong></td><td>n_obs_steps</td><td>2</td><td>当前帧与前一帧形成短时上下文</td></tr>
+          <tr><td><strong>N</strong></td><td>相机数量</td><td>由 input_features 决定</td><td>可共享或独立视觉编码器</td></tr>
+          <tr><td><strong>H</strong></td><td>horizon</td><td>16</td><td>生成轨迹从最早观测对齐时刻开始</td></tr>
+          <tr><td><strong>e</strong></td><td>n_action_steps</td><td>8</td><td>只执行从当前索引开始的 e 步</td></tr>
+          <tr><td><strong>D<sub>a</sub></strong></td><td>动作维数</td><td>由 output feature 决定</td><td>必须明确绝对/增量、关节/末端语义</td></tr>
+          <tr><td><strong>t</strong></td><td>Flow time</td><td>[B]</td><td>训练每个样本一个标量，广播到动作时间与维度</td></tr>
+        </tbody></table></div>
+        <div class="ditflow-block-map">
+          <article><span>ACTION EMBED</span><strong>D<sub>a</sub> → 512</strong><small>x<sub>t</sub> + learned position</small></article><b>→</b>
+          <article><span>TIME + CONDITION</span><strong>t embedding + c projection</strong><small>生成 shift / scale / gate</small></article><b>→</b>
+          <article class="accent"><span>6 × DIT BLOCK</span><strong>Self-Attention + AdaLN + MLP</strong><small>动作 token 建模时间依赖</small></article><b>→</b>
+          <article><span>FINAL</span><strong>512 → D<sub>a</sub></strong><small>每个动作 token 输出 velocity</small></article>
+        </div>
+        <div class="qa-grid" style="margin-top:16px">
+          <div class="interview-card"><strong>条件为什么不一定要 Cross-Attention？</strong><p>该实现把定长 global condition 投影后与 t 相加，通过 AdaLN 生成每层 shift、scale、gate；这样计算便宜。若加入长语言序列或保留空间触觉 token，Cross-Attention 会更适合。</p></div>
+          <div class="interview-card"><strong>为什么动作时间步用 Self-Attention？</strong><p>每个 token 对应轨迹中的一个时刻，Self-Attention 让所有时刻联合协调，适合双臂、灵巧手与接触阶段的跨时间依赖。</p></div>
         </div>
       </section>
 
-      <section class="section reveal" id="schedule">
-        <div class="section-heading">
-          <p class="section-index">04 · 7-DAY PLAN</p>
-          <h2>一周最小训练安排</h2>
+      <section class="section reveal" id="ditflow-training">
+        <div class="section-heading"><p class="section-index">07 · DITFLOW · FLOW MATCHING</p><h2>训练只做一次随机中间点回归</h2><p>训练不是从噪声循环积分到动作；每个 batch 只随机采样一个 t，构造 x<sub>t</sub> 并回归该点的速度。</p></div>
+        <div class="ditflow-equations">
+          <article><span>① PATH</span><strong>x<sub>t</sub> = (1−t)ε + ta</strong><p>t=0 是噪声，t=1 是真实动作。</p></article><b>→</b>
+          <article><span>② TARGET</span><strong>u<sub>t</sub> = a−ε</strong><p>直线路径的 dx/dt 与 t 无关。</p></article><b>→</b>
+          <article class="accent"><span>③ LOSS</span><strong>‖v<sub>θ</sub>(x<sub>t</sub>,t,c)−u<sub>t</sub>‖²</strong><p>逐元素 MSE 回归条件速度场。</p></article>
         </div>
+        <pre><code>def flow_matching_loss(velocity_net, action, global_cond):
+    B = action.shape[0]                         # action: [B, H, Da]
+    noise = torch.randn_like(action)            # ε:      [B, H, Da]
+    t = torch.rand(B, device=action.device)     # t:      [B]
+    t3 = t[:, None, None]                       #         [B, 1, 1]
+
+    x_t = (1 - t3) * noise + t3 * action        #         [B, H, Da]
+    target = action - noise                     # dx/dt:  [B, H, Da]
+    pred = velocity_net(x_t, t, global_cond)    #         [B, H, Da]
+    return F.mse_loss(pred, target)</code></pre>
+        <div class="line-explain">
+          <article><code>t[:, None, None]</code><strong>为什么需要 t3？</strong><p>t 原本是 [B]，要分别乘每个样本的 H×D<sub>a</sub> 动作块；插入两个单例维后，PyTorch 才能按 batch 广播。</p></article>
+          <article><code>target = action - noise</code><strong>为什么不是预测 action？</strong><p>网络参数化的是 ODE 速度场。路径从 ε 指向 a，因此切向量是 a−ε；推理再通过积分恢复动作。</p></article>
+          <article><code>velocity_net(x_t,t,c)</code><strong>三个输入分别做什么？</strong><p>x<sub>t</sub> 告诉当前位置，t 告诉生成阶段，c 约束当前观测下应去向哪类动作。</p></article>
+        </div>
+        <div class="flow-mini-lab" id="flow-lab-main">
+          <div><span>INTERACTIVE PATH</span><strong>t = <output id="flow-t">0.50</output></strong><input id="flow-slider" type="range" min="0" max="100" value="50" aria-label="Flow time"></div>
+          <div class="flow-mini-track"><article><span>NOISE</span><strong id="flow-noise-weight">0.50</strong></article><i><b id="flow-marker"></b></i><article><span>ACTION</span><strong id="flow-action-weight">0.50</strong></article></div>
+          <p>x<sub>t</sub> = <strong id="flow-noise-weight-copy">(1−t)</strong>ε + <strong>t</strong>a。拖动只改变训练输入的位置，直线路径的监督方向始终是 a−ε。</p>
+        </div>
+        <div class="table-scroll" style="margin-top:16px"><table class="shape-table"><thead><tr><th>名称都可能叫 v</th><th>定义</th><th>监督与 sampler</th></tr></thead><tbody>
+          <tr><td><strong>Flow velocity</strong></td><td>概率路径的 dx/dt</td><td>本页目标 a−ε；通过 ODE 积分</td></tr>
+          <tr><td><strong>Diffusion v-pred</strong></td><td>常见定义 αε−σx₀</td><td>是一种 DDPM 参数化，需要对应恢复公式</td></tr>
+          <tr><td><strong>Noise ε-pred</strong></td><td>预测加到数据上的高斯噪声</td><td>由 scheduler 计算反向更新</td></tr>
+        </tbody></table></div>
+        <div class="callout warning"><strong>必须区分</strong><p>Flow velocity 与 diffusion v 都可能在代码中叫 <code>v</code>，但数学定义、target 和采样方程不同。DiT 只是网络骨架，不决定它预测哪一种量。</p></div>
+      </section>
+
+      <section class="section reveal" id="ditflow-inference">
+        <div class="section-heading split-heading"><div><p class="section-index">08 · DITFLOW · SAMPLING & CONTROL</p><h2>两个循环：ODE 生成，队列执行</h2></div><p>内层多次调用速度网络生成 chunk；外层只在动作队列耗尽后重新读取观测。</p></div>
+        <div class="compare-grid">
+          <article class="compare-card accent"><span>INNER LOOP · GENERATION</span><h3>噪声 → Action Chunk</h3><pre><code>@torch.no_grad()
+def euler_sample(model, cond, shape, K=100):
+    x = torch.randn(shape, device=cond.device)
+    dt = 1.0 / K
+    for k in range(K):
+        t = torch.full((shape[0],), k / K,
+                       device=cond.device)
+        x = x + dt * model(x, t, cond)
+        x = x.clamp(-1, 1)
+    return x</code></pre><p>从 t=0 正向积分到1。<code>clamp</code> 默认约束归一化动作，前提是 processor 的动作范围与之匹配。</p></article>
+          <article class="compare-card"><span>OUTER LOOP · EXECUTION</span><h3>Chunk → Action Queue</h3><pre><code>if len(action_queue) == 0:
+    cond = encode(recent_observations)
+    chunk = euler_sample(model, cond,
+                         (B, horizon, action_dim))
+    start = n_obs_steps - 1
+    execute = chunk[:, start:start+n_action_steps]
+    action_queue.extend(execute.transpose(0, 1))
+
+action = action_queue.popleft()</code></pre><p>默认 S=2 时，当前动作从索引1开始；生成16步，截取8步执行。队列未空时不会重新推理。</p></article>
+        </div>
+        <div class="ditflow-timeline">
+          <span>obs t−1</span><span>obs t</span><b>generate H=16</b><i class="past">a<sub>t−1</sub></i><i class="run">a<sub>t</sub></i><i class="run">a<sub>t+1</sub></i><i class="run">···</i><i class="run">a<sub>t+7</sub></i><i>···</i><i>a<sub>t+14</sub></i>
+        </div>
+        <div class="table-scroll" style="margin-top:16px"><table class="shape-table"><thead><tr><th>调节项</th><th>变小</th><th>变大</th><th>不要只看什么</th></tr></thead><tbody>
+          <tr><td><strong>num_inference_steps</strong></td><td>延迟低，积分误差可能增大</td><td>轨迹可能更精细，网络调用更贵</td><td>不要只看单次 forward</td></tr>
+          <tr><td><strong>n_action_steps</strong></td><td>更快闭环，平均推理频率高</td><td>摊薄采样成本，但反馈滞后</td><td>不要只看吞吐率</td></tr>
+          <tr><td><strong>horizon</strong></td><td>远期不确定性小，动作结构短</td><td>联合建模更长，训练和注意力成本高</td><td>不要忽略控制频率</td></tr>
+          <tr><td><strong>模型规模</strong></td><td>快但容量有限</td><td>拟合能力强，真机延迟增加</td><td>不要只报参数量</td></tr>
+        </tbody></table></div>
+        <div class="memory-line"><strong>连接 RTC</strong><p>DiTFlow 队列属于同步“生成完再执行”。当 ODE 采样太慢或环境变化快时，RTC 让模型在执行当前 chunk 的同时生成下一段，并用旧动作前缀约束衔接。</p></div>
+      </section>
+
+      <section class="section reveal" id="ditflow-code">
+        <div class="section-heading"><p class="section-index">09 · DITFLOW · SOURCE MAP</p><h2>按真实调用链读源码</h2><p>不要从文件第一行顺序背；沿注册、数据、条件、loss、sample、queue 追踪。</p></div>
+        <div class="ditflow-call-chain">
+          <article><span>01</span><strong>Config 注册</strong><code>DiTFlowConfig</code><p>policy type、特征校验、时间索引、optimizer/scheduler。</p></article><b>→</b>
+          <article><span>02</span><strong>Processor</strong><code>pre / post</code><p>rename、batch、device、normalize 与 unnormalize。</p></article><b>→</b>
+          <article><span>03</span><strong>Condition</strong><code>_prepare_global_conditioning</code><p>图像编码、状态拼接、跨 S 展平。</p></article><b>→</b>
+          <article><span>04</span><strong>Train</strong><code>compute_loss</code><p>采样 ε/t、构造 x<sub>t</sub>、velocity MSE。</p></article><b>→</b>
+          <article><span>05</span><strong>Rollout</strong><code>sample / generate / select</code><p>Euler、切片和动作 deque。</p></article>
+        </div>
+        <div class="table-scroll" style="margin-top:16px"><table class="shape-table"><thead><tr><th>文件</th><th>核心职责</th><th>最值得追的入口</th><th>面试表达</th></tr></thead><tbody>
+          <tr><td><code>configuration_ditflow.py</code></td><td>模型、数据索引、校验与训练预设</td><td><code>DiTFlowConfig</code></td><td>插件如何被 LeRobot 识别，以及 H/S/e 怎样进入数据集</td></tr>
+          <tr><td><code>modeling_ditflow.py</code></td><td>Policy 外壳、条件编码、DiT、loss、sample</td><td><code>compute_loss</code>、<code>sample</code></td><td>从 batch 到 velocity，再从噪声到 action chunk</td></tr>
+          <tr><td><code>processor_ditflow.py</code></td><td>模型空间与真实机器人量纲转换</td><td>pre/post processor factory</td><td>动作 clamp 必须与归一化一致</td></tr>
+          <tr><td><code>__init__.py</code></td><td>公开 API 并触发 policy 注册</td><td>config/policy/processor export</td><td>这是插件，不必复制进 LeRobot 主仓库</td></tr>
+        </tbody></table></div>
+        <div class="card-grid three" style="margin-top:16px">
+          <article class="info-card"><span>CONFIG · DEFAULT</span><h3>S=2 · H=16 · e=8</h3><p>默认值来自该仓库阅读基准，不是所有机器人固定最优值。</p></article>
+          <article class="info-card"><span>MODEL · DEFAULT</span><h3>D=512 · 6 Blocks · 16 Heads</h3><p>FFN=4096；动作 token 使用可学习位置，条件通过 AdaLN 注入。</p></article>
+          <article class="info-card"><span>SAMPLING · DEFAULT</span><h3>Euler 100 Steps · Clamp ±1</h3><p>降低步数要联合评估成功率、轨迹和平滑度，不只测 latency。</p></article>
+        </div>
+        <div class="section-heading" style="margin-top:65px"><p class="section-index">CRITICAL READING</p><h2>真正读过代码，应该指出这些边界</h2></div>
+        <div class="review-grid compact-review">
+          <article><span>命名</span><strong>NoiseNet 实际监督 velocity</strong><p>类名和变量保留 noise 表述，但 loss target 是 trajectory−noise；解释以实际目标为准。</p></article>
+          <article><span>输入边界</span><strong>仅 environment state 路径要复核</strong><p>公开代码的 feature validation 与后续 image feature 读取存在需要核查的边界。</p></article>
+          <article><span>维度一致</span><strong>关闭 proprioception 要检查拼接</strong><p>构造 cond_dim 与实际 condition 列表必须同时修改，否则线性层输入不匹配。</p></article>
+          <article><span>依赖</span><strong>需要兼容 LeRobot 版本</strong><p>仓库是插件且依赖配套框架；复现应锁定 commit、数据 schema 与 processor 行为。</p></article>
+        </div>
+      </section>
+
+      <section class="section reveal" id="ditflow-relations">
+        <div class="section-heading split-heading"><div><p class="section-index">10 · DITFLOW · RELATIONS</p><h2>把 DiTFlow 放回整套知识体系</h2></div><p>这部分是融会贯通的核心：同一段源码可以连接五个面试专题。</p></div>
+        <div class="resume-map">
+          <article><span>ACT ↔ DITFLOW</span><strong>同样输出 Action Chunk，不同生成目标</strong><p>ACT 用 CVAE latent 和 L1+KL 一次回归；DiTFlow 用随机噪声和 velocity MSE，多步积分得到动作。</p><em>追问：在相同数据和执行 horizon 下，生成质量提升是否值得额外采样延迟？</em></article>
+          <article><span>TRANSFORMER ↔ DIT</span><strong>Self-Attention 处理动作时间 token</strong><p>普通 Transformer Block 通过 t+c 的 AdaLN shift/scale/gate 变为条件向量场；不是因为用了 Transformer 就自动成为 diffusion。</p><em>追问：global condition 适合 AdaLN，长语言或触觉 token 何时应改 Cross-Attention？</em></article>
+          <article><span>TACTILE ↔ DITFLOW</span><strong>触觉是条件链路，不改变 Flow 公式</strong><p>为触觉图像或向量设计 encoder，与视觉、本体按时间对齐后加入 c；重点是高频窗口、归一化、延迟和缺帧。</p><em>追问：触觉在 chunk 执行中途变化，何时触发重新规划？</em></article>
+          <article><span>RTC ↔ DITFLOW</span><strong>从同步队列升级为异步续写</strong><p>DiTFlow 当前队列空后才重新生成；RTC 可边执行边生成，并在新 Flow 轨迹中约束已承诺前缀。</p><em>追问：Temporal Ensemble 输出后平均与 RTC 生成中约束有什么区别？</em></article>
+          <article><span>VLA ↔ DITFLOW</span><strong>小型策略是 Action Expert 的最小原型</strong><p>global c 可替换为 VLM context；Action DiT 仍读取带噪动作和 t，预测连续速度场。π/WALL 在此基础上增加语义预训练与梯度协同。</p><em>追问：大 VLM 的语义信息怎样传给连续 Action Expert？</em></article>
+          <article><span>QTAC ↔ DITFLOW</span><strong>目标数量与触觉分布成为显式条件</strong><p>QTac 中 c 融合视觉、本体、目标数量和 CountNet 数量分布；Flow 生成直接抓取或自由调整动作，实现数量不匹配后的迭代重抓。</p><em>追问：为什么显式数量分布比直接拼原始触觉更可解释？</em></article>
+        </div>
+      </section>
+
+      <section class="section reveal" id="ditflow-interview">
+        <div class="section-heading"><p class="section-index">11 · DITFLOW · INTERVIEW KIT</p><h2>从公式连续追到真机</h2></div>
+        <div class="qa-grid">
+          <div class="interview-card"><strong>Q1：Flow Matching 与典型 DDPM 有什么区别？</strong><p>两者都从噪声生成动作，但这里沿噪声到动作的直线路径回归 dx/dt，并通过 ODE 正向积分；典型 DDPM 常预测 ε、score 或 diffusion-v，按噪声日程做反向更新。Flow Matching 训练时同样使用噪声。</p></div>
+          <div class="interview-card"><strong>Q2：为什么还要输入 t，target 明明与 t 无关？</strong><p>直线路径的条件 target a−ε 不显式依赖 t，但相同 x 值在不同 t 对应的信噪比和条件分布不同；网络需要 t 才能判断当前生成阶段并拟合正确条件场。</p></div>
+          <div class="interview-card"><strong>Q3：为什么用 DiT 而不是 1D U-Net？</strong><p>动作时间步天然是 token，Self-Attention 便于建模长程协调并扩展模型规模；代价是注意力随 H² 增长。网络骨架选择不改变 Flow 目标。</p></div>
+          <div class="interview-card"><strong>Q4：horizon=16 为什么只执行8步？</strong><p>生成 horizon 从最早观测对齐时刻开始。S=2 时索引0对应过去，当前动作从索引1开始；代码从 start=S−1 截取 e=8 步，其余不执行。</p></div>
+          <div class="interview-card"><strong>Q5：clamp(-1,1) 有什么前提？</strong><p>动作必须由 processor 按数据统计量映射到匹配范围；否则每次 Euler 后裁剪会扭曲真实控制量。输出还要正确反归一化到机器人动作空间。</p></div>
+          <div class="interview-card"><strong>Q6：如何降低推理延迟？</strong><p>先 profile 视觉编码与 K 次 DiT forward；优先评估减少积分步、减小模型、降低视觉分辨率、更好的 solver 或蒸馏。增大 e 只能摊薄调用，会降低反馈速度。</p></div>
+          <div class="interview-card"><strong>Q7：怎样加入触觉？</strong><p>扩展 input feature、processor 与 condition encoder；触觉图像可保留空间 token，低维力信号可编码短时窗口。训练公式不变，但必须处理频率、延迟、归一化和缺失模态。</p></div>
+          <div class="interview-card"><strong>Q8：如何证明真的读过源码？</strong><p>能说出配置注册、delta indices、condition 构造、<code>t[:,None,None]</code>、velocity target、Euler 方向、当前动作切片、processor 反归一化，以及公开实现的边界。</p></div>
+        </div>
+        <div class="card-grid three" style="margin-top:16px">
+          <article class="practice-card"><span class="card-label">10 MIN</span><h3>画数据流</h3><p class="prompt">从 [B,S,N,C,H,W] 画到 global c，再画 x<sub>t</sub>、DiT、velocity 和 action deque。</p></article>
+          <article class="practice-card"><span class="card-label">15 MIN</span><h3>默写 Flow Loss</h3><p class="prompt">写对 t3、插值方向、target velocity、shape 和 MSE。</p></article>
+          <article class="practice-card"><span class="card-label">20 MIN</span><h3>默写完整 Rollout</h3><p class="prompt">从噪声、Euler、clamp、start index 写到队列 popleft。</p></article>
+        </div>
+        <div class="section-heading" style="margin-top:65px"><p class="section-index">SOURCE & SCOPE</p><h2>源码入口与阅读边界</h2></div>
+        <div class="source-grid">
+          <a class="source-card" href="https://github.com/danielsanjosepro/lerobot_policy_ditflow" target="_blank" rel="noreferrer"><span>PRIMARY REPOSITORY</span><strong>lerobot_policy_ditflow</strong><p>配置、模型、Flow loss、Euler sampling 与 processor。</p></a>
+          <a class="source-card" href="https://github.com/danielsanjosepro/test_lerobot_policy_ditflow" target="_blank" rel="noreferrer"><span>TRAINING EXAMPLE</span><strong>test_lerobot_policy_ditflow</strong><p>配套训练与集成示例。</p></a>
+          <a class="source-card" href="https://github.com/huggingface/lerobot/pull/680" target="_blank" rel="noreferrer"><span>LEROBOT PR</span><strong>huggingface/lerobot #680</strong><p>插件来源与框架集成背景。</p></a>
+          <a class="source-card" href="dit.html"><span>LOCAL THEORY</span><strong>DiT × Diffusion / Flow</strong><p>深入理解 adaLN-Zero、参数化与 Action DiT。</p></a>
+        </div>
+        <div class="scope-note"><strong>阅读基准：</strong>原独立笔记以仓库提交 <code>fc8db68</code>（2025-10-28）为基准。默认参数与工程审视应在实际复现时再次对照你安装的提交；Main 中的关系解释属于面试与系统设计视角。</div>
+      </section>
+
+      <section class="section reveal" id="practice-plan">
+        <div class="section-heading"><p class="section-index">12 · 7-DAY INTEGRATED PLAN</p><h2>一周把知识串起来</h2></div>
         <div class="step-timeline">
-          <div class="step-row"><span>D1</span><strong>Self / Cross Attention</strong><p>先写单头，逐行说清 QKᵀ、缩放、mask、softmax、加权求和。</p></div>
-          <div class="step-row"><span>D2</span><strong>Multi-Head + PE</strong><p>反复练习 reshape/transpose；独立默写 sin/cos 位置编码。</p></div>
-          <div class="step-row"><span>D3</span><strong>KV Cache + Loss</strong><p>区分训练与自回归推理；手写稳定 CE、MSE、Flow Matching。</p></div>
-          <div class="step-row"><span>D4</span><strong>Action Chunk</strong><p>实现滑窗取数、动作队列和 Temporal Ensemble。</p></div>
-          <div class="step-row"><span>D5</span><strong>DQN / Double DQN</strong><p>写清 gather、done mask、no_grad 和 target network。</p></div>
-          <div class="step-row"><span>D6</span><strong>SAC + 重参数化</strong><p>掌握 tanh-squashed Gaussian 的采样、log_prob 修正和 actor loss。</p></div>
-          <div class="step-row"><span>D7</span><strong>算法题模拟</strong><p>随机抽 3 题，每题 25 分钟，完整讲解复杂度与边界情况。</p></div>
+          <div class="step-row"><span>D1</span><strong>Attention → Transformer</strong><p>手写 MHA、Mask、PE；画 Encoder–Decoder，并说明 Self/Cross Attention 的输入来源。</p></div>
+          <div class="step-row"><span>D2</span><strong>ACT → Action Chunk</strong><p>画训练/推理两条 CVAE 路径；手写 Masked L1+KL 和 Temporal Ensemble。</p></div>
+          <div class="step-row"><span>D3</span><strong>DiT → DiTFlow</strong><p>区分架构与目标；手写 x<sub>t</sub>、velocity loss、Euler sample 和动作队列。</p></div>
+          <div class="step-row"><span>D4</span><strong>VLA → π / WALL</strong><p>按“上一版痛点—改动—收益—代价”比较 Action Expert、FAST 和 Gradient Bridge。</p></div>
+          <div class="step-row"><span>D5</span><strong>触觉 → AT-VLA → RTC</strong><p>从传感器、同步与标定一路回答到触觉条件注入、快慢流和接触后重规划。</p></div>
+          <div class="step-row"><span>D6</span><strong>简历项目模拟</strong><p>用任务—数据—模型—部署—指标讲 QTac、遥操作与 G3；每句话标记个人证据边界。</p></div>
+          <div class="step-row"><span>D7</span><strong>手撕 + 交叉追问</strong><p>随机抽 Attention、Flow、DQN 和一道算法题；再完成 ACT vs DiTFlow vs RTC 横向比较。</p></div>
         </div>
       </section>
 
-      <footer class="footer">
-        <span>具身岗手撕代码 · 本地学习版</span>
-        <nav class="footer-links"><a href="attention.html">下一页：Attention →</a><a href="../ditflow-interview-guide/index.html">DiTFlow 指南</a></nav>
-      </footer>
+      <section class="section reveal" id="final-check">
+        <div class="section-heading"><p class="section-index">13 · FINAL CHECKLIST</p><h2>每个主题都要回答四个层次</h2></div>
+        <div class="memory-strip">
+          <article><span>01 · DEFINITION</span><strong>它解决什么</strong><p>先给一句话定位，不从模块名和代码文件开始。</p></article>
+          <article><span>02 · MECHANISM</span><strong>输入输出与目标</strong><p>画 shape、数据流、loss 和推理方程。</p></article>
+          <article><span>03 · TRADE-OFF</span><strong>为什么这样设计</strong><p>说明收益、代价、替代方法和适用条件。</p></article>
+          <article><span>04 · EVIDENCE</span><strong>如何证明有效</strong><p>任务指标、消融、延迟、失败模式和个人工作。</p></article>
+        </div>
+        <div class="selection-checklist" style="margin-top:16px">
+          <article><span>SHAPE</span><strong>尺寸闭合</strong><p>B、S、H、D、head、token 数都能说清。</p></article>
+          <article><span>TARGET</span><strong>监督正确</strong><p>CE、L1、KL、ε、velocity、TD target 不混淆。</p></article>
+          <article><span>TIME</span><strong>时序对齐</strong><p>观测、动作、触觉、延迟和执行索引一致。</p></article>
+          <article><span>RUNTIME</span><strong>闭环可运行</strong><p>归一化、队列、推理频率、限幅和急停完整。</p></article>
+          <article><span>COMPARE</span><strong>横向关联</strong><p>至少能与一个相邻方法比较机制和代价。</p></article>
+          <article><span>BOUNDARY</span><strong>证据不过界</strong><p>区分论文事实、代码事实、个人实现与合理推断。</p></article>
+        </div>
+      </section>
+
+      <footer class="footer"><span>Embodied Interview Main · Sense → Data → Policy → Runtime → Evidence</span><nav class="footer-links"><a href="#top">回到顶部 ↑</a><a href="resume-end-to-end.html">从简历项目开始 →</a></nav></footer>
     </main>
   </div>
   <script src="app.js"></script>

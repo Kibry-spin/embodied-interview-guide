@@ -1,34 +1,56 @@
 # Embodied AI Interview Guide
 
-面向具身智能算法与机器人方向秋招面试的个人复习网页，内容以可视化讲解、对比表格、代码拆解和交互练习为主。
+面向具身智能算法、VLA、模仿学习、触觉与机器人系统岗位的个人复习网站。内容按照真实端到端链路组织：
+
+**任务与证据 → 传感器与数据 → 表示与融合 → 动作策略 → 实时执行 → 真机评测**
 
 ## 在线阅读
 
-- [面试资料总目录](https://kibry-spin.github.io/embodied-interview-guide/)
-- [机器人触觉传感与反馈](https://kibry-spin.github.io/embodied-interview-guide/embodied-coding-guide/tactile-interview.html)
-- [AT-VLA 论文与源码梳理](https://kibry-spin.github.io/embodied-interview-guide/embodied-coding-guide/at-vla.html)
+- [统一 Main 页面](https://kibry-spin.github.io/embodied-interview-guide/)
+- [简历项目与端到端系统](https://kibry-spin.github.io/embodied-interview-guide/embodied-coding-guide/resume-end-to-end.html)
+- [VLA 系统架构](https://kibry-spin.github.io/embodied-interview-guide/embodied-coding-guide/vla-interview.html)
+- [机器人触觉](https://kibry-spin.github.io/embodied-interview-guide/embodied-coding-guide/tactile-interview.html)
+- [ACT 模仿学习](https://kibry-spin.github.io/embodied-interview-guide/embodied-coding-guide/act.html)
+- [DiT：Transformer × Diffusion / Flow](https://kibry-spin.github.io/embodied-interview-guide/embodied-coding-guide/dit.html)
 - [RTC 实时动作分块](https://kibry-spin.github.io/embodied-interview-guide/embodied-coding-guide/rtc.html)
-- [DiTFlow 源码理解指南](https://kibry-spin.github.io/embodied-interview-guide/ditflow-interview-guide/)
 
-## 内容结构
+DiTFlow 的架构、训练公式、张量、采样、动作队列、源码地图、配置、工程审视与面试问答已经完整并入 Main 页面，不再维护独立专题页。旧地址会自动跳转到 Main 的 DiTFlow 章节。
 
-### 具身智能面试专题
+## 统一内容结构
 
-- VLA 系统架构、数据与 Sim2Real
+### 1. 基础与手撕
+
+- Attention：Self/Cross Attention、Multi-Head、Mask、位置编码与 KV Cache
+- Transformer：Encoder–Decoder、Pre-Norm、Teacher Forcing 与多模态融合
+- Loss：CE、MSE、Flow Matching、Action Chunk 与 Temporal Ensemble
+- 强化学习与算法题：DQN、Double DQN、SAC、BFS、DFS、DP
+
+### 2. 动作策略
+
+- ACT：CVAE、DETR Action Query、Masked L1+KL 与动作队列
+- DiTFlow：LeRobot 条件编码、Flow velocity、Euler sampling 与真机执行
+- DiT：adaLN-Zero、DDPM 参数化、Action DiT 与 Flow Matching
+- RTC：异步推理、action inpainting 与训练时 prefix conditioning
+
+### 3. VLA 与多模态
+
+- VLA 架构、数据、LoRA 与 Sim2Real
 - π 系列模型演进
-- 机器人触觉传感器、数据流与策略融合
-- AT-VLA 触觉门控、快慢双流、源码路径与 G3 适配
-- RTC 异步推理、动作 inpainting、训练时 prefix conditioning 与 LeRobot 部署
-- Attention、Flow Matching 与常见 Loss
-- DQN、Double DQN、SAC
-- 高频算法题
+- WALL-OSS-0.5 的 MoT、Gradient Bridge、RVQ 与跨本体数据
+- AT-VLA 的触觉门控、Adaptive Query 与快慢双流
 
-### DiTFlow 源码专题
+### 4. 工程与项目
 
-- 动作张量与时间步形状
-- Flow Matching 训练目标
-- Velocity Network 与条件输入
-- 训练及采样过程
+- QTac、无本体数采、双臂遥操作、G3 触觉与硬件复现
+- 触觉传感器分类、选型、标定、数据流、融合与故障诊断
+- LeRobot 数据组织、时序同步、动作语义、部署评测与证据边界
+
+## 推荐复习路线
+
+1. **端到端策略：** Transformer → ACT → Main/DiTFlow → RTC
+2. **VLA 模型：** VLA → π 系列 → WALL → DiT / RTC
+3. **触觉具身：** 触觉 → AT-VLA → QTac / DiTFlow → RTC
+4. **手撕冲刺：** Attention → Loss → RL → 算法题
 
 ## 本地运行
 
@@ -42,4 +64,4 @@ python -m http.server 8000
 
 ## 说明
 
-本仓库用于个人面试复习与技术交流。模型和硬件参数以相应论文、官方项目页及开源仓库为准。
+本仓库用于个人面试复习与技术交流。论文结论、模型参数和代码行为以对应的一手论文、官方仓库及锁定提交为准；页面会明确区分论文事实、源码事实、工程解释与个人项目证据。

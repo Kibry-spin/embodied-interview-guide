@@ -1,0 +1,421 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="ACT 模仿学习深度面试专题：Action Chunking、CVAE、DETR Action Query、L1+KL 损失、Temporal Ensemble、LeRobot 配置、真机部署及与 Diffusion Policy、RTC 的关系。">
+  <meta name="theme-color" content="#0f1715">
+  <title>ACT 模仿学习：Action Chunking × CVAE × Transformer｜具身岗面试专题</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="scroll-progress"><span id="scroll-progress-bar"></span></div>
+  <header class="topbar">
+    <a class="brand" href="index.html"><span class="brand-mark">ACT</span><span class="brand-copy"><strong>Action Chunking</strong><small>Imitation · CVAE · DETR</small></span></a>
+    <nav class="topnav"><a href="index.html">总览</a><a href="resume-end-to-end.html">简历</a><a href="vla-interview.html">VLA</a><a href="tactile-interview.html">触觉</a><a href="at-vla.html">AT-VLA</a><a href="rtc.html">RTC</a><a href="wall-oss.html">WALL</a><a href="pi-series.html">π 系列</a><a href="attention.html">Attention</a><a href="transformer.html">Transformer</a><a class="active" href="act.html">ACT</a><a href="dit.html">DiT</a><a href="vla-loss.html">Loss</a><a href="rl.html">RL</a><a href="leetcode.html">算法题</a></nav>
+    <div class="top-actions"><button class="top-button" id="focus-toggle" type="button">专注阅读</button><a class="top-button strong" href="#architecture">先看架构 ↓</a></div>
+  </header>
+
+  <div class="page-shell">
+    <aside class="sidebar">
+      <p class="eyebrow">ACT LEARNING PATH</p>
+      <ol class="side-nav">
+        <li><a href="#overview"><span>01</span>一句话主线</a></li>
+        <li><a href="#motivation"><span>02</span>为什么需要 ACT</a></li>
+        <li><a href="#imitation"><span>03</span>模仿学习基础</a></li>
+        <li><a href="#architecture"><span>04</span>整体架构</a></li>
+        <li><a href="#shapes"><span>05</span>张量与 Chunk</a></li>
+        <li><a href="#cvae"><span>06</span>CVAE 与风格变量</a></li>
+        <li><a href="#detr"><span>07</span>DETR Action Query</a></li>
+        <li><a href="#loss"><span>08</span>L1 + KL Loss</a></li>
+        <li><a href="#data"><span>09</span>数据窗口构造</a></li>
+        <li><a href="#inference"><span>10</span>动作队列推理</a></li>
+        <li><a href="#ensemble"><span>11</span>Temporal Ensemble</a></li>
+        <li><a href="#lerobot"><span>12</span>LeRobot 配置</a></li>
+        <li><a href="#compare"><span>13</span>与 Diffusion 对比</a></li>
+        <li><a href="#projects"><span>14</span>结合你的项目</a></li>
+        <li><a href="#debug"><span>15</span>部署与排障</a></li>
+        <li><a href="#interview"><span>16</span>高频追问</a></li>
+        <li><a href="#practice"><span>17</span>自测与资料</a></li>
+      </ol>
+      <div class="sidebar-card"><strong>本页过关标准</strong><p>能从单步 BC 推出 Action Chunk；画出训练时 CVAE 与推理时零 latent 两条路径；解释 k 个 Action Query；写出带 padding mask 的 L1+KL；区分动作队列、Temporal Ensemble 与 RTC。</p></div>
+    </aside>
+
+    <main>
+      <section class="hero compact act-hero reveal visible" id="overview">
+        <div>
+          <p class="kicker">Imitation Learning as Sequence Prediction</p>
+          <h1>ACT<br><em>一次预测<br>一段动作</em></h1>
+          <p class="hero-lead">ACT 把“根据当前观测预测下一步动作”改写为“并行预测未来 k 步动作”。它用 CVAE 吸收人类示范中的行为风格，用 DETR 式 Action Query 读取视觉与本体状态，再用 Action Chunking 和时序集成降低长时任务中的误差累积与动作抖动。</p>
+          <div class="hero-actions"><a class="primary-button" href="#architecture">画清训练与推理 ↓</a><a class="ghost-button" href="#lerobot">直接看 LeRobot 配置 ↗</a></div>
+          <div class="hero-stats"><div><strong>o<sub>t</sub></strong><span>当前观测</span></div><div><strong>z</strong><span>动作风格</span></div><div><strong>k</strong><span>Chunk 长度</span></div><div><strong>Â</strong><span>未来动作块</span></div></div>
+        </div>
+        <div class="hero-board act-hero-board">
+          <div class="terminal-head"><span class="terminal-dots"><i></i><i></i><i></i></span><span>act_policy(observation, style)</span></div>
+          <div class="act-input-strip"><span>RGB × N<sub>cam</sub></span><b>+</b><span>robot state</span><b>+</b><span>latent z</span></div>
+          <div class="act-hero-transformer"><span>OBSERVATION MEMORY</span><strong>Transformer Encoder</strong><b>↓ cross-attention</b><strong>k × Action Query</strong></div>
+          <div class="act-chunk-strip" aria-label="未来动作块"><span>a<sub>t</sub></span><span>a<sub>t+1</sub></span><span>a<sub>t+2</sub></span><i>···</i><span>a<sub>t+k−1</sub></span></div>
+          <div class="formula">π<sub>θ</sub>(o<sub>t</sub>, z) → Â<sub>t:t+k−1</sub> ∈ R<sup>k×Dₐ</sup></div>
+        </div>
+      </section>
+
+      <section class="section reveal">
+        <div class="section-heading"><p class="section-index">01 · ELEVATOR PITCH</p><h2>面试先答这一分钟</h2></div>
+        <div class="interview-card"><strong>60 秒回答</strong><p>ACT 全称 Action Chunking with Transformers，是一种端到端行为克隆策略。普通 BC 每次只预测一个动作，长任务容易因为小误差进入训练集之外的状态；ACT 从当前多相机图像和机器人本体状态一次预测未来 k 步动作，使策略直接学习一段具有时序一致性的运动，概念上把有效决策时域缩短约 k 倍。架构上，训练阶段先用一个 Transformer VAE encoder 读取 [CLS]、当前关节状态和未来动作序列，得到动作风格分布 μ、logσ²，并通过重参数化得到 z；主策略再用 ResNet 提取图像特征，将视觉 token、本体 token 和 z 编码为 memory，DETR 风格 decoder 用 k 个可学习 Action Query 并行回归整个动作块。损失是有效动作位置上的 L1 重建误差加 β 倍 KL 散度。推理时没有真值动作，原版与 LeRobot 实现都令 z=0；可以一次执行若干动作后重规划，也可以每步重新预测并对重叠 chunk 做 Temporal Ensemble。</p></div>
+        <div class="memory-line"><strong>一句话</strong><p>ACT = <strong>Action Chunk</strong> 解决长时误差累积，<strong>CVAE</strong> 表达示范风格，<strong>DETR Query</strong> 并行生成未来动作，<strong>Temporal Ensemble</strong> 平滑重叠预测。</p></div>
+      </section>
+
+      <section class="section reveal" id="motivation">
+        <div class="section-heading split-heading"><div><p class="section-index">02 · MOTIVATION</p><h2>为什么单步行为克隆不够</h2></div><p>ACT 的每个组件都在对应一个真实数据问题，而不是为了堆模型。</p></div>
+        <div class="compare-grid">
+          <article class="compare-card"><span>ONE-STEP BC</span><h3>π(o<sub>t</sub>) → a<sub>t</sub></h3><p>每一步独立回归。一个很小的动作误差改变下一时刻观测，随后模型在训练分布之外继续预测，误差可能逐步放大。</p><ul><li>优点：实现简单、响应新观测快</li><li>问题：缺少动作段的整体结构</li><li>高频暂停等示范噪声容易被逐步复制</li></ul></article>
+          <article class="compare-card accent"><span>ACTION CHUNKING</span><h3>π(o<sub>t</sub>) → a<sub>t:t+k−1</sub></h3><p>一次预测一段未来动作，模型直接学习动作之间的相关性。若整段执行，长度为 T 的任务只需约 T/k 次策略决策。</p><ul><li>优点：动作一致、推理频率可降低</li><li>代价：chunk 内对环境变化反应变慢</li><li>需要决定何时重规划与如何衔接</li></ul></article>
+        </div>
+        <div class="act-problem-grid" style="margin-top:16px">
+          <article><span>01 · COMPOUNDING ERROR</span><strong>误差累积</strong><p>监督学习只覆盖专家状态分布；部署后自己的动作会改变后续输入分布。</p></article>
+          <article><span>02 · TEMPORAL CORRELATION</span><strong>时序混杂</strong><p>人的停顿、犹豫与速度变化具有连续相关性，单步 Markov 回归很难区分。</p></article>
+          <article><span>03 · MULTIMODAL DEMOS</span><strong>多种可行动作</strong><p>同一观测下可能左绕或右绕；直接回归平均动作可能落入任何示范都没有的区域。</p></article>
+        </div>
+        <div class="callout"><strong>严谨表达</strong><p>“有效时域缩短 k 倍”最适用于预测并执行完整 chunk 的解释。开启 Temporal Ensemble 后模型每个控制步都会重新查询，此时主要收益变为结构化预测与重叠集成，而不是减少 forward 次数。</p></div>
+      </section>
+
+      <section class="section reveal" id="imitation">
+        <div class="section-heading split-heading"><div><p class="section-index">03 · IMITATION LEARNING FOUNDATION</p><h2>ACT 本质上仍是行为克隆</h2></div><p>它改变了预测单位和条件分布的表示，但监督信号仍来自专家示范。</p></div>
+        <div class="formula large">D = {τ<sup>(i)</sup>}，τ = {(o<sub>t</sub>, a<sub>t</sub>)}<sub>t=0:T</sub>　　π<sub>θ</sub> = arg min E<sub>D</sub>[ℓ(π<sub>θ</sub>(o<sub>t</sub>), a<sub>t</sub>)]</div>
+        <div class="compare-grid" style="margin-top:16px">
+          <article class="compare-card"><span>BEHAVIOR CLONING</span><h3>单步监督</h3><p>把示范帧视为监督样本，用 L1、MSE 或负对数似然拟合专家动作。训练只访问专家状态分布 d<sub>expert</sub>，部署却会进入策略自身诱导的 d<sub>π</sub>。</p><div class="formula">o<sub>t</sub> → â<sub>t</sub></div></article>
+          <article class="compare-card accent"><span>ACT</span><h3>序列监督</h3><p>将标签从一个动作扩展为未来 k 步动作块，并用 latent z 表示示范风格。它利用动作段结构缓解短期抖动和长时误差累积，但并未从理论上消除分布偏移。</p><div class="formula">o<sub>t</sub>, z → Â<sub>t:t+k−1</sub></div></article>
+        </div>
+        <div class="table-scroll" style="margin-top:16px"><table class="shape-table"><thead><tr><th>方法</th><th>训练数据从哪里来</th><th>是否需要在线交互</th><th>主要解决什么</th><th>与 ACT 的关系</th></tr></thead><tbody>
+          <tr><td><strong>BC</strong></td><td>固定专家数据</td><td>否</td><td>直接模仿专家映射</td><td>ACT 的学习范式基础</td></tr>
+          <tr><td><strong>ACT</strong></td><td>固定专家轨迹</td><td>否</td><td>动作段建模、多风格示范与平滑执行</td><td>Chunk-level conditional BC</td></tr>
+          <tr><td><strong>DAgger</strong></td><td>策略访问状态后由专家补标</td><td>是</td><td>补充 d<sub>π</sub> 下的纠错数据，减轻 covariate shift</td><td>可作为 ACT 的数据闭环，而非替代网络</td></tr>
+          <tr><td><strong>Offline RL</strong></td><td>带奖励的离线数据</td><td>训练时否</td><td>在数据支持范围内优化回报</td><td>目标不再只是复现专家动作</td></tr>
+        </tbody></table></div>
+        <pre><code># ACT 仍遵循标准监督训练，只是 target 从 a_t 变成 action chunk
+for batch in loader:
+    obs, actions, is_pad = batch                 # actions: [B, k, Da]
+    actions_hat, (mu, logvar) = policy(obs, actions, is_pad)
+    loss, logs = act_loss(actions_hat, actions, is_pad, mu, logvar)
+    optimizer.zero_grad()
+    loss.backward()
+    torch.nn.utils.clip_grad_norm_(policy.parameters(), max_norm=1.0)
+    optimizer.step()</code></pre>
+        <div class="qa-grid" style="margin-top:16px">
+          <div class="interview-card"><strong>为什么 ACT 不是强化学习？</strong><p>训练目标没有奖励、价值函数或策略梯度，只是在专家数据上最小化动作重建误差与 KL 正则。真机 rollout 用于评测，不会自动产生训练信号。</p></div>
+          <div class="interview-card"><strong>Action Chunk 能彻底解决分布偏移吗？</strong><p>不能。它减少策略重新决策的次数并提供局部时序结构，但错误 chunk 仍可能把机器人带到未见状态。真正补齐分布需要纠错示范、DAgger、干预数据或在线微调。</p></div>
+          <div class="interview-card"><strong>为什么不能只看 validation L1？</strong><p>离线误差是在专家分布上计算，且每个动作维度平均后会掩盖关键接触阶段。最终应以闭环任务成功率、轨迹平滑度、接触质量和恢复能力评估。</p></div>
+          <div class="interview-card"><strong>你的遥操作数据如何适配 ACT？</strong><p>先确保 observation 与 action 的时钟、坐标系、语义和控制频率一致，再在 episode 内构造未来窗口。多设备来源应分别检查延迟和动作分布，不能只完成格式转换。</p></div>
+        </div>
+        <div class="memory-line"><strong>面试主线</strong><p>先说 ACT 是 <strong>chunk-level behavior cloning</strong>，再解释它用 Action Chunk 降低有效时域、用 CVAE 表达示范风格、用 Temporal Ensemble 平滑重叠预测；最后主动指出它仍受数据覆盖和 covariate shift 限制。</p></div>
+      </section>
+
+      <section class="section reveal" id="architecture">
+        <div class="section-heading"><p class="section-index">04 · FULL ARCHITECTURE</p><h2>ACT 实际包含两个 Transformer</h2><p>最容易混淆的是：CVAE encoder 只在训练时使用；真正的视觉策略 encoder–decoder 在训练和推理都使用。</p></div>
+        <div class="act-branch-map">
+          <article class="posterior"><span>TRAIN ONLY · POSTERIOR</span><strong>[CLS] + q<sub>t</sub> + A<sub>t:t+k−1</sub></strong><p>VAE Transformer Encoder 汇聚未来真值动作，输出 μ、logσ²，再采样动作风格 z。</p><code>q<sub>φ</sub>(z | q<sub>t</sub>, A)</code></article>
+          <b>z ↘</b>
+          <article class="policy"><span>TRAIN + INFERENCE · POLICY</span><strong>image tokens + q<sub>t</sub> + z</strong><p>视觉策略 Transformer Encoder 形成 observation memory。</p><code>memory = Enc(o<sub>t</sub>, q<sub>t</sub>, z)</code></article>
+          <b>↓</b>
+          <article class="queries"><span>DETR DECODER</span><strong>k 个 Action Queries</strong><p>每个 query 对应未来一个相对时间槽，通过 self-attention 与 cross-attention 并行生成动作。</p><code>Â ∈ R<sup>B×k×Dₐ</sup></code></article>
+        </div>
+        <div class="table-scroll" style="margin-top:16px"><table class="shape-table"><thead><tr><th>模块</th><th>训练时输入</th><th>推理时输入</th><th>作用</th></tr></thead><tbody>
+          <tr><td><strong>VAE Encoder</strong></td><td>q<sub>t</sub>、未来真值动作、padding mask</td><td>不运行</td><td>学习 q<sub>φ</sub>(z|q,A)，提取示范风格</td></tr>
+          <tr><td><strong>Vision Backbone</strong></td><td>多相机当前图像</td><td>多相机当前图像</td><td>将 RGB 压成二维视觉特征 token</td></tr>
+          <tr><td><strong>Policy Encoder</strong></td><td>视觉、本体、采样 z</td><td>视觉、本体、z=0</td><td>构造条件 memory</td></tr>
+          <tr><td><strong>Policy Decoder</strong></td><td>k 个 Action Query + memory</td><td>相同</td><td>并行输出 k 个连续动作</td></tr>
+        </tbody></table></div>
+        <div class="callout warning"><strong>不要说错</strong><p>“ACT 只有一个 Transformer”不准确。完整 ACT 至少包含用于 posterior 的 VAE Transformer Encoder，以及用于观测融合和动作解码的 Transformer Encoder–Decoder；视觉前端通常还是 ResNet。</p></div>
+      </section>
+
+      <section class="section reveal" id="shapes">
+        <div class="section-heading"><p class="section-index">05 · TENSOR SHAPES</p><h2>先把 B、k、Dₐ 说清楚</h2></div>
+        <div class="formula large">Â = ACT(images, state, z)　→　[B, k, D<sub>a</sub>]</div>
+        <div class="table-scroll" style="margin-top:16px"><table class="shape-table"><thead><tr><th>张量</th><th>典型 Shape</th><th>含义</th><th>常见错误</th></tr></thead><tbody>
+          <tr><td><code>images</code></td><td>[B, N<sub>cam</sub>, 3, H, W]</td><td>同一控制时刻的多路 RGB</td><td>相机顺序与训练时不一致</td></tr>
+          <tr><td><code>state / qpos</code></td><td>[B, D<sub>s</sub>]</td><td>当前关节、夹爪或其他本体状态</td><td>把速度/位置混用，统计量错位</td></tr>
+          <tr><td><code>actions</code></td><td>[B, k, D<sub>a</sub>]</td><td>从 t 开始的未来动作窗口</td><td>错误跨越 episode 边界</td></tr>
+          <tr><td><code>action_is_pad</code></td><td>[B, k]</td><td>末尾不足 k 步的位置为 True</td><td>padding 参与 L1，模型学到假动作</td></tr>
+          <tr><td><code>mu, logvar</code></td><td>[B, D<sub>z</sub>]</td><td>动作风格 posterior 参数</td><td>把 log variance 当成标准差</td></tr>
+          <tr><td><code>action_queries</code></td><td>[k, D]</td><td>k 个未来时间槽的可学习位置表示</td><td>误认为是真实历史动作输入</td></tr>
+          <tr><td><code>actions_hat</code></td><td>[B, k, D<sub>a</sub>]</td><td>一次并行输出完整动作块</td><td>把 k 和执行步数混为一谈</td></tr>
+        </tbody></table></div>
+        <div class="card-grid three" style="margin-top:16px">
+          <article class="info-card"><span>CHUNK SIZE · k</span><h3>预测多远</h3><p>模型每次输出的动作长度。控制频率为 f 时，对应物理时长约 <strong>k/f 秒</strong>。</p></article>
+          <article class="info-card"><span>ACTION STEPS · e</span><h3>实际执行多少</h3><p>队列模式只执行前 e 步再重规划，要求 <strong>1 ≤ e ≤ k</strong>；其余预测丢弃。</p></article>
+          <article class="info-card"><span>QUERY RATE</span><h3>多久重新推理</h3><p>Temporal Ensemble 通常每步 query；普通队列每 e 步 query，响应性与算力开销不同。</p></article>
+        </div>
+        <div class="memory-line"><strong>例子</strong><p>50 Hz 控制、k=100 表示模型看未来约 2 秒；若 n_action_steps=25，则执行 0.5 秒后重规划，并不是一定开环执行 2 秒。</p></div>
+      </section>
+
+      <section class="section reveal" id="cvae">
+        <div class="section-heading split-heading"><div><p class="section-index">06 · CONDITIONAL VAE</p><h2>z 不是随机噪声，而是动作风格</h2></div><p>例如不同示范者的速度、停顿、接近方向和双臂配合方式。</p></div>
+        <div class="act-cvae-flow">
+          <article><span>POSTERIOR INPUT</span><strong>[CLS], q<sub>t</sub>, A<sub>t:t+k−1</sub></strong><small>训练阶段能够看到未来示范</small></article><b>→</b>
+          <article><span>VAE ENCODER</span><strong>μ, logσ²</strong><small>描述动作风格分布</small></article><b>→</b>
+          <article class="accent"><span>REPARAMETERIZE</span><strong>z = μ + σ ⊙ ε</strong><small>ε ~ N(0,I)，梯度可回传</small></article><b>→</b>
+          <article><span>POLICY</span><strong>Â = π(o<sub>t</sub>,q<sub>t</sub>,z)</strong><small>重建未来动作块</small></article>
+        </div>
+        <div class="formula" style="margin-top:16px">q<sub>φ</sub>(z | q<sub>t</sub>, A<sub>t:t+k−1</sub>)　≈　N(μ, diag(σ²))，　p(z)=N(0,I)</div>
+        <div class="qa-grid" style="margin-top:16px">
+          <div class="interview-card"><strong>训练时看未来动作，算数据泄漏吗？</strong><p>不算。未来动作只进入训练期 posterior，用来推断这一条示范的 latent 风格；部署时该分支被移除，策略只依赖当前观测、本体状态和先验 latent。它与 VAE 训练时用 x 推断 z、生成时从 prior 取 z 是同一种结构。</p></div>
+          <div class="interview-card"><strong>为什么需要 KL？</strong><p>只做重建时，posterior 可以把每条动作序列编码到任意离散位置，推理时从标准高斯或零点取 z 会落在模型没见过的区域。KL 把 q<sub>φ</sub> 拉向 N(0,I)，让训练与推理 latent 空间接轨。</p></div>
+          <div class="interview-card"><strong>推理时 z 怎么来？</strong><p>原版 ACT 和 LeRobot 实现都直接使用全零 latent，也就是 prior 的中心，得到稳定、确定性的“平均风格”。理论上可以从 N(0,I) 采样获得多样动作，但真机控制通常更看重可重复性。</p></div>
+          <div class="interview-card"><strong>什么是 Posterior Collapse？</strong><p>若 KL 权重过强或 decoder 太强，q(z|·) 被压成先验，模型忽略 z，μ≈0、logσ²≈0。要同时监控重建误差、KL、latent 方差和不同 z 下的输出差异。</p></div>
+        </div>
+        <div class="callout warning"><strong>代码级纠正</strong><p>不要只背“推理时从 prior 采样”。官方实现实际上创建全零 latent；如果你的实现改成随机采样，要明确这是部署策略的改变，并验证随机性是否导致真机轨迹不稳定。</p></div>
+      </section>
+
+      <section class="section reveal" id="detr">
+        <div class="section-heading"><p class="section-index">07 · DETR-STYLE DECODER</p><h2>Object Query 为什么能变成 Action Query</h2></div>
+        <div class="act-token-map">
+          <article class="memory"><span>ENCODER TOKENS</span><strong>z · robot state · image patches</strong><p>视觉特征带二维位置编码，本体和 latent 使用独立可学习位置；encoder self-attention 融合条件。</p></article>
+          <b>memory →</b>
+          <article class="query"><span>DECODER QUERIES</span><strong>Q₀, Q₁, …, Q<sub>k−1</sub></strong><p>每个 query 表示相对未来时间槽，不包含真实动作值；query 之间 self-attention，随后对 memory cross-attention。</p></article>
+          <b>→</b>
+          <article class="action"><span>LINEAR HEAD</span><strong>â<sub>t</sub>, â<sub>t+1</sub>, …</strong><p>每个 decoder token 经过同一个线性层映射到 D<sub>a</sub> 维连续动作。</p></article>
+        </div>
+        <div class="table-scroll" style="margin-top:16px"><table class="shape-table"><thead><tr><th>问题</th><th>正确理解</th></tr></thead><tbody>
+          <tr><td><strong>Action Query 是动作 token 吗？</strong></td><td>不是。它首先是“第几个未来槽位”的可学习 embedding，经 decoder 读 observation memory 后才变成动作表示。</td></tr>
+          <tr><td><strong>ACT 是自回归生成吗？</strong></td><td>不是。k 个 query 在一次 forward 中并行输出；动作时间维内部可以双向 self-attention，不需要 causal mask。</td></tr>
+          <tr><td><strong>为什么不直接用一个 MLP 输出 k×Dₐ？</strong></td><td>Query 提供显式时间槽，decoder self-attention 建模未来动作之间的依赖，cross-attention 允许每个时间槽选择不同视觉区域。</td></tr>
+          <tr><td><strong>多相机如何融合？</strong></td><td>原实现对每路图像提特征后沿空间维拼接，再与对应位置编码一起送入 Transformer；LeRobot 版本将各相机二维特征展平成 token 序列。</td></tr>
+        </tbody></table></div>
+        <pre><code># 概念版：k 个 query 并行读取 observation memory
+memory = encoder(torch.cat([z_token, state_token, image_tokens], dim=1))
+queries = action_query.weight[None].expand(B, -1, -1)  # [B, k, D]
+h = decoder(tgt=torch.zeros_like(queries), memory=memory,
+            query_pos=queries)
+actions_hat = action_head(h)                           # [B, k, Da]</code></pre>
+      </section>
+
+      <section class="section reveal" id="loss">
+        <div class="section-heading"><p class="section-index">08 · TRAINING OBJECTIVE</p><h2>重建动作，同时约束 latent</h2></div>
+        <div class="formula large">L<sub>ACT</sub> = L<sub>1, valid</sub>(A, Â) + β · D<sub>KL</sub>(q<sub>φ</sub>(z|q,A) || N(0,I))</div>
+        <div class="compare-grid" style="margin-top:16px">
+          <article class="compare-card"><span>RECONSTRUCTION</span><h3>Masked L1</h3><p>只计算 episode 内真实存在的动作。L1 直接监督每个时间步、每个动作维度的连续回归误差。</p><div class="formula">Σ |a−â| · valid / Σ valid</div></article>
+          <article class="compare-card accent"><span>REGULARIZATION</span><h3>KL Divergence</h3><p>让 posterior 接近标准高斯，使部署时 z=0 位于训练过的 latent 区域。</p><div class="formula">−½Σ(1+logσ²−μ²−exp(logσ²))</div></article>
+        </div>
+        <pre><code>def act_loss(actions_hat, actions, is_pad, mu, logvar, beta=10.0):
+    # actions_hat/actions: [B, k, Da], is_pad: [B, k]
+    valid = (~is_pad).unsqueeze(-1)                    # [B, k, 1]
+    abs_err = (actions_hat - actions).abs()
+    denom = (valid.sum() * actions.size(-1)).clamp_min(1)
+    l1 = (abs_err * valid).sum() / denom
+
+    kl_per_sample = -0.5 * (
+        1 + logvar - mu.square() - logvar.exp()
+    ).sum(dim=-1)                                      # [B]
+    kl = kl_per_sample.mean()
+    return l1 + beta * kl, {"l1": l1, "kl": kl}</code></pre>
+        <div class="card-grid three" style="margin-top:16px">
+          <article class="info-card"><span>β TOO SMALL</span><h3>训练好，推理差</h3><p>posterior 任意编码示范，z=0 可能落在空洞区域；KL 大、latent 分布分散。</p></article>
+          <article class="info-card"><span>β TOO LARGE</span><h3>忽略动作风格</h3><p>posterior collapse，重建变差；不同动作模式被压成接近相同输出。</p></article>
+          <article class="info-card"><span>PAD MASK</span><h3>末尾不能凑零训练</h3><p>必须把补齐位置从 L1 和 VAE encoder attention 中同时屏蔽。</p></article>
+        </div>
+        <div class="memory-line"><strong>面试对比</strong><p>ACT 用直接 L1 回归完整动作块；Diffusion/Flow Policy 通常对噪声或速度做 MSE，并需要多步数值采样。不要把 ACT 的 z 和 diffusion noise 混为一谈。</p></div>
+      </section>
+
+      <section class="section reveal" id="data">
+        <div class="section-heading split-heading"><div><p class="section-index">09 · DATA PIPELINE</p><h2>每一帧都构造一个未来窗口</h2></div><p>模型好坏常由切片、归一化与时钟对齐决定，而不是 Transformer 层数。</p></div>
+        <div class="act-window-track">
+          <article><span>OBSERVATION</span><strong>o<sub>t</sub>, q<sub>t</sub></strong><small>当前多相机图像与本体状态</small></article><b>→</b>
+          <article class="accent"><span>FUTURE TARGET</span><strong>A<sub>t:t+k−1</sub></strong><small>同一 episode 的未来动作</small></article><b>→</b>
+          <article><span>PAD</span><strong>mask<sub>t:t+k−1</sub></strong><small>episode 末尾不足 k 步的位置</small></article><b>→</b>
+          <article><span>NORMALIZE</span><strong>state / action stats</strong><small>训练与部署完全一致</small></article>
+        </div>
+        <pre><code>def build_act_sample(episode, t, chunk_size):
+    obs = episode["observation"][t]
+    end = min(t + chunk_size, len(episode["action"]))
+    valid_len = end - t
+
+    chunk = zeros(chunk_size, action_dim)
+    chunk[:valid_len] = episode["action"][t:end]
+    is_pad = ones(chunk_size, dtype=bool)
+    is_pad[:valid_len] = False
+    return obs, chunk, is_pad</code></pre>
+        <div class="table-scroll" style="margin-top:16px"><table class="shape-table"><thead><tr><th>数据检查</th><th>为什么影响 ACT</th><th>建议验证</th></tr></thead><tbody>
+          <tr><td><strong>控制频率一致</strong></td><td>k 的物理时间由频率决定；训练 50 Hz、部署 30 Hz 会改变整段动作速度</td><td>记录 timestamp，统计实际 dt 分布</td></tr>
+          <tr><td><strong>图像–动作延迟</strong></td><td>错一两帧会让高精度接触动作系统性滞后</td><td>硬件事件对齐、离线回放检查</td></tr>
+          <tr><td><strong>动作语义一致</strong></td><td>绝对关节目标、增量、速度或末端位姿不能混用</td><td>训练前画单维轨迹并真机回放</td></tr>
+          <tr><td><strong>episode 边界</strong></td><td>跨任务切片会生成不连续的伪动作 chunk</td><td>只在 episode 内切片并正确 pad</td></tr>
+          <tr><td><strong>归一化统计</strong></td><td>L1 对不同量纲敏感，夹爪小范围维度可能被大关节范围淹没</td><td>保存训练 stats，部署严格复用</td></tr>
+          <tr><td><strong>示范停顿比例</strong></td><td>停顿过多会让模型学会中途暂停</td><td>统计 action velocity、裁剪无效首尾段</td></tr>
+        </tbody></table></div>
+      </section>
+
+      <section class="section reveal" id="inference">
+        <div class="section-heading"><p class="section-index">10 · CHUNK EXECUTION</p><h2>预测 k 步，不代表必须执行 k 步</h2></div>
+        <div class="act-execution-loop">
+          <article><span>01 · OBSERVE</span><strong>读取 o<sub>t</sub></strong><p>同步获取图像、本体与可选触觉。</p></article><b>→</b>
+          <article><span>02 · PREDICT</span><strong>输出 k 步</strong><p>一次 forward 得到 [1,k,Dₐ]。</p></article><b>→</b>
+          <article><span>03 · QUEUE</span><strong>保留前 e 步</strong><p>e=n_action_steps，其余可丢弃。</p></article><b>→</b>
+          <article><span>04 · EXECUTE</span><strong>逐步下发</strong><p>队列耗尽后重新观察与推理。</p></article>
+        </div>
+        <pre><code>@torch.no_grad()
+def select_action(obs):
+    if len(action_queue) == 0:
+        chunk = policy.predict_action_chunk(obs)       # [B, k, Da]
+        chunk = chunk[:, :n_action_steps]              # [B, e, Da]
+        action_queue.extend(chunk.transpose(0, 1))     # e × [B, Da]
+    return action_queue.popleft()</code></pre>
+        <div class="table-scroll" style="margin-top:16px"><table class="shape-table"><thead><tr><th>e = n_action_steps</th><th>反馈响应</th><th>推理成本</th><th>适合场景</th></tr></thead><tbody>
+          <tr><td><strong>e = k</strong></td><td>最慢，整个 chunk 近似开环</td><td>最低</td><td>环境稳定、动作节奏固定</td></tr>
+          <tr><td><strong>1 &lt; e &lt; k</strong></td><td>折中</td><td>每 e 步一次 forward</td><td>多数工程部署的起点</td></tr>
+          <tr><td><strong>e = 1</strong></td><td>每步重新观察</td><td>最高</td><td>通常与 Temporal Ensemble 配合</td></tr>
+        </tbody></table></div>
+        <div class="callout"><strong>选择原则</strong><p>先用任务事件持续时间确定 k，再根据环境变化速度和模型延迟选择 e。接触前后应更频繁重规划；自由空间大范围运动可以执行更长前缀。</p></div>
+      </section>
+
+      <section class="section reveal" id="ensemble">
+        <div class="section-heading split-heading"><div><p class="section-index">11 · TEMPORAL ENSEMBLE</p><h2>同一个当前动作，会被多个 chunk 预测</h2></div><p>每一步都 query，新旧 chunk 在绝对时间轴上重叠。</p></div>
+        <div class="act-overlap" aria-label="时序集成矩阵">
+          <span class="axis">QUERY</span><b>t−3</b><i></i><i></i><i class="hit"></i><i></i><i></i>
+          <b>t−2</b><i></i><i></i><i class="hit"></i><i></i><i></i>
+          <b>t−1</b><i></i><i></i><i class="hit"></i><i></i><i></i>
+          <b>t</b><i></i><i></i><i class="hit newest"></i><i></i><i></i>
+          <span class="axis bottom">ABSOLUTE STEP →　t−2　t−1　<strong>t</strong>　t+1　t+2</span>
+        </div>
+        <div class="formula" style="margin-top:16px">a<sub>t</sub> = Σ<sub>j</sub> w<sub>j</sub> â<sub>t</sub><sup>(j)</sup>，　w<sub>j</sub> = exp(−m·j) / Σ exp(−m·j)</div>
+        <div class="compare-grid" style="margin-top:16px">
+          <article class="compare-card accent"><span>WHY IT WORKS</span><h3>重叠预测降噪</h3><p>每个 chunk 对同一绝对时间 t 给出一个估计。加权平均降低相邻 query 的偶然抖动，使 chunk 交界更连续。</p></article>
+          <article class="compare-card"><span>THE TRADE-OFF</span><h3>平滑与响应性</h3><p>更信任旧预测会更稳定，但可能忽略刚出现的新视觉或触觉变化；更信任新预测响应快，但 chunk 结构可能被频繁打断。</p></article>
+        </div>
+        <div class="callout warning"><strong>高频陷阱</strong><p>LeRobot 的定义中 w₀ 对应最旧预测。m&gt;0 时权重随索引下降，因此<strong>较旧预测权重更高</strong>；m=0 是均匀平均；m&lt;0 才更偏向新预测。原论文/实现常用 m=0.01。不要凭直觉说成“默认更相信最新观测”。</p></div>
+        <pre><code># 概念版：all_preds[j] 都在预测同一个绝对时刻 t 的动作
+weights = torch.exp(-m * torch.arange(len(all_preds), device=device))
+weights = weights / weights.sum()
+action_t = (torch.stack(all_preds) * weights[:, None]).sum(dim=0)</code></pre>
+        <div class="memory-line"><strong>与 RTC 区别</strong><p>Temporal Ensemble 是<strong>输出后平均</strong>多个完整预测；RTC 在生成新 chunk 时把旧 chunk 前缀作为约束或条件，处理异步延迟和“已经来不及修改”的动作。两者都解决衔接，但机制不同。</p></div>
+      </section>
+
+      <section class="section reveal" id="lerobot">
+        <div class="section-heading"><p class="section-index">12 · LEROBOT IMPLEMENTATION</p><h2>配置参数要能解释物理意义</h2><p>下表列出本页所依据实现的 LeRobot ACT 默认值，适合作为阅读代码的基准，不代表你的机器人应原样照搬；使用时应以所安装版本的配置文件为准。</p></div>
+        <div class="table-scroll"><table class="shape-table"><thead><tr><th>参数</th><th>LeRobot 默认</th><th>控制什么</th><th>调参思路</th></tr></thead><tbody>
+          <tr><td><code>n_obs_steps</code></td><td>1</td><td>输入多少步历史观测</td><td>原始 ACT 以当前帧为主；高频触觉可先单独编码窗口</td></tr>
+          <tr><td><code>chunk_size</code></td><td>100</td><td>预测未来动作长度 k</td><td>结合控制频率、子动作持续时间与任务变化速度</td></tr>
+          <tr><td><code>n_action_steps</code></td><td>100</td><td>每次 forward 后实际执行多少步 e</td><td>减小可更快闭环，但增加推理频率</td></tr>
+          <tr><td><code>vision_backbone</code></td><td>ResNet-18</td><td>图像特征提取</td><td>相机多、分辨率高时先 profile 视觉延迟</td></tr>
+          <tr><td><code>dim_model / n_heads</code></td><td>512 / 8</td><td>Transformer 宽度与注意力头数</td><td>满足 dim_model 可整除 n_heads</td></tr>
+          <tr><td><code>dim_feedforward</code></td><td>3200</td><td>FFN 中间维度</td><td>影响容量、显存和延迟</td></tr>
+          <tr><td><code>n_encoder_layers</code></td><td>4</td><td>观测 memory 深度</td><td>小数据先控制容量，避免只堆层数</td></tr>
+          <tr><td><code>n_decoder_layers</code></td><td>1</td><td>Action Query 解码深度</td><td>LeRobot 注释说明原实现虽配置7层，但代码问题实际只使用首层，因此默认1层对齐行为</td></tr>
+          <tr><td><code>use_vae / latent_dim</code></td><td>True / 32</td><td>是否建模示范风格与 latent 容量</td><td>结合 KL、不同 z 输出和真机稳定性判断</td></tr>
+          <tr><td><code>n_vae_encoder_layers</code></td><td>4</td><td>posterior encoder 深度</td><td>只影响训练，部署不运行该分支</td></tr>
+          <tr><td><code>kl_weight</code></td><td>10</td><td>重建与先验约束平衡</td><td>监控 L1、KL 与 posterior collapse</td></tr>
+          <tr><td><code>temporal_ensemble_coeff</code></td><td>None</td><td>是否启用时序集成及指数权重</td><td>开启时 LeRobot 要求 n_action_steps=1；论文常用0.01</td></tr>
+          <tr><td><code>optimizer_lr</code></td><td>1e−5</td><td>主网络学习率</td><td>真机小数据重点看验证 rollout，不只看 loss</td></tr>
+        </tbody></table></div>
+        <pre><code># 面试用配置思路示例，不是所有机器人的固定最优值
+ACTConfig(
+    chunk_size=100,             # 50 Hz 下覆盖约 2 s
+    n_action_steps=25,          # 执行 0.5 s 后重新观察
+    use_vae=True,
+    latent_dim=32,
+    kl_weight=10.0,
+    temporal_ensemble_coeff=None,
+)</code></pre>
+        <div class="callout"><strong>两种配置不能混着说</strong><p>普通队列模式可以设置 n_action_steps&gt;1；Temporal Ensemble 要每一步获得新 chunk，因此 LeRobot 要求 n_action_steps=1。它们对应两套不同执行逻辑。</p></div>
+      </section>
+
+      <section class="section reveal" id="compare">
+        <div class="section-heading"><p class="section-index">13 · POLICY FAMILY</p><h2>ACT、Diffusion Policy 与 Flow Policy</h2></div>
+        <div class="table-scroll"><table class="shape-table"><thead><tr><th>维度</th><th>ACT</th><th>Diffusion / DiT Policy</th><th>Flow Matching Policy</th></tr></thead><tbody>
+          <tr><td><strong>共同点</strong></td><td colspan="3">都可将视觉、本体等条件映射为连续 action chunk，并用未来动作窗口监督</td></tr>
+          <tr><td><strong>生成建模</strong></td><td>CVAE latent + 直接回归</td><td>从高斯噪声逐步去噪</td><td>沿 ODE 概率路径积分</td></tr>
+          <tr><td><strong>训练目标</strong></td><td>Masked L1 + βKL</td><td>ε/x₀/diffusion-v MSE</td><td>velocity MSE</td></tr>
+          <tr><td><strong>推理次数</strong></td><td>通常一次 forward</td><td>多次 denoising forward</td><td>若干次向量场评估</td></tr>
+          <tr><td><strong>多模态能力</strong></td><td>由低维 z 承担，部署常 z=0</td><td>噪声到动作的生成过程表达力强</td><td>由起始噪声与条件向量场表达</td></tr>
+          <tr><td><strong>轨迹连续</strong></td><td>Chunk 结构 + Temporal Ensemble</td><td>整个 chunk 联合去噪</td><td>整个 chunk 联合生成，可配 RTC</td></tr>
+          <tr><td><strong>部署优势</strong></td><td>简单、低延迟、强基线</td><td>复杂多峰动作表达强</td><td>采样路径直接、可用较少积分步</td></tr>
+          <tr><td><strong>主要代价</strong></td><td>latent 可能被忽略，L1 可能趋向平均</td><td>推理慢、调度与采样器复杂</td><td>依赖路径、积分步数与时间方向实现正确</td></tr>
+        </tbody></table></div>
+        <div class="qa-grid" style="margin-top:16px">
+          <div class="interview-card"><strong>为什么 ACT 仍是重要 baseline？</strong><p>它训练稳定、推理一次完成、数据接口清晰，而且 Action Chunking 本身非常有效。复杂生成模型必须在相同数据、观测、执行 horizon 和评测协议下显著超过 ACT，改进才有说服力。</p></div>
+          <div class="interview-card"><strong>ACT 与 VLA 是竞争关系吗？</strong><p>不一定。ACT 更像低层 visuomotor policy；VLA 负责语言理解、跨任务语义和大规模先验。VLA 可以采用 action chunk decoder，也可以把 ACT 作为单任务专家或低延迟执行器。</p></div>
+          <div class="interview-card"><strong>ACT 与 RTC 的关系？</strong><p>ACT 提出了 chunk 与 overlap；RTC 进一步面向慢速大模型的实时异步执行，让新 chunk 在已经承诺的动作前缀后平滑续写。RTC 不是 ACT 必需组件，但解决了更严格的推理延迟问题。</p></div>
+          <div class="interview-card"><strong>什么时候优先选 ACT？</strong><p>数据量有限、任务相对单一、动作维度中等、要求低延迟并需要快速建立可靠 baseline 时。若示范存在强多模态且平均动作不可行，再比较 Diffusion/Flow。</p></div>
+        </div>
+      </section>
+
+      <section class="section reveal" id="projects">
+        <div class="section-heading"><p class="section-index">14 · CONNECT TO YOUR RESUME</p><h2>怎样与你的系统经历连接</h2></div>
+        <div class="resume-map">
+          <article><span>FRANKA + SHARPA</span><strong>双臂遥操作数据的 ACT Baseline</strong><p>将 Tracker/Manus 或外骨骼遥操作数据统一为 observation.state、camera image 与双臂连续 action；按 episode 构造未来 chunk，并用 ACT 快速验证数据是否具备可学习性。</p><em>追问：双臂 action 是14维关节目标、末端位姿还是增量？左右臂与灵巧手如何同步、归一化和安全限幅？</em></article>
+          <article><span>LEROBOT DATA</span><strong>格式转换不只是改字段名</strong><p>除了转成 LeRobot feature，还要保证 fps、timestamp、episode_index、frame_index、动作语义、相机顺序和归一化统计一致；ACT 的 k 会把任何时序错位放大为整段错误。</p><em>追问：如何用原始遥操作回放与 action chunk 可视化证明转换没有错位？</em></article>
+          <article><span>TACTILE TOKEN</span><strong>让触觉进入 Observation Memory</strong><p>可把当前触觉图像经 CNN 编码成二维 token，与 RGB token 一同送入 encoder；也可将短时触觉窗口编码成全局 token。必须保留接触前后的时间变化，而不是只拼一个未经标定的标量。</p><em>追问：触觉采样率高于控制频率时，窗口如何下采样、对齐和处理缺帧？</em></article>
+          <article><span>QTAC</span><strong>ACT 可做什么基线</strong><p>将目标数量、CountNet 数量分布、视觉、本体与触觉作为条件，直接预测重抓动作 chunk；再与 DiTFlow 比较成功率、数量误差、推理延迟和多模态轨迹能力。</p><em>追问：若 L1 平均掉两种重抓模式，CVAE latent 是否真的被使用？怎样做 z-sweep 或消融证明？</em></article>
+          <article><span>G3 TACTILE FLOW</span><strong>先验证输入输出契约</strong><p>ACT 单次 forward、结构简单，适合在 G3 上验证触觉预处理、观测 batch、动作反归一化与控制接口；参考 AT-VLA 只用于验证时，应明确不是完整复现其数采系统。</p><em>追问：怎样区分“模型效果差”和“触觉数据流错位”？</em></article>
+          <article><span>RTC / ONLINE CONTROL</span><strong>接触阶段动态缩短执行 horizon</strong><p>自由空间可执行较长 e；检测到触觉接触后令 e 变小或切到每步重规划，提高闭环响应。若模型推理慢，再使用异步 RTC，而不是仅靠 Temporal Ensemble 掩盖延迟。</p><em>追问：动态 horizon 会造成训练–部署分布差异吗，如何评测？</em></article>
+        </div>
+      </section>
+
+      <section class="section reveal" id="debug">
+        <div class="section-heading split-heading"><div><p class="section-index">15 · DEPLOYMENT & DEBUG</p><h2>Loss 降了，真机仍可能不动</h2></div><p>先排数据与控制，再调 Transformer。</p></div>
+        <div class="table-scroll"><table class="shape-table"><thead><tr><th>现象</th><th>优先排查</th><th>验证方法</th><th>可能修复</th></tr></thead><tbody>
+          <tr><td><strong>动作抖动</strong></td><td>反归一化、动作语义、控制频率、chunk 交界</td><td>离线画预测与 GT；记录下发前后动作</td><td>对齐 stats；减小 e；谨慎开启 ensemble；延长训练</td></tr>
+          <tr><td><strong>中途停顿</strong></td><td>示范停顿比例、episode 无效片段、欠训练</td><td>统计速度接近零的帧；按阶段看输出</td><td>清理数据；平衡阶段；按官方经验继续训练并用 rollout 判断</td></tr>
+          <tr><td><strong>总是平均轨迹</strong></td><td>多模态示范、KL 过强、z 被忽略</td><td>固定 obs 改变 z，观察输出差异</td><td>调 β；改进条件；拆任务；比较生成式 policy</td></tr>
+          <tr><td><strong>训练好、部署偏移</strong></td><td>相机裁剪、颜色、设备零位与 stats</td><td>保存部署 batch，与训练样本逐字段对比</td><td>统一预处理；重新标定；加部署域数据</td></tr>
+          <tr><td><strong>接触后反应慢</strong></td><td>k/e 太大、触觉延迟、推理排队</td><td>画 sensor→model→command 时间线</td><td>减小 e；触觉事件触发重规划；异步推理/RTC</td></tr>
+          <tr><td><strong>episode 末尾异常</strong></td><td>padding mask 与窗口切片</td><td>单测最后 k 个 frame 的 chunk/mask</td><td>修正 valid denominator 和 encoder padding mask</td></tr>
+        </tbody></table></div>
+        <div class="selection-checklist" style="margin-top:16px">
+          <article><span>01</span><strong>先回放 GT</strong><p>模型之前先证明真实 action 可以驱动机器人完成任务。</p></article>
+          <article><span>02</span><strong>过拟合小集</strong><p>用少量 episode 验证模型、loss、反归一化链路。</p></article>
+          <article><span>03</span><strong>离线可视化</strong><p>逐维画整段 chunk，不只看平均 L1。</p></article>
+          <article><span>04</span><strong>短 horizon 上机</strong><p>先小 e、低速、限位与急停，再增加执行长度。</p></article>
+          <article><span>05</span><strong>记录端到端延迟</strong><p>采集、传输、预处理、forward、控制分别打点。</p></article>
+          <article><span>06</span><strong>用任务指标选模型</strong><p>成功率、接触质量与轨迹平滑度比 val loss 更重要。</p></article>
+        </div>
+      </section>
+
+      <section class="section reveal" id="interview">
+        <div class="section-heading"><p class="section-index">16 · INTERVIEW Q&A</p><h2>必须能连续追答</h2></div>
+        <div class="qa-grid">
+          <div class="interview-card"><strong>Q1：ACT 为什么能缓解 compounding error？</strong><p>它一次预测 k 步，使一段运动作为整体学习；若执行完整 chunk，策略决策次数从约 T 降到 T/k。即使每步重规划，chunk supervision 也提供未来结构。但它不能消除分布偏移，仍依赖高质量示范和闭环重规划。</p></div>
+          <div class="interview-card"><strong>Q2：CVAE 解决的是什么问题？</strong><p>示范在相同观测下可能存在多种合理动作风格。posterior 从真值动作提取 z，decoder 在 z 条件下重建对应模式；KL 让 latent 接近可部署的标准先验。</p></div>
+          <div class="interview-card"><strong>Q3：为什么推理时不需要 VAE Encoder？</strong><p>它的输入包含未来真值动作，部署时不存在。训练通过 KL 让 posterior 靠近 N(0,I)，因此推理只需从 prior 选 z；原实现为稳定性直接取 z=0。</p></div>
+          <div class="interview-card"><strong>Q4：k 个 Action Query 在做什么？</strong><p>每个 query 是一个未来相对时间槽，通过 decoder self-attention 协调动作段内部关系，再 cross-attend observation memory，最后映射到连续动作。它们不是历史动作，也不是自回归 token。</p></div>
+          <div class="interview-card"><strong>Q5：ACT 的 decoder 需要 causal mask 吗？</strong><p>不需要。完整未来 chunk 在一次 forward 中并行预测，每个时间槽可以看到其他 query 表示；causal mask 是自回归生成时防止看未来的要求。</p></div>
+          <div class="interview-card"><strong>Q6：chunk_size 越大越好吗？</strong><p>不是。大 k 增强长时一致性并摊薄推理，但远期动作不确定性更高、接触变化时反应更慢、训练 padding 更多。应结合控制频率、任务子阶段和执行 horizon 选择。</p></div>
+          <div class="interview-card"><strong>Q7：Temporal Ensemble 为什么平滑？</strong><p>当前绝对时间的动作由多个过去 query 产生的重叠预测共同估计，加权平均降低单次 chunk 波动。但它也可能稀释最新反馈，因此权重方向和系数需要实机验证。</p></div>
+          <div class="interview-card"><strong>Q8：ACT 与 Diffusion Policy 最大差异？</strong><p>ACT 用 CVAE latent 条件下一次直接 L1 回归动作块；Diffusion Policy 从随机噪声经过多步去噪得到动作块。ACT 延迟低，Diffusion 对复杂多峰分布通常更有表达力。</p></div>
+          <div class="interview-card"><strong>Q9：为什么训练 loss 平台后继续训练可能仍有收益？</strong><p>平均 L1 的微小变化不一定反映闭环轨迹质量；长训练可能继续改善动作段的相位、一致性与平滑度。官方仓库也提示真机任务的成功率和流畅度可能在 loss 平台后继续提升，所以必须看 rollout。</p></div>
+          <div class="interview-card"><strong>Q10：怎样给 ACT 加触觉？</strong><p>先根据触觉类型设计 encoder：图像式触觉保留空间 token，低维力/接触量可编码成全局或时间窗口 token，再与视觉、本体一起进入 policy encoder。关键是对齐时间、标定量纲并设计缺失模态策略。</p></div>
+        </div>
+      </section>
+
+      <section class="section reveal" id="practice">
+        <div class="section-heading"><p class="section-index">17 · ACTIVE RECALL</p><h2>用六道题检查是否真正理解</h2></div>
+        <div class="quiz-list">
+          <div class="quiz-item" data-answer="2"><strong>1. ACT 的主要输出是什么？</strong><div class="quiz-options"><button>单个离散 token</button><button>一张未来图像</button><button>未来 k 步连续动作块</button><button>Q value</button></div><p class="quiz-note">答案：输出 [B,k,Dₐ] 连续动作序列。</p></div>
+          <div class="quiz-item" data-answer="1"><strong>2. 训练期 VAE Encoder 的输入包含什么？</strong><div class="quiz-options"><button>只有随机噪声</button><button>[CLS]、本体状态与未来动作</button><button>只有 RGB</button><button>奖励与 done</button></div><p class="quiz-note">答案：posterior 需要从未来示范提取动作风格。</p></div>
+          <div class="quiz-item" data-answer="3"><strong>3. 原版 ACT 推理时 latent z 如何设置？</strong><div class="quiz-options"><button>使用 GT 动作编码</button><button>上一时刻动作</button><button>固定为全1</button><button>固定为全0</button></div><p class="quiz-note">答案：官方代码和 LeRobot 都用零 latent。</p></div>
+          <div class="quiz-item" data-answer="0"><strong>4. 哪个位置必须使用 padding mask？</strong><div class="quiz-options"><button>VAE Encoder 与 L1 重建 loss</button><button>只在图像 backbone</button><button>只在 optimizer</button><button>不需要 mask</button></div><p class="quiz-note">答案：补齐动作既不能影响 posterior，也不能进入重建损失。</p></div>
+          <div class="quiz-item" data-answer="2"><strong>5. LeRobot Temporal Ensemble 中 m&gt;0 默认更偏向谁？</strong><div class="quiz-options"><button>随机预测</button><button>最新预测</button><button>较旧预测</button><button>所有预测都为0</button></div><p class="quiz-note">答案：w₀ 对应最旧预测，正 m 使后续权重递减。</p></div>
+          <div class="quiz-item" data-answer="1"><strong>6. ACT 的 Action Query 是否需要 causal mask？</strong><div class="quiz-options"><button>必须，否则泄漏 GT</button><button>不需要，因为动作块并行输出</button><button>只在推理时需要</button><button>只在 CVAE 中需要</button></div><p class="quiz-note">答案：ACT 不是沿动作时间自回归生成。</p></div>
+        </div>
+        <div class="card-grid three" style="margin-top:16px">
+          <article class="practice-card"><span class="card-label">10 MIN</span><h3>画两条 Forward</h3><p class="prompt">训练：GT action→posterior→z→policy；推理：z=0→policy。标出哪部分部署时删除。</p></article>
+          <article class="practice-card"><span class="card-label">15 MIN</span><h3>手写 ACT Loss</h3><p class="prompt">要求写对 [B,k] padding mask、valid denominator、KL closed form 与 logvar。</p></article>
+          <article class="practice-card"><span class="card-label">20 MIN</span><h3>手写 Temporal Ensemble</h3><p class="prompt">用绝对时间矩阵保存重叠 chunk，取当前列并做指数加权。</p></article>
+        </div>
+
+        <div class="section-heading" style="margin-top:70px"><p class="section-index">PRIMARY SOURCES</p><h2>继续阅读</h2></div>
+        <div class="source-grid">
+          <a class="source-card" href="https://arxiv.org/abs/2304.13705" target="_blank" rel="noreferrer"><span>ORIGINAL PAPER</span><strong>Learning Fine-Grained Bimanual Manipulation with Low-Cost Hardware</strong><p>ALOHA 系统、ACT 动机、CVAE、Action Chunk 与 Temporal Ensemble。</p></a>
+          <a class="source-card" href="https://github.com/tonyzhaozh/act" target="_blank" rel="noreferrer"><span>OFFICIAL CODE</span><strong>tonyzhaozh/act</strong><p>policy.py、DETRVAE、训练循环与原版时序集成。</p></a>
+          <a class="source-card" href="https://github.com/huggingface/lerobot/tree/main/src/lerobot/policies/act" target="_blank" rel="noreferrer"><span>LEROBOT</span><strong>LeRobot ACT Policy</strong><p>参数化输入输出、在线 Temporal Ensembler 与当前配置默认值。</p></a>
+          <a class="source-card" href="https://www.roboticsproceedings.org/rss19/p016.html" target="_blank" rel="noreferrer"><span>RSS 2023</span><strong>Official Proceedings</strong><p>论文正式出版信息、摘要与 DOI。</p></a>
+          <a class="source-card" href="transformer.html"><span>LOCAL MODULE</span><strong>Transformer 从零手写</strong><p>理解 ACT Encoder、Decoder、Action Query 和 Cross-Attention。</p></a>
+          <a class="source-card" href="rtc.html"><span>LOCAL MODULE</span><strong>RTC 实时动作分块</strong><p>从 ACT 的同步 chunk 继续理解异步推理和前缀约束。</p></a>
+        </div>
+      </section>
+
+      <footer class="footer"><span>ACT · Imitation Learning × CVAE × Action Chunking</span><nav class="footer-links"><a href="transformer.html">← Transformer</a><a href="act.html">ACT</a><a href="dit.html">下一页：DiT / Flow →</a><a href="index.html">返回总览</a></nav></footer>
+    </main>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>
