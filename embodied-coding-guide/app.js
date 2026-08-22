@@ -37,9 +37,10 @@
     },
     {
       label: "系统",
-      pages: ["resume-end-to-end.html", "tactile-interview.html", "rtc.html"],
+      pages: ["resume-end-to-end.html", "lerobot-data.html", "tactile-interview.html", "rtc.html"],
       links: [
         ["resume-end-to-end.html", "项目主线", "数据—训练—部署闭环"],
+        ["lerobot-data.html", "LeRobot 数据", "v3 元数据、UMI 对齐与失败数据"],
         ["tactile-interview.html", "触觉", "传感器、数据流与策略融合"],
         ["rtc.html", "RTC", "异步推理与动作衔接"],
       ],
@@ -67,9 +68,15 @@
   const relatedMap = {
     "resume-end-to-end.html": [
       ["tactile-interview.html", "感知层", "用触觉页补全传感器选型、标定与融合。"],
-      ["act.html", "策略基线", "用 ACT 理解 LeRobot 数据如何变成动作块。"],
+      ["lerobot-data.html", "数据层", "把 LeRobot v3、UMI 对齐和失败数据讲完整。"],
       ["rtc.html", "部署层", "把动作队列继续升级为异步闭环执行。"],
       ["vla-interview.html", "系统层", "将个人项目放回 VLA 端到端能力图。"],
+    ],
+    "lerobot-data.html": [
+      ["resume-end-to-end.html", "项目证据", "把通用数据知识落回 QTac、数采和遥操作经历。"],
+      ["tactile-interview.html", "高频模态", "继续理解触觉采样、同步、标定和质量检查。"],
+      ["vla-loss.html", "训练目标", "看 action window 怎样进入 CE、MSE 与 Flow loss。"],
+      ["pi-series.html", "大模型训练", "继续深挖 π₀.₅ 的数据配方与 Action Expert。"],
     ],
     "vla-interview.html": [
       ["wam.html", "预测式策略", "比较直接 observation-to-action 与未来世界建模。"],

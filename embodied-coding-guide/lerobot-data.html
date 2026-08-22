@@ -1,0 +1,309 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="LeRobot Dataset v3、metadata、时间窗口、UMI 数据对齐、失败数据利用，以及自变量一二面常见 Flow、π0.5、Attention 与算法题串讲。">
+  <meta name="theme-color" content="#0f1715">
+  <title>LeRobot 数据与一二面串讲｜具身智能面试</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="scroll-progress"><span id="scroll-progress-bar"></span></div>
+  <header class="topbar">
+    <a class="brand" href="index.html"><span class="brand-mark">LR</span><span class="brand-copy"><strong>LeRobot 数据工程</strong><small>Schema · Sync · Interview</small></span></a>
+    <nav class="topnav"><a href="index.html">Main</a></nav>
+    <div class="top-actions"><button class="top-button" id="focus-toggle" type="button">专注阅读</button><a class="top-button strong" href="#metadata">从元数据开始 ↓</a></div>
+  </header>
+
+  <div class="page-shell">
+    <aside class="sidebar">
+      <p class="eyebrow">DATA INTERVIEW MAP</p>
+      <ol class="side-nav">
+        <li><a href="#overview"><span>01</span>面经总图</a></li>
+        <li><a href="#format"><span>02</span>LeRobot 格式</a></li>
+        <li><a href="#metadata"><span>03</span>Metadata</a></li>
+        <li><a href="#sample"><span>04</span>帧与时间窗</a></li>
+        <li><a href="#quality"><span>05</span>数据质检</a></li>
+        <li><a href="#umi"><span>06</span>UMI 核心</a></li>
+        <li><a href="#alignment"><span>07</span>时间对齐</a></li>
+        <li><a href="#ik"><span>08</span>IK 与可视化</a></li>
+        <li><a href="#failure"><span>09</span>失败数据</a></li>
+        <li><a href="#generative"><span>10</span>Diffusion / Flow</a></li>
+        <li><a href="#pi"><span>11</span>π₀ / π₀.₅</a></li>
+        <li><a href="#attention"><span>12</span>Attention</a></li>
+        <li><a href="#coding"><span>13</span>算法题</a></li>
+        <li><a href="#interview"><span>14</span>十问速答</a></li>
+        <li><a href="#sources"><span>15</span>一手资料</a></li>
+      </ol>
+      <div class="sidebar-card"><strong>脱敏说明</strong><p>本页把面经与项目细节抽象为通用技术问题，不记录公司内部设备参数、数据规模、目录、地址或未公开实现。面试时只补充自己可公开且能证明的部分。</p></div>
+    </aside>
+
+    <main>
+      <section class="hero compact reveal visible" id="overview">
+        <div>
+          <p class="kicker">LeRobot v3 · UMI · VLA Interview</p>
+          <h1>从数据到策略<br><em>串起完整模型系统</em></h1>
+          <p class="hero-lead">这组一、二面问题表面上横跨数据格式、生成模型、π 系列、Attention 和算法题，实际主线只有一条：如何把不同来源的真实轨迹变成语义明确、时空对齐、能被策略正确采样的训练数据，再说明模型如何利用这些数据生成动作。</p>
+          <div class="hero-actions"><a class="primary-button" href="#format">先看数据四层结构 ↓</a><a class="ghost-button" href="#interview">直接看十问速答 ↗</a></div>
+          <div class="hero-stats"><div><strong>4</strong><span>元数据组件</span></div><div><strong>6</strong><span>对齐步骤</span></div><div><strong>10</strong><span>面经问题</span></div></div>
+        </div>
+        <div class="hero-board">
+          <div class="terminal-head"><span class="terminal-dots"><i></i><i></i><i></i></span><span>dataset_to_policy.trace</span></div>
+          <div class="resume-stack-mini">
+            <article><span>01 · SOURCE</span><strong>Teleop · UMI · Robot</strong><small>不同设备、频率和坐标</small></article>
+            <b>↓</b><article><span>02 · CONTRACT</span><strong>LeRobot Schema</strong><small>episode · frame · task · feature</small></article>
+            <b>↓</b><article><span>03 · SAMPLE</span><strong>Observation + Chunk</strong><small>秒级窗口与有效掩码</small></article>
+            <b>↓</b><article class="accent"><span>04 · POLICY</span><strong>ACT · Flow · VLA</strong><small>连续动作生成与闭环执行</small></article>
+          </div>
+          <div class="formula">格式统一 ≠ 语义正确 ≠ 时间对齐 ≠ 数据高质量</div>
+        </div>
+      </section>
+
+      <section class="section reveal" id="format">
+        <div class="section-heading split-heading"><div><p class="section-index">01 · DATA MODEL</p><h2>LeRobot 格式先记四个层级</h2></div><p>面试中不要只背目录。先解释四个抽象层级，再落到 v3 文件。</p></div>
+        <div class="e2e-pipeline">
+          <article><span>DATASET</span><strong>完整数据集</strong><p>统一 feature schema、fps、统计量和任务词表</p><em>训练与发布单位</em></article><b>→</b>
+          <article><span>EPISODE</span><strong>一次连续轨迹</strong><p>有起止边界、长度、任务及文件偏移</p><em>切分与评测单位</em></article><b>→</b>
+          <article><span>FRAME</span><strong>时间 t 的样本</strong><p>状态、动作、时间戳与图像引用</p><em>Dataset 索引单位</em></article><b>→</b>
+          <article><span>WINDOW</span><strong>模型训练样本</strong><p>历史观测 + 未来 action chunk</p><em>按秒取相对时刻</em></article>
+        </div>
+        <div class="table-scroll" style="margin-top:16px"><table class="shape-table"><thead><tr><th>目录</th><th>保存内容</th><th>为什么这样存</th><th>加载时怎样使用</th></tr></thead><tbody>
+          <tr><td><code>meta/</code></td><td>schema、fps、统计量、任务、episode 边界和文件定位</td><td>把逻辑 episode 与物理文件解耦</td><td>先读取它，才知道其余数据如何解释</td></tr>
+          <tr><td><code>data/</code></td><td>低维高频帧数据：state、action、timestamp、索引等</td><td>Parquet 便于列式读取、内存映射与流式加载</td><td>按全局 frame index 或 episode 边界取行</td></tr>
+          <tr><td><code>videos/&lt;camera&gt;/</code></td><td>各相机的 MP4 分片</td><td>视频编码比逐帧图片更省空间和文件数</td><td>根据文件索引与时间戳 seek 到对应画面</td></tr>
+          <tr><td><code>README / card</code></td><td>人类可读的数据来源、许可、动作语义与限制</td><td>很多关键语义无法只靠 shape 表达</td><td>复现前确认单位、控制模式和使用边界</td></tr>
+        </tbody></table></div>
+        <div class="callout"><strong>v3 的核心变化</strong><p>v2.x 常见“一条 episode 一个 Parquet/MP4”；v3 将多条 episode 合并进较大的 <code>file-xxx.parquet/mp4</code>，再用关系型 episode metadata 恢复边界。收益是文件更少、初始化和流式读取更适合大规模数据；代价是不能再用“文件边界就是 episode 边界”的旧假设。</p></div>
+      </section>
+
+      <section class="section reveal" id="metadata">
+        <div class="section-heading"><p class="section-index">02 · METADATA</p><h2>metadata 保存的是“如何解释和定位数据”</h2><p>它通常不保存所有图像和每帧连续值；那些在 <code>data/</code> 与 <code>videos/</code> 中。</p></div>
+        <div class="table-scroll"><table class="shape-table"><thead><tr><th>v3 组件</th><th>典型内容</th><th>训练用途</th><th>常见误解</th></tr></thead><tbody>
+          <tr><td><strong><code>info.json</code></strong><small>全局数据契约</small></td><td>codebase version、robot type、fps、总帧/episode/task 数；每个 feature 的 dtype、shape、维度名称；data/video 路径模板和分片配置；视频编码信息</td><td>构建输入输出 schema，确定相机键、动作维度和文件位置</td><td>它说明“有什么、长什么样”，不等于说明每一维的物理控制语义</td></tr>
+          <tr><td><strong><code>stats.json</code></strong><small>全局统计量</small></td><td>各连续 feature 的 count、mean、std、min、max，以及版本支持的分位数等统计</td><td>训练归一化；推理时用同一统计量反归一化 action</td><td>不能在 train/val/test 全部数据上重算，否则可能泄漏；也不能把不同动作语义的数据盲目共用统计量</td></tr>
+          <tr><td><strong><code>tasks.parquet</code></strong><small>任务词表</small></td><td>自然语言 task 与整数 <code>task_index</code> 的映射</td><td>任务条件训练，减少每帧重复字符串的存储</td><td>早期 v3 文档或 v2.x 可能写 <code>tasks.jsonl</code>；当前 v3 代码以 Parquet 为准</td></tr>
+          <tr><td><strong><code>meta/episodes/*.parquet</code></strong><small>每条轨迹索引</small></td><td><code>episode_index</code>、length、tasks、dataset 起止行；data/video 的 chunk/file index、帧/时间偏移；每 episode 统计和附加 metadata</td><td>恢复 episode 边界、按 episode 切分、定位共享分片中的帧和视频</td><td>v3 一个物理文件可以含多条 episode，不能按文件名直接计算 episode 数</td></tr>
+        </tbody></table></div>
+        <div class="interview-card" style="margin-top:16px"><strong>60 秒标准回答</strong><p>LeRobot v3 的 metadata 是数据集的数据契约和关系索引。<code>info.json</code> 描述全局 schema、fps、规模和分片路径；<code>stats.json</code> 保存各 feature 的统计量供归一化；<code>tasks.parquet</code> 把语言任务映射到 task index；<code>meta/episodes</code> 保存每条 episode 的长度、任务、全局行区间以及对应 data/video 分片和时间偏移。真正逐帧的 state、action 和 timestamp 在 Parquet，图像在 MP4。v3 允许多个 episode 共用一个文件，所以必须依赖 metadata 恢复逻辑边界。</p></div>
+        <div class="qa-grid" style="margin-top:16px">
+          <article class="interview-card"><strong>metadata 还缺什么才可复现？</strong><p>动作是关节位置、末端绝对位姿还是增量？角度单位、坐标系、夹爪正负方向、commanded/executed action、外参版本、延迟与过滤流程。这些应写进数据卡、feature names 或自定义字段，不能期待一个 <code>[8]</code> shape 自动表达。</p></article>
+          <article class="interview-card"><strong>为什么 stats 是系统契约？</strong><p>训练和推理若使用不同统计量，模型看到的输入分布与输出尺度会改变。最危险的故障是 action 反归一化错误：离线 loss 正常，真机却速度或位移异常，因此 checkpoint、schema 和 stats 必须绑定版本。</p></article>
+        </div>
+      </section>
+
+      <section class="section reveal" id="sample">
+        <div class="section-heading split-heading"><div><p class="section-index">03 · FRAME TO WINDOW</p><h2>策略训练读取的不是孤立一帧</h2></div><p>典型样本是短历史观测和未来动作块，边界处还要处理 padding 与有效掩码。</p></div>
+        <div class="formula large">sample(t) = { o<sub>t+Δo</sub>, a<sub>t+Δa</sub>, task, pad_mask }</div>
+        <pre><code>delta_timestamps = {
+    "observation.images.front": [-0.20, -0.10, 0.00],
+    "observation.state":        [-0.20, -0.10, 0.00],
+    "action":                   [ 0.00,  0.05, 0.10, ..., 0.75],
+}
+
+dataset = LeRobotDataset(repo_id, delta_timestamps=delta_timestamps)</code></pre>
+        <div class="table-scroll"><table class="shape-table"><thead><tr><th>字段</th><th>作用</th><th>检查方法</th><th>错误后果</th></tr></thead><tbody>
+          <tr><td><code>timestamp</code></td><td>episode 内物理时间，连接不同模态与视频帧</td><td>单调性、间隔分布、跳变与重复值</td><td>视觉和动作错位，模型学到错误因果关系</td></tr>
+          <tr><td><code>episode_index</code></td><td>防止窗口跨越两次独立轨迹</td><td>边界前后 task、frame index 是否重置</td><td>把上一条结尾和下一条开头拼成假轨迹</td></tr>
+          <tr><td><code>frame_index</code></td><td>episode 内离散顺序</td><td>从 0 连续递增、与 length 一致</td><td>丢帧不易定位，视频 seek 与表格错位</td></tr>
+          <tr><td><code>action</code></td><td>监督未来机器人命令或执行量</td><td>范围、速度/加速度、单位、与 state 的关系</td><td>动作语义混乱比模型结构错误更致命</td></tr>
+          <tr><td><code>pad_mask</code></td><td>标记 episode 边缘重复/填充出来的时间步</td><td>loss 是否只在有效位置计算</td><td>模型过度学习静止尾帧或虚假重复动作</td></tr>
+        </tbody></table></div>
+        <div class="callout warning"><strong>按秒定义窗口</strong><p>不同数据源的频率不一致时，<code>H=16</code> 本身没有统一物理含义；16 步在 20 Hz 是 0.8 s，在 50 Hz 只有 0.32 s。跨数据源混训时先统一控制频率，或用秒级 <code>delta_timestamps</code> 表达同一时间范围。</p></div>
+      </section>
+
+      <section class="section reveal" id="quality">
+        <div class="section-heading"><p class="section-index">04 · DATA QUALITY</p><h2>转成 LeRobot 只是开始</h2><p>高质量数据要同时通过结构、时间、空间、动作和任务五类检查。</p></div>
+        <div class="table-scroll"><table class="shape-table"><thead><tr><th>层级</th><th>自动检查</th><th>可视化检查</th><th>通过标准</th></tr></thead><tbody>
+          <tr><td><strong>结构</strong></td><td>必需 key、dtype/shape、episode length、NaN/Inf、文件可读</td><td>随机抽样一条 episode 完整回放</td><td>schema 稳定，窗口不跨 episode</td></tr>
+          <tr><td><strong>时间</strong></td><td>timestamp 单调、采样间隔、丢帧率、jitter、跨模态最近邻误差</td><td>在一条时间轴叠加状态、动作、接触事件和视频</td><td>残差小于任务允许的动态时间尺度</td></tr>
+          <tr><td><strong>空间</strong></td><td>旋转矩阵正交、四元数归一、变换正逆一致、工作空间范围</td><td>相机画面叠加关键点；3D 轨迹与机器人模型同屏</td><td>无轴交换、镜像、单位和 frame 错误</td></tr>
+          <tr><td><strong>动作</strong></td><td>位置/速度/加速度、限位、突变、commanded 与 executed 差值</td><td>轨迹、末端路径、夹爪曲线与接触同步</td><td>动作可达、连续，语义与策略配置一致</td></tr>
+          <tr><td><strong>任务</strong></td><td>任务标签、成功/失败、阶段、对象/场景分布</td><td>按标签播放困难样本与长尾样本</td><td>切分按 episode/场景/对象，避免近邻帧泄漏</td></tr>
+        </tbody></table></div>
+        <div class="memory-line"><strong>面试金句</strong><p>“格式兼容解决的是数据能不能被加载；数据质量解决的是模型会学到什么；部署一致性解决的是学到的策略能不能在真机正确执行。”</p></div>
+      </section>
+
+      <section class="section reveal" id="umi">
+        <div class="section-heading split-heading"><div><p class="section-index">05 · UMI</p><h2>UMI 最重要的不是“没有机器人”</h2></div><p>真正的关键是把人类示范变成可迁移的机器人策略接口。</p></div>
+        <div class="card-grid three">
+          <article class="info-card"><span>PORTABLE INTERFACE</span><h3>手持夹爪缩小形态差距</h3><p>操作者在真实环境中直接演示，设备保留机器人夹爪的交互方式，并用腕部相机记录第一视角。</p></article>
+          <article class="info-card"><span>ROBUST TRACKING</span><h3>恢复 6DoF 末端轨迹</h3><p>UMI 对快速运动下的 SLAM 做专门设计；轨迹质量决定动作标签质量，也是公开流程中最脆弱的环节。</p></article>
+          <article class="info-card"><span>POLICY INTERFACE</span><h3>相对轨迹 + 延迟匹配</h3><p>用相对末端轨迹减弱全局坐标和机器人本体差异，并在推理时匹配观测与执行延迟。</p></article>
+        </div>
+        <div class="table-scroll" style="margin-top:16px"><table class="shape-table"><thead><tr><th>如果只答一个重点</th><th>为什么重要</th><th>缺失会怎样</th></tr></thead><tbody>
+          <tr><td><strong>任务空间相对轨迹表示</strong></td><td>把“人手设备的绝对世界位姿”转换成“从当前末端出发的未来变化”，使数据更接近机器人可执行的统一接口</td><td>策略容易记忆采集坐标原点与场景布局，跨环境和跨本体迁移困难</td></tr>
+          <tr><td><strong>准确 6DoF 追踪</strong></td><td>动作标签本身由追踪恢复，pose 漂移会直接污染监督</td><td>视觉看起来正确但 action target 错，BC 会忠实学习噪声轨迹</td></tr>
+          <tr><td><strong>观测/执行延迟匹配</strong></td><td>训练和部署必须保持相同的“图像对应未来哪段动作”的因果关系</td><td>动态任务中系统性相位滞后，表现为追不上、过冲或动作顿挫</td></tr>
+        </tbody></table></div>
+        <div class="callout"><strong>一句话回答</strong><p>UMI 的价值是用便携手持设备规模化采集“接近机器人末端执行器”的人类示范，并通过准确位姿追踪、相对轨迹动作表示和推理延迟匹配，把这些非本体数据变成可迁移到不同机器人上的视觉运动策略。</p></div>
+      </section>
+
+      <section class="section reveal" id="alignment">
+        <div class="section-heading"><p class="section-index">06 · TEMPORAL ALIGNMENT</p><h2>UMI 与真机频率不同：对齐时间，不对齐帧号</h2><p>先定义统一物理时间轴，再分别重采样观测、状态和动作。</p></div>
+        <div class="e2e-pipeline">
+          <article><span>01</span><strong>保留原始时钟</strong><p>每个设备在采样处记录 timestamp</p><em>不要先四舍五入成帧号</em></article><b>→</b>
+          <article><span>02</span><strong>校正时钟偏移</strong><p>硬件触发 / PTP / 事件或互相关估计</p><em>offset + drift</em></article><b>→</b>
+          <article><span>03</span><strong>选目标频率</strong><p>由机器人控制频率、相机和任务动态决定</p><em>例如 20 Hz</em></article><b>→</b>
+          <article><span>04</span><strong>按模态插值</strong><p>位置线性、旋转 SLERP、离散量保持</p><em>先抗混叠再降采样</em></article><b>→</b>
+          <article><span>05</span><strong>补偿延迟</strong><p>图像 t 对齐真正可执行的未来动作</p><em>感知 + 推理 + 控制</em></article><b>→</b>
+          <article><span>06</span><strong>验证残差</strong><p>事件叠加、轨迹回放和统计报告</p><em>记录 valid mask</em></article>
+        </div>
+        <div class="formula large">t<sub>common</sub>(k)=t₀+k/f<sub>target</sub>　　a<sup>train</sup><sub>k</sub>=a(t<sub>common</sub>(k)+L<sub>deploy</sub>)</div>
+        <div class="table-scroll" style="margin-top:16px"><table class="shape-table"><thead><tr><th>模态</th><th>推荐重采样</th><th>原因</th><th>注意事项</th></tr></thead><tbody>
+          <tr><td>平移 / 关节位置</td><td>线性、三次插值或低通后重采样</td><td>连续欧氏变量</td><td>三次插值可能过冲，必须检查关节限位</td></tr>
+          <tr><td>旋转</td><td>四元数 SLERP / SE(3) 插值</td><td>欧拉角线性插值会受跳变和奇异影响</td><td>处理 q 与 −q 的同一旋转表示</td></tr>
+          <tr><td>夹爪开合 / 模式</td><td>连续宽度可线性；离散事件 zero-order hold</td><td>语义可能是连续量或状态机事件</td><td>阈值附近检查抖动和迟滞</td></tr>
+          <tr><td>RGB 视频</td><td>最近邻帧或按曝光时间选择</td><td>不能凭空插出真实画面</td><td>设置最大时间差，超出则标 invalid</td></tr>
+          <tr><td>高频触觉 / 力</td><td>低通 + 窗口统计 / 特征聚合</td><td>直接抽点会混叠并丢失接触峰值</td><td>保留接触 onset、峰值和滑移等事件</td></tr>
+        </tbody></table></div>
+        <div class="qa-grid" style="margin-top:16px">
+          <article class="interview-card"><strong>30 Hz UMI + 20 Hz 真机怎么做？</strong><p>选择 20 Hz 的公共时刻；UMI 位姿在这些时刻插值，旋转用 SLERP，视频选曝光中心最近帧；动作转换为相对于当前末端的未来轨迹。训练和部署都以相同秒级 observation/action horizon 构造窗口，并根据真机感知到执行延迟整体平移 action target。</p></article>
+          <article class="interview-card"><strong>仅按最近邻够吗？</strong><p>慢速准静态任务可能够；快速接触和双手协同通常不够。需要量化最近邻时间残差、端到端延迟和采样 jitter，并用接触/夹爪事件检查相位。对高频信号应先低通或提取窗口特征。</p></article>
+        </div>
+      </section>
+
+      <section class="section reveal" id="ik">
+        <div class="section-heading split-heading"><div><p class="section-index">07 · RETARGETING CHECK</p><h2>IK 和轨迹可视化是转换后的必要验收</h2></div><p>UMI 给出的是任务空间末端轨迹；能否被具体机器人执行，还要经过标定、重定向、IK 与约束检查。</p></div>
+        <div class="formula large">T<sup>base</sup><sub>ee,k</sub> = T<sup>base</sup><sub>task</sub> · ΔT<sup>UMI</sup><sub>k</sub> · T<sup>adapter</sup></div>
+        <div class="table-scroll" style="margin-top:16px"><table class="shape-table"><thead><tr><th>检查</th><th>做法</th><th>需要画什么</th><th>能发现的问题</th></tr></thead><tbody>
+          <tr><td><strong>坐标变换</strong></td><td>检查右乘/左乘、frame 定义、初始相对位姿和米/毫米</td><td>XYZ 轨迹 + 三轴姿态 frame</td><td>轴交换、镜像、尺度和原点错误</td></tr>
+          <tr><td><strong>逐点 IK</strong></td><td>以上一时刻关节作为 seed，使用阻尼最小二乘/优化 IK</td><td>IK 残差、迭代次数、成功率</td><td>不可达点、奇异附近跳解</td></tr>
+          <tr><td><strong>连续性</strong></td><td>检查 Δq、速度、加速度和 jerk</td><td>每关节 q/dq/ddq 曲线</td><td>姿态表示跳变、支路切换、滤波不足</td></tr>
+          <tr><td><strong>约束</strong></td><td>加入关节限位、自碰撞、桌面和工作空间约束</td><td>机器人模型动画 + 碰撞标记</td><td>数学可达但物理不可执行</td></tr>
+          <tr><td><strong>双臂</strong></td><td>保留相对末端约束，联合求解或分层优化</td><td>左右末端距离/相对姿态曲线</td><td>各自可达但协同关系被破坏</td></tr>
+        </tbody></table></div>
+        <div class="boundary-grid">
+          <article class="done"><span>如果实际做过</span><strong>说明工具、指标和发现</strong><p>“我把相对末端轨迹变到机器人 base frame，用连续 seed 做离线 IK，并在 Rerun/RViz/MoveIt 中叠加末端和关节轨迹；主要检查 IK 成功率、位姿残差、关节速度及碰撞。”</p></article>
+          <article class="learn"><span>如果只做过轨迹可视化</span><strong>不要把它说成完成 IK</strong><p>“我已完成坐标变换和 3D 轨迹可视化，用于检查方向、尺度和连续性；尚未把全量轨迹经过带碰撞约束的 IK 验收，这是下一步。”</p></article>
+          <article class="avoid"><span>如果尚未做过</span><strong>给出可执行验证方案</strong><p>先离线抽取轨迹、统一坐标，使用 Pinocchio/MoveIt 求 IK；统计可达率、残差和速度违约，再可视化失败区间，最后低速空载回放。</p></article>
+        </div>
+      </section>
+
+      <section class="section reveal" id="failure">
+        <div class="section-heading"><p class="section-index">08 · FAILURE DATA</p><h2>失败数据不能直接混进 BC</h2><p>没有条件标签时，行为克隆会把失败动作也当专家动作学习；利用失败数据必须先明确监督信号。</p></div>
+        <div class="table-scroll"><table class="shape-table"><thead><tr><th>用法</th><th>怎样利用</th><th>适用问题</th><th>风险</th></tr></thead><tbody>
+          <tr><td><strong>失败分类与质检</strong></td><td>训练 success/failure、阶段完成或 failure type 分类器</td><td>自动筛数据、评测与数据飞轮</td><td>标签定义不一致会让分类器学场景偏差</td></tr>
+          <tr><td><strong>保留失败前的有效片段</strong></td><td>按任务阶段切片，只对仍合理的动作计算 BC loss</td><td>长轨迹后段偶发失败</td><td>切分点错误会保留导致失败的早期动作</td></tr>
+          <tr><td><strong>恢复行为</strong></td><td>采集失败后的人类接管/纠错，标注 intervention 与 recovery</td><td>covariate shift、闭环恢复</td><td>只有失败没有纠错，学不到“怎样回来”</td></tr>
+          <tr><td><strong>偏好 / 排序</strong></td><td>成功轨迹优于失败轨迹，训练 reward/value 或 preference model</td><td>RL post-training、候选轨迹选择</td><td>需要控制初始条件和任务难度，否则比较不公平</td></tr>
+          <tr><td><strong>Offline RL / advantage weighting</strong></td><td>基于回报或优势给行为数据加权，而非等权模仿</td><td>同时拥有成功、失败和奖励</td><td>外推误差、reward hacking 和安全问题</td></tr>
+          <tr><td><strong>困难负样本</strong></td><td>用于视觉/触觉表示对比学习、接触状态或数量混淆训练</td><td>感知模块误判</td><td>不要把策略失败简单归因于感知失败</td></tr>
+        </tbody></table></div>
+        <div class="e2e-pipeline" style="margin-top:16px">
+          <article><span>LABEL</span><strong>发生了什么</strong><p>success · phase · failure_type</p><em>定义一致</em></article><b>→</b>
+          <article><span>LOCALIZE</span><strong>何时开始错误</strong><p>pre-failure · failure · recovery</p><em>分段而非整条丢弃</em></article><b>→</b>
+          <article><span>LEARN</span><strong>选正确目标</strong><p>BC mask · reward · preference · recovery</p><em>避免模仿坏动作</em></article><b>→</b>
+          <article><span>VERIFY</span><strong>固定失败集回归</strong><p>同类失败率与恢复成功率</p><em>证明数据确实有用</em></article>
+        </div>
+        <div class="callout warning"><strong>建议补充的数据字段</strong><p><code>success</code>、<code>terminal_reason</code>、<code>failure_type</code>、<code>phase</code>、<code>intervention</code>、<code>valid_action</code>、<code>commanded_action</code> 与 <code>executed_action</code>。LeRobot 允许扩展 feature/episode metadata，但字段语义必须写入数据卡并随版本维护。</p></div>
+      </section>
+
+      <section class="section reveal" id="generative">
+        <div class="section-heading split-heading"><div><p class="section-index">09 · GENERATIVE POLICY</p><h2>Diffusion 与 Flow Matching：都从噪声生成动作</h2></div><p>区别主要在训练目标、概率路径和推理方程；不要回答成“一个加噪，一个不加噪”。</p></div>
+        <div class="table-scroll"><table class="shape-table"><thead><tr><th>维度</th><th>Diffusion Policy</th><th>Flow Matching Policy</th></tr></thead><tbody>
+          <tr><td><strong>核心对象</strong></td><td>通常学习噪声 ε、score ∇log p 或 diffusion velocity</td><td>直接回归概率路径上的向量场 u<sub>t</sub>(x|c)</td></tr>
+          <tr><td><strong>前向路径</strong></td><td>按噪声 schedule 逐渐破坏数据，常对应 SDE/离散 Markov 链</td><td>可选多种条件概率路径；最常见直线/OT 路径从噪声连接数据</td></tr>
+          <tr><td><strong>训练</strong></td><td>随机 timestep 构造带噪动作，回归 ε/score/v</td><td>随机 t 构造 x<sub>t</sub>，回归该处目标速度；无需训练时模拟 ODE</td></tr>
+          <tr><td><strong>采样</strong></td><td>反向 SDE/ODE 或 DDIM 等迭代去噪</td><td>从噪声出发积分 ODE：dx/dt=v<sub>θ</sub>(x,t,c)</td></tr>
+          <tr><td><strong>步数</strong></td><td>经典实现步数较多，现代 solver/蒸馏可显著减少</td><td>直线路径常更直、可用较少 ODE 步，但并非天然“一步”</td></tr>
+          <tr><td><strong>共同优势</strong></td><td colspan="2">能表达多峰、连续、高维 action chunk；比单点 MSE 更不容易平均多种合理动作</td></tr>
+        </tbody></table></div>
+        <div class="qa-grid" style="margin-top:16px">
+          <article class="interview-card"><strong>最小公式</strong><p>直线 Flow：x<sub>t</sub>=(1−t)ε+ta，监督速度 u=a−ε，优化 ‖v<sub>θ</sub>(x<sub>t</sub>,t,c)−u‖²；推理从 x₀∼N(0,I) 积分到 x₁。Diffusion 则常用 ε<sub>θ</sub>(x<sub>t</sub>,t,c) 回归加入的噪声，再按反向过程逐步恢复动作。</p></article>
+          <article class="interview-card"><strong>面试中的严谨表述</strong><p>Flow Matching 是训练连续归一化流的向量场回归方法，兼容包括 diffusion path 在内的多类概率路径；因此二者不是完全互斥的两个集合。机器人论文里常把“DDPM 风格 ε-prediction”与“直线/OT Flow Matching”作工程对比。</p></article>
+        </div>
+        <div class="memory-line"><strong>继续深挖</strong><p><a href="vla-loss.html">Loss 专题：CE / MSE / Flow →</a>　<a href="dit.html">DiT：Transformer × Diffusion / Flow →</a>　<a href="index.html#ditflow-training">DiTFlow 源码主线 →</a></p></div>
+      </section>
+
+      <section class="section reveal" id="pi">
+        <div class="section-heading"><p class="section-index">10 · π SERIES</p><h2>π₀ 与 π₀.₅ 的核心差别在训练配方和泛化目标</h2></div>
+        <div class="table-scroll"><table class="shape-table"><thead><tr><th>问题</th><th>π₀</th><th>π₀.₅</th></tr></thead><tbody>
+          <tr><td><strong>目标</strong></td><td>跨 8 类机器人学习通用、灵巧的低层控制</td><td>在 π₀ 基础上强化新家庭、新物体和长时程开放世界泛化</td></tr>
+          <tr><td><strong>数据</strong></td><td>VLM 预训练、Open X 与 Physical Intelligence 多机器人数据</td><td>移动操作 MM、跨环境 ME、实验室跨本体 CE、高层子任务 HL、Web WD，后训练加入语言示范 VI</td></tr>
+          <tr><td><strong>训练方式</strong></td><td>训练阶段持续使用 Flow Matching Action Expert 生成连续 action chunk</td><td>预训练先用 FAST 离散动作 token 做 next-token prediction；后训练再加入 Flow Action Expert，并保留文本任务</td></tr>
+          <tr><td><strong>高低层</strong></td><td>语言条件直接产生低层动作</td><td>同一个模型可先低频预测语义子任务，再条件化低层动作推理</td></tr>
+          <tr><td><strong>关键收益</strong></td><td>跨本体和多任务能力</td><td>异构 co-training 将 Web/其他机器人知识迁移到约 400 小时移动操作数据，能在未见家庭执行多阶段任务</td></tr>
+        </tbody></table></div>
+        <div class="card-grid three" style="margin-top:16px">
+          <article class="info-card"><span>公开数据量</span><h3>约 400 小时 MM</h3><p>这是移动机械臂在多种真实家庭中的数据；π₀.₅ 还使用规模更大的其他机器人、实验室和 Web/高层数据，论文未给出全部混合数据的统一总小时数。</p></article>
+          <article class="info-card"><span>公开训练步数</span><h3>280k + 80k</h3><p>预训练 28 万个 gradient steps；后训练 8 万步，后者加入连续 Flow Action Expert。消融设置可能使用其他步数，不能混作主模型训练量。</p></article>
+          <article class="info-card"><span>未公开信息</span><h3>墙钟耗时未知</h3><p>论文没有披露可核验的硬件规模、总 GPU/TPU 小时或训练天数。面试中应明确说“未公开”，不能用 36 万步推算真实训练时长。</p></article>
+        </div>
+        <div class="interview-card" style="margin-top:16px"><strong>45 秒回答</strong><p>π₀ 的重点是 VLM 主干加 Flow Matching Action Expert，在跨本体机器人数据上直接生成连续动作块。π₀.₅ 面向开放世界泛化，扩大到移动机器人多环境数据、高层子任务、Web 与语言示范等异构任务，并采用两阶段混合训练：预训练用 FAST 离散动作 token 做统一 next-token prediction，后训练再加 Flow Action Expert；推理时同一模型可先产生高层子任务，再执行低层动作。公开数字是约 400 小时移动操作数据、28 万步预训练和 8 万步后训练；完整总数据小时数与墙钟训练时间未披露。</p></div>
+        <div class="memory-line"><strong>继续深挖</strong><p><a href="pi-series.html">π 系列完整演进、State token 与 Action Expert →</a></p></div>
+      </section>
+
+      <section class="section reveal" id="attention">
+        <div class="section-heading split-heading"><div><p class="section-index">11 · ATTENTION</p><h2>公式、√d<sub>k</sub> 与多头复杂度</h2></div><p>这类题先写 shape，再解释统计量和计算量。</p></div>
+        <div class="formula large">Attention(Q,K,V)=softmax(QK<sup>T</sup>/√d<sub>k</sub>)V</div>
+        <div class="qa-grid" style="margin-top:16px">
+          <article class="interview-card"><strong>为什么除以 √d<sub>k</sub>？</strong><p>若 q、k 每一维近似独立、均值 0、方差 1，则点积 q·k 是 d<sub>k</sub> 项之和，方差约为 d<sub>k</sub>，标准差约为 √d<sub>k</sub>。除以 √d<sub>k</sub> 后 logit 尺度保持 O(1)，避免维度增大时 softmax 过度饱和、梯度变小。</p></article>
+          <article class="interview-card"><strong>Q、K、V 分别是什么？</strong><p>Q 表示当前 token 想检索什么，K 表示每个 token 提供怎样的匹配索引，V 是匹配后真正被加权聚合的信息。Self-Attention 的 Q/K/V 来自同一序列的不同线性投影；Cross-Attention 的 Q 与 K/V 来自不同序列。</p></article>
+        </div>
+        <div class="table-scroll" style="margin-top:16px"><table class="shape-table"><thead><tr><th>项目</th><th>多头注意力</th><th>面试解释</th></tr></thead><tbody>
+          <tr><td><strong>原理</strong></td><td>把 d<sub>model</sub> 投影成 h 组 Q/K/V，每头在 d<sub>k</sub>=d<sub>model</sub>/h 子空间独立 attention，拼接后再乘 W<sup>O</sup></td><td>不同头可以学习位置、物体、语言、状态、动作时序等不同关系</td></tr>
+          <tr><td><strong>优势</strong></td><td>并行关注多种关系和表示子空间；比单头在同一总维度上更有结构化表达能力</td><td>不是简单“重复 h 次”，各头有独立投影参数</td></tr>
+          <tr><td><strong>投影复杂度</strong></td><td>Q/K/V/O 约 O(B·L·d<sup>2</sup>)</td><td>短序列且 d 大时，这部分可能占主要计算</td></tr>
+          <tr><td><strong>注意力复杂度</strong></td><td>score + weighted sum 约 O(B·L<sup>2</sup>·d)</td><td>虽然有 h 个头，但每头维度是 d/h，总渐进量级不多乘一个 h</td></tr>
+          <tr><td><strong>注意力显存</strong></td><td>显式 attention matrix 约 O(B·h·L<sup>2</sup>)</td><td>长序列瓶颈通常来自 L²；FlashAttention 改善实际 IO/显存，不改变全连接 attention 的数学依赖</td></tr>
+        </tbody></table></div>
+        <div class="callout"><strong>具身联系</strong><p>图像 patch、语言 token、本体 state、触觉 token 和动作 token 可通过 Self/Cross Attention 融合。真正工程问题还包括：各模态 token 数差异、时间戳是否对齐、是否需要 causal mask，以及高频触觉是否应先压缩再进入慢速 VLA。</p></div>
+        <div class="memory-line"><strong>继续深挖</strong><p><a href="attention.html">Attention 手撕、Mask、KV Cache 专题 →</a>　<a href="transformer.html">完整 Transformer →</a></p></div>
+      </section>
+
+      <section class="section reveal" id="coding">
+        <div class="section-heading"><p class="section-index">12 · EASY CODING ROUND</p><h2>简单题也要写清边界和复杂度</h2><p>优先练可在 15–20 分钟内完整写对、口头解释并测试的题型。</p></div>
+        <div class="table-scroll"><table class="shape-table"><thead><tr><th>题型</th><th>代表题</th><th>核心模板</th><th>必须主动说</th></tr></thead><tbody>
+          <tr><td>数组 / 哈希</td><td>两数之和、有效括号、合并有序数组</td><td>一次遍历哈希；栈；双指针</td><td>重复元素、空输入、索引还是数值</td></tr>
+          <tr><td>链表</td><td>反转链表、相交链表、环形链表</td><td>prev-cur-next；快慢指针</td><td>是否修改原链表、空节点</td></tr>
+          <tr><td>树</td><td>最大深度、层序遍历、翻转二叉树</td><td>DFS 递归；BFS queue</td><td>递归栈空间、空树</td></tr>
+          <tr><td>搜索</td><td>岛屿数量、二进制矩阵最短路径</td><td>DFS/BFS + visited</td><td>何时入队即标记，避免重复访问</td></tr>
+          <tr><td>动态规划</td><td>爬楼梯、完全平方数、LCS</td><td>定义 dp 状态 → 转移 → 初始化 → 顺序</td><td>时间/空间复杂度和滚动数组优化</td></tr>
+          <tr><td>字符串</td><td>回文串、最长公共前缀、无重复最长子串</td><td>双指针；滑动窗口</td><td>Unicode/大小写/非字母处理按题意</td></tr>
+        </tbody></table></div>
+        <div class="interview-card" style="margin-top:16px"><strong>现场流程</strong><p>先复述输入输出和边界 → 给出朴素思路 → 选择数据结构 → 写代码 → 用最小、普通、极端三个样例 dry run → 报时间和空间复杂度。不要为了显得高级跳过可读性和测试。</p></div>
+        <div class="memory-line"><strong>继续练习</strong><p><a href="leetcode.html">本站 BFS / DFS / DP / 字符串模板 →</a></p></div>
+      </section>
+
+      <section class="section reveal" id="interview">
+        <div class="section-heading split-heading"><div><p class="section-index">13 · INTERVIEW FLASHCARDS</p><h2>自变量一 / 二面十问速答</h2></div><p>每题先用黑体结论回答，再根据面试官追问进入上方章节。</p></div>
+        <div class="qa-grid">
+          <article class="interview-card"><strong>Q1 · LeRobot metadata 保存什么？</strong><p><b>保存解释数据的 schema、统计量、任务词表和 episode 定位信息。</b> 当前 v3 主要是 <code>info.json</code>、<code>stats.json</code>、<code>tasks.parquet</code> 与 <code>meta/episodes</code>；逐帧低维数据和视频分别在 Parquet 与 MP4。</p></article>
+          <article class="interview-card"><strong>Q2 · Diffusion 和 Flow Matching 有什么区别？</strong><p><b>Diffusion 常回归噪声/score 并求解反向扩散；Flow Matching 直接回归概率路径上的速度场并积分 ODE。</b> 二者都可生成多峰连续动作；FM 可使用 diffusion path，因此理论上并非完全互斥。</p></article>
+          <article class="interview-card"><strong>Q3 · π₀.₅ 相比 π₀ 改了什么？</strong><p><b>重点从通用灵巧控制扩展到开放世界泛化。</b> π₀.₅ 加入异构 co-training、高层子任务和 Web/语言数据；先用 FAST action token 预训练，后训练再加入 Flow Action Expert，同一模型执行高低层推理。</p></article>
+          <article class="interview-card"><strong>Q4 · π₀.₅ 用了多少数据、训练多久？</strong><p><b>公开的是约 400 小时移动操作数据，外加更多其他机器人与非机器人数据；主训练为 280k 预训练步 + 80k 后训练步。</b> 完整混合数据总小时数、硬件规模和墙钟训练时间未公开。</p></article>
+          <article class="interview-card"><strong>Q5 · 力扣简单题怎么准备？</strong><p><b>优先覆盖哈希、双指针、栈、BFS/DFS 和一维 DP。</b> 每题训练 20 分钟内写完、三组样例 dry run，并主动说明复杂度与边界；详见算法题页。</p></article>
+          <article class="interview-card"><strong>Q6 · Attention 公式，为什么除以 √d<sub>k</sub>？</strong><p><b>softmax(QK<sup>T</sup>/√d<sub>k</sub>)V；缩放是为了稳定 logit 方差。</b> 独立单位方差分量的点积方差随 d<sub>k</sub> 增长，除以 √d<sub>k</sub> 避免 softmax 饱和和梯度过小。</p></article>
+          <article class="interview-card"><strong>Q7 · 多头注意力原理、优势和复杂度？</strong><p><b>多个独立投影子空间并行做 attention，再 concat + W<sup>O</sup>。</b> 优势是同时建模多类关系；投影约 O(Ld²)，attention 约 O(L²d)，显式权重显存约 O(hL²)。</p></article>
+          <article class="interview-card"><strong>Q8 · UMI 和真机时间尺度不同怎么对齐？</strong><p><b>按原始 timestamp 映射到统一物理时间轴，而不是按 frame index。</b> 位置插值、旋转 SLERP、视频最近邻、高频触觉先低通/聚合；使用相同秒级窗口，并补偿真机感知—推理—执行延迟。</p></article>
+          <article class="interview-card"><strong>Q9 · 怎么利用失败数据？</strong><p><b>先标注失败类型和发生时刻，再为不同目标选择训练方式。</b> 可训练成功/奖励模型、保留有效前段、收集接管恢复、做偏好或 offline RL；没有 outcome 条件时不要把整条失败轨迹等权加入 BC。</p></article>
+          <article class="interview-card"><strong>Q10 · UMI 最重要什么？试过 IK 和轨迹可视化吗？</strong><p><b>核心是可迁移的策略接口：可靠 6DoF 追踪、相对末端轨迹和延迟匹配。</b> IK 是落到具体机器人的可执行性检查；只陈述实际完成部分，并补充应检查可达率、位姿残差、关节速度/限位、碰撞和 3D 轨迹回放。</p></article>
+        </div>
+        <div class="callout warning"><strong>个人信息脱敏边界</strong><p>公开复习页只保留技术机制。面试回答项目时可以说设备类别、数据契约、同步/标定方法、自己负责的模块和公开结果；不要展示内部数据规模、传感器序列号、网络地址、供应商报价、代码路径、未发布模型效果或他人贡献。无法公开的数字可回答“内部数据不便披露，但我可以说明统计口径和验证方法”。</p></div>
+      </section>
+
+      <section class="section reveal" id="sources">
+        <div class="section-heading"><p class="section-index">14 · PRIMARY SOURCES</p><h2>结论对应的一手资料</h2><p>页面按 2026 年 8 月可获得的官方代码和论文整理；LeRobot 仍会演进，面试前应核对使用版本。</p></div>
+        <div class="source-grid">
+          <article><span>DATASET</span><h3>LeRobot Dataset v3</h3><p>v3 的关系型 metadata、Parquet/MP4 分片、窗口与流式加载。</p><a href="https://github.com/huggingface/lerobot/blob/main/docs/source/lerobot-dataset-v3.mdx" target="_blank" rel="noopener">阅读官方文档 ↗</a></article>
+          <article><span>METADATA CODE</span><h3>LeRobotDatasetMetadata</h3><p>当前 v3 实际管理的 info、stats、tasks 与 episode metadata。</p><a href="https://github.com/huggingface/lerobot/blob/main/src/lerobot/datasets/dataset_metadata.py" target="_blank" rel="noopener">查看官方源码 ↗</a></article>
+          <article><span>MIGRATION</span><h3>Porting to v3</h3><p>v2.1 episode-based 到 v3 file-based 的目录与迁移方式。</p><a href="https://huggingface.co/docs/lerobot/porting_datasets_v3" target="_blank" rel="noopener">阅读官方指南 ↗</a></article>
+          <article><span>UMI</span><h3>Universal Manipulation Interface</h3><p>便携采集、6DoF 追踪、相对轨迹与 latency matching。</p><a href="https://umi-gripper.github.io/" target="_blank" rel="noopener">打开项目主页 ↗</a></article>
+          <article><span>PI MODEL</span><h3>π₀ 论文</h3><p>VLM + Flow Matching Action Expert 与跨本体训练。</p><a href="https://www.physicalintelligence.company/download/pi0.pdf" target="_blank" rel="noopener">阅读论文 ↗</a></article>
+          <article><span>PI MODEL</span><h3>π₀.₅ 论文</h3><p>开放世界 co-training、FAST 预训练、高低层推理和公开训练数字。</p><a href="https://www.physicalintelligence.company/download/pi05.pdf" target="_blank" rel="noopener">阅读论文 ↗</a></article>
+          <article><span>GENERATIVE POLICY</span><h3>Flow Matching</h3><p>通过回归条件概率路径的向量场训练连续归一化流。</p><a href="https://arxiv.org/abs/2210.02747" target="_blank" rel="noopener">阅读论文 ↗</a></article>
+          <article><span>GENERATIVE POLICY</span><h3>Diffusion Policy</h3><p>条件动作扩散、receding horizon 与时间序列策略。</p><a href="https://arxiv.org/abs/2303.04137" target="_blank" rel="noopener">阅读论文 ↗</a></article>
+          <article><span>TRANSFORMER</span><h3>Attention Is All You Need</h3><p>Scaled Dot-Product Attention、多头机制与复杂度来源。</p><a href="https://arxiv.org/abs/1706.03762" target="_blank" rel="noopener">阅读论文 ↗</a></article>
+        </div>
+      </section>
+
+      <footer class="footer">
+        <span>LeRobot 数据工程 · 自变量一二面串讲</span>
+        <nav class="footer-links"><a href="resume-end-to-end.html">下一页：项目端到端主线 →</a><a href="index.html">返回 Main</a></nav>
+      </footer>
+    </main>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>

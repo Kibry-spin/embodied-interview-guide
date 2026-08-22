@@ -10,6 +10,7 @@
 - [简历项目与端到端系统](https://kibry-spin.github.io/embodied-interview-guide/embodied-coding-guide/resume-end-to-end.html)
 - [VLA 系统架构](https://kibry-spin.github.io/embodied-interview-guide/embodied-coding-guide/vla-interview.html)
 - [WAM 世界动作模型与 LaWAM](https://kibry-spin.github.io/embodied-interview-guide/embodied-coding-guide/wam.html)
+- [LeRobot 数据、UMI 对齐与一二面串讲](https://kibry-spin.github.io/embodied-interview-guide/embodied-coding-guide/lerobot-data.html)
 - [机器人触觉](https://kibry-spin.github.io/embodied-interview-guide/embodied-coding-guide/tactile-interview.html)
 - [ACT 模仿学习](https://kibry-spin.github.io/embodied-interview-guide/embodied-coding-guide/act.html)
 - [DiT：Transformer × Diffusion / Flow](https://kibry-spin.github.io/embodied-interview-guide/embodied-coding-guide/dit.html)
@@ -44,6 +45,8 @@ DiTFlow 的架构、训练公式、张量、采样、动作队列、源码地图
 ### 4. 工程与项目
 
 - QTac、无本体数采、双臂遥操作、G3 触觉与硬件复现
+- LeRobot Dataset v3 的 info/stats/tasks/episodes、时间窗口与数据契约
+- UMI 到真机的频率与延迟对齐、任务空间轨迹、IK/可视化验收和失败数据利用
 - 触觉传感器分类、选型、标定、数据流、融合与故障诊断
 - LeRobot 数据组织、时序同步、动作语义、部署评测与证据边界
 
