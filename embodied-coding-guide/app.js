@@ -40,7 +40,7 @@
       pages: ["resume-end-to-end.html", "lerobot-data.html", "tactile-interview.html", "rtc.html"],
       links: [
         ["resume-end-to-end.html", "项目主线", "数据—训练—部署闭环"],
-        ["lerobot-data.html", "LeRobot 数据", "v3 元数据、UMI 对齐与失败数据"],
+        ["lerobot-data.html", "LeRobot 数据", "v2.1/v3、UMI 对齐与失败数据"],
         ["tactile-interview.html", "触觉", "传感器、数据流与策略融合"],
         ["rtc.html", "RTC", "异步推理与动作衔接"],
       ],
@@ -68,7 +68,7 @@
   const relatedMap = {
     "resume-end-to-end.html": [
       ["tactile-interview.html", "感知层", "用触觉页补全传感器选型、标定与融合。"],
-      ["lerobot-data.html", "数据层", "把 LeRobot v3、UMI 对齐和失败数据讲完整。"],
+      ["lerobot-data.html", "数据层", "把 LeRobot v2.1/v3、UMI 对齐和失败数据讲完整。"],
       ["rtc.html", "部署层", "把动作队列继续升级为异步闭环执行。"],
       ["vla-interview.html", "系统层", "将个人项目放回 VLA 端到端能力图。"],
     ],

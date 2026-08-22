@@ -3,9 +3,9 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="LeRobot Dataset v3、metadata、时间窗口、UMI 数据对齐、失败数据利用，以及自变量一二面常见 Flow、π0.5、Attention 与算法题串讲。">
+  <meta name="description" content="LeRobot Dataset v2.1 与 v3.0 对比、metadata、时间窗口、UMI 数据对齐、失败数据利用，以及自变量一二面常见 Flow、π0.5、Attention 与算法题串讲。">
   <meta name="theme-color" content="#0f1715">
-  <title>LeRobot 数据与一二面串讲｜具身智能面试</title>
+  <title>LeRobot v2.1/v3 数据与一二面串讲｜具身智能面试</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -22,19 +22,20 @@
       <ol class="side-nav">
         <li><a href="#overview"><span>01</span>面经总图</a></li>
         <li><a href="#format"><span>02</span>LeRobot 格式</a></li>
-        <li><a href="#metadata"><span>03</span>Metadata</a></li>
-        <li><a href="#sample"><span>04</span>帧与时间窗</a></li>
-        <li><a href="#quality"><span>05</span>数据质检</a></li>
-        <li><a href="#umi"><span>06</span>UMI 核心</a></li>
-        <li><a href="#alignment"><span>07</span>时间对齐</a></li>
-        <li><a href="#ik"><span>08</span>IK 与可视化</a></li>
-        <li><a href="#failure"><span>09</span>失败数据</a></li>
-        <li><a href="#generative"><span>10</span>Diffusion / Flow</a></li>
-        <li><a href="#pi"><span>11</span>π₀ / π₀.₅</a></li>
-        <li><a href="#attention"><span>12</span>Attention</a></li>
-        <li><a href="#coding"><span>13</span>算法题</a></li>
-        <li><a href="#interview"><span>14</span>十问速答</a></li>
-        <li><a href="#sources"><span>15</span>一手资料</a></li>
+        <li><a href="#versions"><span>03</span>v2.1 vs v3</a></li>
+        <li><a href="#metadata"><span>04</span>Metadata</a></li>
+        <li><a href="#sample"><span>05</span>帧与时间窗</a></li>
+        <li><a href="#quality"><span>06</span>数据质检</a></li>
+        <li><a href="#umi"><span>07</span>UMI 核心</a></li>
+        <li><a href="#alignment"><span>08</span>时间对齐</a></li>
+        <li><a href="#ik"><span>09</span>IK 与可视化</a></li>
+        <li><a href="#failure"><span>10</span>失败数据</a></li>
+        <li><a href="#generative"><span>11</span>Diffusion / Flow</a></li>
+        <li><a href="#pi"><span>12</span>π₀ / π₀.₅</a></li>
+        <li><a href="#attention"><span>13</span>Attention</a></li>
+        <li><a href="#coding"><span>14</span>算法题</a></li>
+        <li><a href="#interview"><span>15</span>十问速答</a></li>
+        <li><a href="#sources"><span>16</span>一手资料</a></li>
       </ol>
       <div class="sidebar-card"><strong>脱敏说明</strong><p>本页把面经与项目细节抽象为通用技术问题，不记录公司内部设备参数、数据规模、目录、地址或未公开实现。面试时只补充自己可公开且能证明的部分。</p></div>
     </aside>
@@ -42,11 +43,11 @@
     <main>
       <section class="hero compact reveal visible" id="overview">
         <div>
-          <p class="kicker">LeRobot v3 · UMI · VLA Interview</p>
+          <p class="kicker">LeRobot v2.1 / v3.0 · UMI · VLA Interview</p>
           <h1>从数据到策略<br><em>串起完整模型系统</em></h1>
           <p class="hero-lead">这组一、二面问题表面上横跨数据格式、生成模型、π 系列、Attention 和算法题，实际主线只有一条：如何把不同来源的真实轨迹变成语义明确、时空对齐、能被策略正确采样的训练数据，再说明模型如何利用这些数据生成动作。</p>
           <div class="hero-actions"><a class="primary-button" href="#format">先看数据四层结构 ↓</a><a class="ghost-button" href="#interview">直接看十问速答 ↗</a></div>
-          <div class="hero-stats"><div><strong>4</strong><span>元数据组件</span></div><div><strong>6</strong><span>对齐步骤</span></div><div><strong>10</strong><span>面经问题</span></div></div>
+          <div class="hero-stats"><div><strong>2</strong><span>格式版本</span></div><div><strong>4</strong><span>v3 元数据组件</span></div><div><strong>10</strong><span>面经问题</span></div></div>
         </div>
         <div class="hero-board">
           <div class="terminal-head"><span class="terminal-dots"><i></i><i></i><i></i></span><span>dataset_to_policy.trace</span></div>
@@ -77,8 +78,62 @@
         <div class="callout"><strong>v3 的核心变化</strong><p>v2.x 常见“一条 episode 一个 Parquet/MP4”；v3 将多条 episode 合并进较大的 <code>file-xxx.parquet/mp4</code>，再用关系型 episode metadata 恢复边界。收益是文件更少、初始化和流式读取更适合大规模数据；代价是不能再用“文件边界就是 episode 边界”的旧假设。</p></div>
       </section>
 
+      <section class="section reveal" id="versions">
+        <div class="section-heading split-heading"><div><p class="section-index">02 · VERSION EVOLUTION</p><h2>LeRobot v2.1 与 v3.0：逻辑不变，物理存储重构</h2></div><p>两代格式都表达 observation、action、timestamp、task 和 episode；最大差异不是模型输入，而是 episode 如何映射到文件和 metadata。</p></div>
+        <div class="qa-grid">
+          <article class="interview-card"><strong>v2.1 · Episode-based</strong><pre><code>dataset/
+├─ meta/
+│  ├─ info.json
+│  ├─ episodes.jsonl
+│  ├─ episodes_stats.jsonl
+│  └─ tasks.jsonl
+├─ data/chunk-000/
+│  ├─ episode_000000.parquet
+│  └─ episode_000001.parquet
+└─ videos/chunk-000/&lt;camera&gt;/
+   ├─ episode_000000.mp4
+   └─ episode_000001.mp4</code></pre><p>一条 episode 对应一个低维 Parquet；每个相机也为该 episode 保存一个独立 MP4。chunk 主要用于限制单目录文件数量。</p></article>
+          <article class="interview-card"><strong>v3.0 · File-based</strong><pre><code>dataset/
+├─ meta/
+│  ├─ info.json
+│  ├─ stats.json
+│  ├─ tasks.parquet
+│  └─ episodes/chunk-000/file-000.parquet
+├─ data/chunk-000/file-000.parquet
+└─ videos/&lt;camera&gt;/chunk-000/file-000.mp4</code></pre><p>一个 Parquet/MP4 可以连续存放多条 episode。每条 episode 在共享文件中的行区间、视频起止时间和分片位置由关系型 metadata 恢复。</p></article>
+        </div>
+        <div class="table-scroll" style="margin-top:16px"><table class="shape-table"><thead><tr><th>对比维度</th><th>v2.1</th><th>v3.0</th><th>工程影响</th></tr></thead><tbody>
+          <tr><td><strong>核心组织</strong></td><td>episode-based：文件边界≈episode 边界</td><td>file-based：多条 episode 合并到可配置大小的文件</td><td>v2.1 直观；v3 显著减少海量小文件</td></tr>
+          <tr><td><strong>低维数据</strong></td><td><code>episode_XXXXXX.parquet</code>，一条轨迹一个文件</td><td><code>file-XXX.parquet</code>，一个文件含多条轨迹</td><td>v3 读取单条 episode 必须利用行区间 metadata</td></tr>
+          <tr><td><strong>视频数据</strong></td><td>每个 camera × episode 一个完整 MP4</td><td>每个 camera 的共享 MP4 分片，episode 对应其中连续时间段</td><td>v3 按文件与 timestamp seek；删除/抽取轨迹不能只删一个 MP4</td></tr>
+          <tr><td><strong>任务表</strong></td><td><code>tasks.jsonl</code></td><td><code>tasks.parquet</code></td><td>语义仍是 task string ↔ task index，序列化方式改变</td></tr>
+          <tr><td><strong>episode 基本信息</strong></td><td><code>episodes.jsonl</code>：index、tasks、length</td><td><code>meta/episodes/*.parquet</code>：基本信息 + data/video 定位和时间范围</td><td>v3 metadata 承担关系索引职责</td></tr>
+          <tr><td><strong>episode 统计</strong></td><td><code>episodes_stats.jsonl</code> 为每条轨迹保存 feature 统计</td><td>episode Parquet 中可包含展平的 per-episode stats；<code>stats.json</code> 保存全局聚合统计</td><td>迁移后必须核对 action/state 统计维度和值域</td></tr>
+          <tr><td><strong><code>info.json</code></strong></td><td>version、fps、features、规模、splits、episode 路径模板和 chunk 配置</td><td>保留全局 schema，并增加/更新 file-based data/video 路径和文件大小配置</td><td>两版都先通过 <code>codebase_version</code> 识别格式，不能只看目录猜版本</td></tr>
+          <tr><td><strong>扩展性</strong></td><td>数据大时 episode × camera 产生大量小文件</td><td>面向百万 episode、内存映射和 Hub streaming</td><td>官方文档报告 v3 初始化可快约 3–5 倍；实际收益依数据和存储而定</td></tr>
+          <tr><td><strong>单条轨迹操作</strong></td><td>复制/删除对应 Parquet 与 MP4 较直接</td><td>需要按 metadata 切片，必要时重写 Parquet 或重新编码混合视频分片</td><td>v3 更适合批量工具，不宜手工移动文件</td></tr>
+          <tr><td><strong>模型侧接口</strong></td><td colspan="2">加载后仍可得到相似的 sample dict 与 <code>delta_timestamps</code> 时间窗</td><td>模型通常不应依赖底层文件布局，但数据脚本和可视化器必须区分版本</td></tr>
+        </tbody></table></div>
+        <div class="callout"><strong>最关键的一句话</strong><p>v2.1 把“episode”同时作为逻辑轨迹和物理文件单位；v3.0 只保留它作为逻辑单位，物理层改为较大的 file shard，再用 metadata 建立 episode → Parquet 行区间 / MP4 时间区间的映射。</p></div>
+
+        <div class="section-heading" style="margin-top:64px"><p class="section-index">MIGRATION</p><h2>v2.1 迁移到 v3.0 不能只看转换脚本成功</h2><p>迁移改变存储和索引，不应改变任务语义、episode 顺序、连续值或视频对齐。</p></div>
+        <pre><code># 当前官方迁移入口；实际使用前以所安装 LeRobot 版本为准
+python src/lerobot/scripts/convert_dataset_v21_to_v30.py \
+  --repo-id your_id/existing_dataset</code></pre>
+        <div class="table-scroll"><table class="shape-table"><thead><tr><th>迁移阶段</th><th>必须检查</th><th>通过标准</th></tr></thead><tbody>
+          <tr><td><strong>迁移前</strong></td><td>备份或保留原 revision；记录 v2.1 的 episode/frame/task 数、feature schema、fps 和文件清单</td><td>原数据可回滚，统计口径有基准</td></tr>
+          <tr><td><strong>结构检查</strong></td><td><code>codebase_version</code>、总数、camera keys、dtype/shape/names、data/video 路径</td><td>除格式字段外，schema 与 v2.1 语义一致</td></tr>
+          <tr><td><strong>逐 episode 对账</strong></td><td>随机与边界 episode 的 length、task、首末 state/action、timestamp</td><td>数值一致，episode 无丢失、重排或串接</td></tr>
+          <tr><td><strong>视频对账</strong></td><td>首帧/中间帧/末帧、总帧数、fps、camera 对应关系和 seek 时间</td><td>画面与同一时刻 state/action 保持同步</td></tr>
+          <tr><td><strong>统计量对账</strong></td><td>action/state 的 min/max/mean/std、维度 names、图像统计键是否满足训练配置</td><td>无缺 key、NaN、形状变化或异常尺度</td></tr>
+          <tr><td><strong>训练冒烟</strong></td><td>加载多个 episode、构造历史观测和 action chunk、跑一个 batch forward/loss</td><td>窗口不跨 episode，padding/mask 正确，loss 有限</td></tr>
+        </tbody></table></div>
+        <div class="callout warning"><strong>转换不会自动修复语义问题</strong><p>v2.1 中若动作单位、坐标系、相机名称、时间戳或 commanded/executed action 本来就定义不清，转换到 v3 后仍然不清。迁移工具解决的是序列化与索引，不是标定、同步和动作语义。</p></div>
+        <div class="interview-card" style="margin-top:16px"><strong>45 秒版本对比回答</strong><p>LeRobot v2.1 是 episode-based，一条轨迹对应一个 Parquet，每个相机对应一个 episode MP4，episode、任务和统计量分别存在 JSONL metadata 中；优点是直观、单条轨迹易操作，缺点是大规模数据会产生海量小文件。v3.0 改为 file-based，把多条 episode 合并到较大的 Parquet 和 MP4 分片，用 Parquet episode metadata 记录行区间、文件索引和视频时间范围，同时使用 <code>tasks.parquet</code> 与全局 <code>stats.json</code>。模型看到的 observation/action 逻辑基本不变，但底层加载、抽取、删除和迁移工具必须理解新版关系索引。</p></div>
+      </section>
+
       <section class="section reveal" id="metadata">
-        <div class="section-heading"><p class="section-index">02 · METADATA</p><h2>metadata 保存的是“如何解释和定位数据”</h2><p>它通常不保存所有图像和每帧连续值；那些在 <code>data/</code> 与 <code>videos/</code> 中。</p></div>
+        <div class="section-heading"><p class="section-index">03 · V3 METADATA</p><h2>metadata 保存的是“如何解释和定位数据”</h2><p>以下聚焦 v3.0；它通常不保存所有图像和每帧连续值，那些在 <code>data/</code> 与 <code>videos/</code> 中。</p></div>
         <div class="table-scroll"><table class="shape-table"><thead><tr><th>v3 组件</th><th>典型内容</th><th>训练用途</th><th>常见误解</th></tr></thead><tbody>
           <tr><td><strong><code>info.json</code></strong><small>全局数据契约</small></td><td>codebase version、robot type、fps、总帧/episode/task 数；每个 feature 的 dtype、shape、维度名称；data/video 路径模板和分片配置；视频编码信息</td><td>构建输入输出 schema，确定相机键、动作维度和文件位置</td><td>它说明“有什么、长什么样”，不等于说明每一维的物理控制语义</td></tr>
           <tr><td><strong><code>stats.json</code></strong><small>全局统计量</small></td><td>各连续 feature 的 count、mean、std、min、max，以及版本支持的分位数等统计</td><td>训练归一化；推理时用同一统计量反归一化 action</td><td>不能在 train/val/test 全部数据上重算，否则可能泄漏；也不能把不同动作语义的数据盲目共用统计量</td></tr>
@@ -93,7 +148,7 @@
       </section>
 
       <section class="section reveal" id="sample">
-        <div class="section-heading split-heading"><div><p class="section-index">03 · FRAME TO WINDOW</p><h2>策略训练读取的不是孤立一帧</h2></div><p>典型样本是短历史观测和未来动作块，边界处还要处理 padding 与有效掩码。</p></div>
+        <div class="section-heading split-heading"><div><p class="section-index">04 · FRAME TO WINDOW</p><h2>策略训练读取的不是孤立一帧</h2></div><p>典型样本是短历史观测和未来动作块，边界处还要处理 padding 与有效掩码。</p></div>
         <div class="formula large">sample(t) = { o<sub>t+Δo</sub>, a<sub>t+Δa</sub>, task, pad_mask }</div>
         <pre><code>delta_timestamps = {
     "observation.images.front": [-0.20, -0.10, 0.00],
@@ -113,7 +168,7 @@ dataset = LeRobotDataset(repo_id, delta_timestamps=delta_timestamps)</code></pre
       </section>
 
       <section class="section reveal" id="quality">
-        <div class="section-heading"><p class="section-index">04 · DATA QUALITY</p><h2>转成 LeRobot 只是开始</h2><p>高质量数据要同时通过结构、时间、空间、动作和任务五类检查。</p></div>
+        <div class="section-heading"><p class="section-index">05 · DATA QUALITY</p><h2>转成 LeRobot 只是开始</h2><p>高质量数据要同时通过结构、时间、空间、动作和任务五类检查。</p></div>
         <div class="table-scroll"><table class="shape-table"><thead><tr><th>层级</th><th>自动检查</th><th>可视化检查</th><th>通过标准</th></tr></thead><tbody>
           <tr><td><strong>结构</strong></td><td>必需 key、dtype/shape、episode length、NaN/Inf、文件可读</td><td>随机抽样一条 episode 完整回放</td><td>schema 稳定，窗口不跨 episode</td></tr>
           <tr><td><strong>时间</strong></td><td>timestamp 单调、采样间隔、丢帧率、jitter、跨模态最近邻误差</td><td>在一条时间轴叠加状态、动作、接触事件和视频</td><td>残差小于任务允许的动态时间尺度</td></tr>
@@ -125,7 +180,7 @@ dataset = LeRobotDataset(repo_id, delta_timestamps=delta_timestamps)</code></pre
       </section>
 
       <section class="section reveal" id="umi">
-        <div class="section-heading split-heading"><div><p class="section-index">05 · UMI</p><h2>UMI 最重要的不是“没有机器人”</h2></div><p>真正的关键是把人类示范变成可迁移的机器人策略接口。</p></div>
+        <div class="section-heading split-heading"><div><p class="section-index">06 · UMI</p><h2>UMI 最重要的不是“没有机器人”</h2></div><p>真正的关键是把人类示范变成可迁移的机器人策略接口。</p></div>
         <div class="card-grid three">
           <article class="info-card"><span>PORTABLE INTERFACE</span><h3>手持夹爪缩小形态差距</h3><p>操作者在真实环境中直接演示，设备保留机器人夹爪的交互方式，并用腕部相机记录第一视角。</p></article>
           <article class="info-card"><span>ROBUST TRACKING</span><h3>恢复 6DoF 末端轨迹</h3><p>UMI 对快速运动下的 SLAM 做专门设计；轨迹质量决定动作标签质量，也是公开流程中最脆弱的环节。</p></article>
@@ -140,7 +195,7 @@ dataset = LeRobotDataset(repo_id, delta_timestamps=delta_timestamps)</code></pre
       </section>
 
       <section class="section reveal" id="alignment">
-        <div class="section-heading"><p class="section-index">06 · TEMPORAL ALIGNMENT</p><h2>UMI 与真机频率不同：对齐时间，不对齐帧号</h2><p>先定义统一物理时间轴，再分别重采样观测、状态和动作。</p></div>
+        <div class="section-heading"><p class="section-index">07 · TEMPORAL ALIGNMENT</p><h2>UMI 与真机频率不同：对齐时间，不对齐帧号</h2><p>先定义统一物理时间轴，再分别重采样观测、状态和动作。</p></div>
         <div class="e2e-pipeline">
           <article><span>01</span><strong>保留原始时钟</strong><p>每个设备在采样处记录 timestamp</p><em>不要先四舍五入成帧号</em></article><b>→</b>
           <article><span>02</span><strong>校正时钟偏移</strong><p>硬件触发 / PTP / 事件或互相关估计</p><em>offset + drift</em></article><b>→</b>
@@ -164,7 +219,7 @@ dataset = LeRobotDataset(repo_id, delta_timestamps=delta_timestamps)</code></pre
       </section>
 
       <section class="section reveal" id="ik">
-        <div class="section-heading split-heading"><div><p class="section-index">07 · RETARGETING CHECK</p><h2>IK 和轨迹可视化是转换后的必要验收</h2></div><p>UMI 给出的是任务空间末端轨迹；能否被具体机器人执行，还要经过标定、重定向、IK 与约束检查。</p></div>
+        <div class="section-heading split-heading"><div><p class="section-index">08 · RETARGETING CHECK</p><h2>IK 和轨迹可视化是转换后的必要验收</h2></div><p>UMI 给出的是任务空间末端轨迹；能否被具体机器人执行，还要经过标定、重定向、IK 与约束检查。</p></div>
         <div class="formula large">T<sup>base</sup><sub>ee,k</sub> = T<sup>base</sup><sub>task</sub> · ΔT<sup>UMI</sup><sub>k</sub> · T<sup>adapter</sup></div>
         <div class="table-scroll" style="margin-top:16px"><table class="shape-table"><thead><tr><th>检查</th><th>做法</th><th>需要画什么</th><th>能发现的问题</th></tr></thead><tbody>
           <tr><td><strong>坐标变换</strong></td><td>检查右乘/左乘、frame 定义、初始相对位姿和米/毫米</td><td>XYZ 轨迹 + 三轴姿态 frame</td><td>轴交换、镜像、尺度和原点错误</td></tr>
@@ -181,7 +236,7 @@ dataset = LeRobotDataset(repo_id, delta_timestamps=delta_timestamps)</code></pre
       </section>
 
       <section class="section reveal" id="failure">
-        <div class="section-heading"><p class="section-index">08 · FAILURE DATA</p><h2>失败数据不能直接混进 BC</h2><p>没有条件标签时，行为克隆会把失败动作也当专家动作学习；利用失败数据必须先明确监督信号。</p></div>
+        <div class="section-heading"><p class="section-index">09 · FAILURE DATA</p><h2>失败数据不能直接混进 BC</h2><p>没有条件标签时，行为克隆会把失败动作也当专家动作学习；利用失败数据必须先明确监督信号。</p></div>
         <div class="table-scroll"><table class="shape-table"><thead><tr><th>用法</th><th>怎样利用</th><th>适用问题</th><th>风险</th></tr></thead><tbody>
           <tr><td><strong>失败分类与质检</strong></td><td>训练 success/failure、阶段完成或 failure type 分类器</td><td>自动筛数据、评测与数据飞轮</td><td>标签定义不一致会让分类器学场景偏差</td></tr>
           <tr><td><strong>保留失败前的有效片段</strong></td><td>按任务阶段切片，只对仍合理的动作计算 BC loss</td><td>长轨迹后段偶发失败</td><td>切分点错误会保留导致失败的早期动作</td></tr>
@@ -200,7 +255,7 @@ dataset = LeRobotDataset(repo_id, delta_timestamps=delta_timestamps)</code></pre
       </section>
 
       <section class="section reveal" id="generative">
-        <div class="section-heading split-heading"><div><p class="section-index">09 · GENERATIVE POLICY</p><h2>Diffusion 与 Flow Matching：都从噪声生成动作</h2></div><p>区别主要在训练目标、概率路径和推理方程；不要回答成“一个加噪，一个不加噪”。</p></div>
+        <div class="section-heading split-heading"><div><p class="section-index">10 · GENERATIVE POLICY</p><h2>Diffusion 与 Flow Matching：都从噪声生成动作</h2></div><p>区别主要在训练目标、概率路径和推理方程；不要回答成“一个加噪，一个不加噪”。</p></div>
         <div class="table-scroll"><table class="shape-table"><thead><tr><th>维度</th><th>Diffusion Policy</th><th>Flow Matching Policy</th></tr></thead><tbody>
           <tr><td><strong>核心对象</strong></td><td>通常学习噪声 ε、score ∇log p 或 diffusion velocity</td><td>直接回归概率路径上的向量场 u<sub>t</sub>(x|c)</td></tr>
           <tr><td><strong>前向路径</strong></td><td>按噪声 schedule 逐渐破坏数据，常对应 SDE/离散 Markov 链</td><td>可选多种条件概率路径；最常见直线/OT 路径从噪声连接数据</td></tr>
@@ -217,7 +272,7 @@ dataset = LeRobotDataset(repo_id, delta_timestamps=delta_timestamps)</code></pre
       </section>
 
       <section class="section reveal" id="pi">
-        <div class="section-heading"><p class="section-index">10 · π SERIES</p><h2>π₀ 与 π₀.₅ 的核心差别在训练配方和泛化目标</h2></div>
+        <div class="section-heading"><p class="section-index">11 · π SERIES</p><h2>π₀ 与 π₀.₅ 的核心差别在训练配方和泛化目标</h2></div>
         <div class="table-scroll"><table class="shape-table"><thead><tr><th>问题</th><th>π₀</th><th>π₀.₅</th></tr></thead><tbody>
           <tr><td><strong>目标</strong></td><td>跨 8 类机器人学习通用、灵巧的低层控制</td><td>在 π₀ 基础上强化新家庭、新物体和长时程开放世界泛化</td></tr>
           <tr><td><strong>数据</strong></td><td>VLM 预训练、Open X 与 Physical Intelligence 多机器人数据</td><td>移动操作 MM、跨环境 ME、实验室跨本体 CE、高层子任务 HL、Web WD，后训练加入语言示范 VI</td></tr>
@@ -235,7 +290,7 @@ dataset = LeRobotDataset(repo_id, delta_timestamps=delta_timestamps)</code></pre
       </section>
 
       <section class="section reveal" id="attention">
-        <div class="section-heading split-heading"><div><p class="section-index">11 · ATTENTION</p><h2>公式、√d<sub>k</sub> 与多头复杂度</h2></div><p>这类题先写 shape，再解释统计量和计算量。</p></div>
+        <div class="section-heading split-heading"><div><p class="section-index">12 · ATTENTION</p><h2>公式、√d<sub>k</sub> 与多头复杂度</h2></div><p>这类题先写 shape，再解释统计量和计算量。</p></div>
         <div class="formula large">Attention(Q,K,V)=softmax(QK<sup>T</sup>/√d<sub>k</sub>)V</div>
         <div class="qa-grid" style="margin-top:16px">
           <article class="interview-card"><strong>为什么除以 √d<sub>k</sub>？</strong><p>若 q、k 每一维近似独立、均值 0、方差 1，则点积 q·k 是 d<sub>k</sub> 项之和，方差约为 d<sub>k</sub>，标准差约为 √d<sub>k</sub>。除以 √d<sub>k</sub> 后 logit 尺度保持 O(1)，避免维度增大时 softmax 过度饱和、梯度变小。</p></article>
@@ -253,7 +308,7 @@ dataset = LeRobotDataset(repo_id, delta_timestamps=delta_timestamps)</code></pre
       </section>
 
       <section class="section reveal" id="coding">
-        <div class="section-heading"><p class="section-index">12 · EASY CODING ROUND</p><h2>简单题也要写清边界和复杂度</h2><p>优先练可在 15–20 分钟内完整写对、口头解释并测试的题型。</p></div>
+        <div class="section-heading"><p class="section-index">13 · EASY CODING ROUND</p><h2>简单题也要写清边界和复杂度</h2><p>优先练可在 15–20 分钟内完整写对、口头解释并测试的题型。</p></div>
         <div class="table-scroll"><table class="shape-table"><thead><tr><th>题型</th><th>代表题</th><th>核心模板</th><th>必须主动说</th></tr></thead><tbody>
           <tr><td>数组 / 哈希</td><td>两数之和、有效括号、合并有序数组</td><td>一次遍历哈希；栈；双指针</td><td>重复元素、空输入、索引还是数值</td></tr>
           <tr><td>链表</td><td>反转链表、相交链表、环形链表</td><td>prev-cur-next；快慢指针</td><td>是否修改原链表、空节点</td></tr>
@@ -267,9 +322,9 @@ dataset = LeRobotDataset(repo_id, delta_timestamps=delta_timestamps)</code></pre
       </section>
 
       <section class="section reveal" id="interview">
-        <div class="section-heading split-heading"><div><p class="section-index">13 · INTERVIEW FLASHCARDS</p><h2>自变量一 / 二面十问速答</h2></div><p>每题先用黑体结论回答，再根据面试官追问进入上方章节。</p></div>
+        <div class="section-heading split-heading"><div><p class="section-index">14 · INTERVIEW FLASHCARDS</p><h2>自变量一 / 二面十问速答</h2></div><p>每题先用黑体结论回答，再根据面试官追问进入上方章节。</p></div>
         <div class="qa-grid">
-          <article class="interview-card"><strong>Q1 · LeRobot metadata 保存什么？</strong><p><b>保存解释数据的 schema、统计量、任务词表和 episode 定位信息。</b> 当前 v3 主要是 <code>info.json</code>、<code>stats.json</code>、<code>tasks.parquet</code> 与 <code>meta/episodes</code>；逐帧低维数据和视频分别在 Parquet 与 MP4。</p></article>
+          <article class="interview-card"><strong>Q1 · LeRobot metadata 保存什么？v2.1 和 v3 有何不同？</strong><p><b>都保存解释数据所需的 schema、任务和 episode 信息，但序列化与定位职责不同。</b> v2.1 使用 <code>info.json</code>、<code>episodes.jsonl</code>、<code>episodes_stats.jsonl</code> 和 <code>tasks.jsonl</code>，文件本身按 episode 划分；v3 使用 <code>info.json</code>、<code>stats.json</code>、<code>tasks.parquet</code> 和 <code>meta/episodes</code> Parquet，由后者定位共享 Parquet/MP4 中的每条轨迹。</p></article>
           <article class="interview-card"><strong>Q2 · Diffusion 和 Flow Matching 有什么区别？</strong><p><b>Diffusion 常回归噪声/score 并求解反向扩散；Flow Matching 直接回归概率路径上的速度场并积分 ODE。</b> 二者都可生成多峰连续动作；FM 可使用 diffusion path，因此理论上并非完全互斥。</p></article>
           <article class="interview-card"><strong>Q3 · π₀.₅ 相比 π₀ 改了什么？</strong><p><b>重点从通用灵巧控制扩展到开放世界泛化。</b> π₀.₅ 加入异构 co-training、高层子任务和 Web/语言数据；先用 FAST action token 预训练，后训练再加入 Flow Action Expert，同一模型执行高低层推理。</p></article>
           <article class="interview-card"><strong>Q4 · π₀.₅ 用了多少数据、训练多久？</strong><p><b>公开的是约 400 小时移动操作数据，外加更多其他机器人与非机器人数据；主训练为 280k 预训练步 + 80k 后训练步。</b> 完整混合数据总小时数、硬件规模和墙钟训练时间未公开。</p></article>
@@ -284,9 +339,10 @@ dataset = LeRobotDataset(repo_id, delta_timestamps=delta_timestamps)</code></pre
       </section>
 
       <section class="section reveal" id="sources">
-        <div class="section-heading"><p class="section-index">14 · PRIMARY SOURCES</p><h2>结论对应的一手资料</h2><p>页面按 2026 年 8 月可获得的官方代码和论文整理；LeRobot 仍会演进，面试前应核对使用版本。</p></div>
+        <div class="section-heading"><p class="section-index">15 · PRIMARY SOURCES</p><h2>结论对应的一手资料</h2><p>页面按 2026 年 8 月可获得的官方代码和论文整理；LeRobot 仍会演进，面试前应核对使用版本。</p></div>
         <div class="source-grid">
           <article><span>DATASET</span><h3>LeRobot Dataset v3</h3><p>v3 的关系型 metadata、Parquet/MP4 分片、窗口与流式加载。</p><a href="https://github.com/huggingface/lerobot/blob/main/docs/source/lerobot-dataset-v3.mdx" target="_blank" rel="noopener">阅读官方文档 ↗</a></article>
+          <article><span>VERSION COMPARISON</span><h3>v2.1 → v3.0 迁移</h3><p>官方目录对比、JSONL 到 Parquet metadata 与转换入口。</p><a href="https://huggingface.co/docs/lerobot/porting_datasets_v3" target="_blank" rel="noopener">阅读官方迁移指南 ↗</a></article>
           <article><span>METADATA CODE</span><h3>LeRobotDatasetMetadata</h3><p>当前 v3 实际管理的 info、stats、tasks 与 episode metadata。</p><a href="https://github.com/huggingface/lerobot/blob/main/src/lerobot/datasets/dataset_metadata.py" target="_blank" rel="noopener">查看官方源码 ↗</a></article>
           <article><span>MIGRATION</span><h3>Porting to v3</h3><p>v2.1 episode-based 到 v3 file-based 的目录与迁移方式。</p><a href="https://huggingface.co/docs/lerobot/porting_datasets_v3" target="_blank" rel="noopener">阅读官方指南 ↗</a></article>
           <article><span>UMI</span><h3>Universal Manipulation Interface</h3><p>便携采集、6DoF 追踪、相对轨迹与 latency matching。</p><a href="https://umi-gripper.github.io/" target="_blank" rel="noopener">打开项目主页 ↗</a></article>

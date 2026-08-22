@@ -45,7 +45,7 @@ DiTFlow 的架构、训练公式、张量、采样、动作队列、源码地图
 ### 4. 工程与项目
 
 - QTac、无本体数采、双臂遥操作、G3 触觉与硬件复现
-- LeRobot Dataset v3 的 info/stats/tasks/episodes、时间窗口与数据契约
+- LeRobot Dataset v2.1/v3.0 的目录、metadata、episode/file 组织差异、迁移检查与时间窗口
 - UMI 到真机的频率与延迟对齐、任务空间轨迹、IK/可视化验收和失败数据利用
 - 触觉传感器分类、选型、标定、数据流、融合与故障诊断
 - LeRobot 数据组织、时序同步、动作语义、部署评测与证据边界
