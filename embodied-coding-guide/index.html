@@ -44,9 +44,9 @@
         <div>
           <p class="kicker">One System · Multiple Interview Angles</p>
           <h1>把传感器、数据、模型和控制<br><em>串成一条主线</em></h1>
-          <p class="hero-lead">具身面试不是十四篇互不相关的论文问答。真正的主线始终是：机器人如何获得同步观测，怎样形成可学习的数据，模型如何生成连续动作，动作怎样在实时控制器中闭环执行，最后如何用任务指标证明有效。</p>
+          <p class="hero-lead">具身面试不是十五个互不相关的专题问答。真正的主线始终是：机器人如何获得同步观测，怎样形成可学习的数据，模型如何生成连续动作，动作怎样在实时控制器中闭环执行，最后如何用任务指标证明有效。</p>
           <div class="hero-actions"><a class="primary-button" href="#knowledge-map">先看系统地图 ↓</a><a class="ghost-button" href="#ditflow">进入 DiTFlow 源码主线 ↗</a></div>
-          <div class="hero-stats"><div><strong>14</strong><span>专题模块</span></div><div><strong>5</strong><span>系统层级</span></div><div><strong>4</strong><span>复习路线</span></div><div><strong>1</strong><span>统一 Main</span></div></div>
+          <div class="hero-stats"><div><strong>15</strong><span>专题模块</span></div><div><strong>5</strong><span>系统层级</span></div><div><strong>4</strong><span>复习路线</span></div><div><strong>1</strong><span>统一 Main</span></div></div>
         </div>
         <div class="hero-board hub-hero-board">
           <div class="terminal-head"><span class="terminal-dots"><i></i><i></i><i></i></span><span>embodied_system.forward(task)</span></div>
@@ -81,18 +81,18 @@
         <div class="section-heading"><p class="section-index">02 · REVIEW ROUTES</p><h2>不要按文件顺序平均复习</h2><p>根据面试类型选一条主路线，遇到不懂的概念再沿关联卡回补。</p></div>
         <div class="hub-route-grid">
           <article class="priority"><span>ROUTE A · 端到端算法</span><h3>Transformer → ACT → DiTFlow → RTC</h3><p>从序列建模开始，依次理解直接动作回归、生成式动作策略和实时执行。</p><ol><li><a href="transformer.html">完整 Transformer 骨架</a></li><li><a href="act.html">Action Chunk + CVAE</a></li><li><a href="#ditflow">Flow Matching 源码闭环</a></li><li><a href="rtc.html">异步与平滑衔接</a></li></ol><em>适合：端到端控制、模仿学习、策略岗位</em></article>
-          <article><span>ROUTE B · VLA 模型</span><h3>VLA → π 系列 → WALL → DiT / RTC</h3><p>先建立全景，再比较语义模型与连续 Action Expert 的耦合方式。</p><ol><li><a href="vla-interview.html">VLA 系统总览</a></li><li><a href="pi-series.html">π0 到 π0.6</a></li><li><a href="wall-oss.html">Gradient Bridge</a></li><li><a href="dit.html">条件向量场</a></li></ol><em>适合：VLA、基础模型、跨本体岗位</em></article>
+          <article><span>ROUTE B · VLA / WAM 模型</span><h3>VLA → WAM / π 系列 → WALL → RTC</h3><p>先建立语义策略全景，再比较直接动作生成与未来世界建模两条路线。</p><ol><li><a href="vla-interview.html">VLA 系统总览</a></li><li><a href="wam.html">WAM 与 LaWAM</a></li><li><a href="pi-series.html">π0 到 π0.6</a></li><li><a href="wall-oss.html">Gradient Bridge</a></li></ol><em>适合：VLA、WAM、基础模型与跨本体岗位</em></article>
           <article><span>ROUTE C · 触觉具身</span><h3>触觉 → AT-VLA → QTac / DiTFlow → RTC</h3><p>从传感器原理走到时序数据、模型融合和接触后的实时重规划。</p><ol><li><a href="tactile-interview.html">触觉分类与工程链路</a></li><li><a href="at-vla.html">触觉门控与快慢流</a></li><li><a href="resume-end-to-end.html#qtac">QTac 项目表达</a></li><li><a href="#ditflow-relations">触觉条件化 Flow</a></li></ol><em>适合：触觉系统、灵巧操作、感知融合岗位</em></article>
           <article><span>ROUTE D · 手撕冲刺</span><h3>Attention → Loss → RL → 算法题</h3><p>按现场代码收益排序，集中训练 shape、mask、target、detach 和边界条件。</p><ol><li><a href="attention.html">MHA / PE / KV Cache</a></li><li><a href="vla-loss.html">CE / MSE / Flow</a></li><li><a href="rl.html">DQN / SAC</a></li><li><a href="leetcode.html">BFS / DFS / DP</a></li></ol><em>适合：手撕轮、基础算法轮</em></article>
         </div>
       </section>
 
       <section class="section reveal" id="module-groups">
-        <div class="section-heading"><p class="section-index">03 · MODULE GROUPS</p><h2>十四个专题，归入四个知识簇</h2></div>
+        <div class="section-heading"><p class="section-index">03 · MODULE GROUPS</p><h2>十五个专题，归入四个知识簇</h2></div>
         <div class="hub-module-groups">
           <article><div><span>FOUNDATION</span><h3>序列建模与目标函数</h3><p>回答“信息怎样交换、网络究竟监督什么”。</p></div><ul><li><a href="attention.html"><strong>Attention</strong><small>QKV、Mask、PE、KV Cache</small></a></li><li><a href="transformer.html"><strong>Transformer</strong><small>Encoder–Decoder、Pre-Norm、Teacher Forcing</small></a></li><li><a href="vla-loss.html"><strong>Loss</strong><small>CE、MSE、Flow、Action Chunk</small></a></li></ul></article>
           <article class="accent"><div><span>ACTION POLICY</span><h3>动作序列生成</h3><p>回答“为什么输出一段动作，怎样表达多模态轨迹”。</p></div><ul><li><a href="act.html"><strong>ACT</strong><small>CVAE、DETR Query、Temporal Ensemble</small></a></li><li><a href="#ditflow"><strong>DiTFlow</strong><small>已完整并入 Main：条件、训练、采样、队列</small></a></li><li><a href="dit.html"><strong>DiT</strong><small>adaLN-Zero、DDPM 与 Action Flow</small></a></li><li><a href="rtc.html"><strong>RTC</strong><small>异步推理、inpainting、prefix conditioning</small></a></li></ul></article>
-          <article><div><span>VLA & MULTIMODAL</span><h3>大模型与多模态策略</h3><p>回答“语义知识如何与连续动作结合”。</p></div><ul><li><a href="vla-interview.html"><strong>VLA 总览</strong><small>架构、数据、微调、Sim2Real</small></a></li><li><a href="pi-series.html"><strong>π 系列</strong><small>Flow Expert、FAST、开放世界与 RL</small></a></li><li><a href="wall-oss.html"><strong>WALL</strong><small>MoT、Gradient Bridge、跨本体</small></a></li><li><a href="at-vla.html"><strong>AT-VLA</strong><small>触觉门控、Adaptive Query、快慢双流</small></a></li></ul></article>
+          <article><div><span>VLA · WAM · MULTIMODAL</span><h3>大模型、世界模型与多模态策略</h3><p>回答“语义知识、未来动力学如何与连续动作结合”。</p></div><ul><li><a href="vla-interview.html"><strong>VLA 总览</strong><small>架构、数据、微调、Sim2Real</small></a></li><li><a href="wam.html"><strong>WAM</strong><small>World Model、LaWAM、future-conditioned action</small></a></li><li><a href="pi-series.html"><strong>π 系列</strong><small>Flow Expert、FAST、开放世界与 RL</small></a></li><li><a href="wall-oss.html"><strong>WALL</strong><small>MoT、Gradient Bridge、跨本体</small></a></li><li><a href="at-vla.html"><strong>AT-VLA</strong><small>触觉门控、Adaptive Query、快慢双流</small></a></li></ul></article>
           <article><div><span>ENGINEERING & INTERVIEW</span><h3>数据、真机与代码能力</h3><p>回答“系统是否真正跑通、个人证据是什么”。</p></div><ul><li><a href="resume-end-to-end.html"><strong>简历项目</strong><small>QTac、数采、遥操作、部署闭环</small></a></li><li><a href="tactile-interview.html"><strong>触觉工程</strong><small>选型、标定、数据流、故障诊断</small></a></li><li><a href="rl.html"><strong>强化学习</strong><small>DQN、Double DQN、SAC</small></a></li><li><a href="leetcode.html"><strong>算法题</strong><small>BFS、DFS、DP 与字符串</small></a></li></ul></article>
         </div>
       </section>
@@ -106,6 +106,7 @@
           <tr><td><strong>多解动作</strong><small>同一观测有多条合理轨迹</small></td><td><a href="act.html">CVAE latent z</a></td><td><a href="#ditflow-training">高斯噪声 → Flow</a></td><td><a href="pi-series.html">条件 Flow Expert</a></td><td>用成功率和轨迹分布评测</td></tr>
           <tr><td><strong>连续性</strong><small>chunk 交界不能跳变</small></td><td><a href="act.html#ensemble">Temporal Ensemble</a></td><td>整段联合生成</td><td>高层语义与低层动作解耦</td><td><a href="rtc.html">inpainting / prefix</a></td></tr>
           <tr><td><strong>训练目标</strong><small>模型到底预测什么</small></td><td>ACT：L1 + KL</td><td><a href="vla-loss.html">DDPM ε / FM velocity</a></td><td>Token CE + Action Loss</td><td><a href="rl.html">TD / Actor objective</a></td></tr>
+          <tr><td><strong>未来世界</strong><small>动作会造成什么变化</small></td><td>World Model：p(o′|o,A)</td><td><a href="wam.html#taxonomy">像素 / latent future</a></td><td><a href="wam.html#compare">WAM ↔ VLA</a></td><td><a href="wam.html#runtime">RTC 与预测偏差重规划</a></td></tr>
         </tbody></table></div>
         <div class="callout"><strong>横向回答模板</strong><p>先说共同问题，再说每种方法的表示、目标函数、推理代价和闭环方式。例如：“ACT 与 DiTFlow 都输出 Action Chunk；ACT 一次直接回归并用 CVAE 建模风格，DiTFlow 从噪声经 ODE 生成，表达力更强但推理更慢；两者都要额外决定执行 horizon 和重规划频率。”</p></div>
       </section>

@@ -9,6 +9,7 @@
 - [统一 Main 页面](https://kibry-spin.github.io/embodied-interview-guide/)
 - [简历项目与端到端系统](https://kibry-spin.github.io/embodied-interview-guide/embodied-coding-guide/resume-end-to-end.html)
 - [VLA 系统架构](https://kibry-spin.github.io/embodied-interview-guide/embodied-coding-guide/vla-interview.html)
+- [WAM 世界动作模型与 LaWAM](https://kibry-spin.github.io/embodied-interview-guide/embodied-coding-guide/wam.html)
 - [机器人触觉](https://kibry-spin.github.io/embodied-interview-guide/embodied-coding-guide/tactile-interview.html)
 - [ACT 模仿学习](https://kibry-spin.github.io/embodied-interview-guide/embodied-coding-guide/act.html)
 - [DiT：Transformer × Diffusion / Flow](https://kibry-spin.github.io/embodied-interview-guide/embodied-coding-guide/dit.html)
@@ -35,6 +36,7 @@ DiTFlow 的架构、训练公式、张量、采样、动作队列、源码地图
 ### 3. VLA 与多模态
 
 - VLA 架构、数据、LoRA 与 Sim2Real
+- WAM、World Model、LaWAM、DreamZero 与 VLA 对比
 - π 系列模型演进
 - WALL-OSS-0.5 的 MoT、Gradient Bridge、RVQ 与跨本体数据
 - AT-VLA 的触觉门控、Adaptive Query 与快慢双流
@@ -48,7 +50,7 @@ DiTFlow 的架构、训练公式、张量、采样、动作队列、源码地图
 ## 推荐复习路线
 
 1. **端到端策略：** Transformer → ACT → Main/DiTFlow → RTC
-2. **VLA 模型：** VLA → π 系列 → WALL → DiT / RTC
+2. **VLA / WAM 模型：** VLA → WAM / π 系列 → WALL → DiT / RTC
 3. **触觉具身：** 触觉 → AT-VLA → QTac / DiTFlow → RTC
 4. **手撕冲刺：** Attention → Loss → RL → 算法题
 

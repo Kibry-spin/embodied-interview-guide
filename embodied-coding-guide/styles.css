@@ -1137,6 +1137,8 @@ pre { margin: 0; padding: 21px 23px; overflow: auto; color: #cad8d3; font-size: 
 .ditflow-call-chain p { margin: 0; color: var(--muted); font-size: 9px; }
 .ditflow-call-chain code { display: block; margin: 8px 0; font-size: 9px; }
 .ditflow-facts { display: grid; grid-template-columns: repeat(4,1fr); gap: 10px; }
+.wam-hero-spine article { min-width: 0; padding: 16px 12px; }
+.wam-hero-spine strong { font-size: 12px; overflow-wrap: anywhere; }
 .ditflow-facts article { padding: 19px; border: 1px solid var(--line); border-radius: 14px; background: rgba(20,34,31,.72); }
 .ditflow-facts span { color: var(--mint); font: 9px "SFMono-Regular", Consolas, monospace; }
 .ditflow-facts strong { display: block; margin: 15px 0 5px; font-size: 15px; }
@@ -1266,6 +1268,7 @@ body.focus-mode .page-shell { grid-template-columns: minmax(0,1fr); width: min(1
   .hub-route-grid, .hub-module-groups, .ditflow-facts, .line-explain, .review-grid { grid-template-columns: 1fr; }
   .hub-route-grid article { min-height: auto; }
   .ditflow-spine article, .ditflow-block-map article, .ditflow-equations article, .ditflow-call-chain article { min-width: 190px; }
+  .wam-hero-spine article { min-width: 180px; }
   .ditflow-architecture { grid-template-columns: 1fr; }
   .ditflow-architecture > b { justify-self: center; transform: rotate(90deg); }
   .flow-mini-track { grid-template-columns: 76px 1fr 76px; gap: 7px; }

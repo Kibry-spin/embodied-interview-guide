@@ -1,0 +1,385 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="WAM 世界动作模型从零入门与面试专题：World Model、World Action Model、VLA 对比、DreamZero、LaWAM、训练目标、推理范式、效率、触觉融合与论文路线。">
+  <meta name="theme-color" content="#0f1715">
+  <title>WAM 世界动作模型：从 World Model 到 LaWAM｜具身岗面试专题</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="scroll-progress"><span id="scroll-progress-bar"></span></div>
+  <header class="topbar">
+    <a class="brand" href="index.html"><span class="brand-mark">W</span><span class="brand-copy"><strong>World Action Model</strong><small>Future · Dynamics · Action</small></span></a>
+    <nav class="topnav"><a href="index.html">Main</a><a href="vla-interview.html">VLA</a><a class="active" href="wam.html">WAM</a><a href="pi-series.html">π 系列</a><a href="dit.html">DiT</a><a href="rtc.html">RTC</a></nav>
+    <div class="top-actions"><button class="top-button" id="focus-toggle" type="button">专注阅读</button><a class="top-button strong" href="#compare">先看 VLA 对比 ↓</a></div>
+  </header>
+
+  <div class="page-shell">
+    <aside class="sidebar">
+      <p class="eyebrow">WAM LEARNING PATH</p>
+      <ol class="side-nav">
+        <li><a href="#overview"><span>01</span>一句话主线</a></li>
+        <li><a href="#definition"><span>02</span>三个概念</a></li>
+        <li><a href="#motivation"><span>03</span>为什么需要 WAM</a></li>
+        <li><a href="#taxonomy"><span>04</span>四类 WAM</a></li>
+        <li><a href="#architecture"><span>05</span>通用架构</a></li>
+        <li><a href="#objective"><span>06</span>训练目标</a></li>
+        <li><a href="#inference"><span>07</span>推理方式</a></li>
+        <li><a href="#compare"><span>08</span>WAM vs VLA</a></li>
+        <li><a href="#lawam"><span>09</span>LaWAM 重点</a></li>
+        <li><a href="#dreamzero"><span>10</span>DreamZero</a></li>
+        <li><a href="#papers"><span>11</span>论文地图</a></li>
+        <li><a href="#data"><span>12</span>数据与预训练</a></li>
+        <li><a href="#runtime"><span>13</span>效率与 RTC</a></li>
+        <li><a href="#tactile"><span>14</span>触觉 WAM</a></li>
+        <li><a href="#evaluation"><span>15</span>怎样评测</a></li>
+        <li><a href="#failure"><span>16</span>局限与排障</a></li>
+        <li><a href="#resume"><span>17</span>结合你的经历</a></li>
+        <li><a href="#interview"><span>18</span>高频追问</a></li>
+        <li><a href="#practice"><span>19</span>复习计划</a></li>
+      </ol>
+      <div class="sidebar-card"><strong>本页过关标准</strong><p>能用三个条件分布区分 VLA、World Model 与 WAM；解释 WAM 不一定在推理时生成视频；画出 LaWAM 两阶段训练；比较像素未来与 latent future；主动指出 WAM 的延迟、幻觉和接触建模问题。</p></div>
+    </aside>
+
+    <main>
+      <section class="hero compact reveal visible" id="overview">
+        <div>
+          <p class="kicker">From Reactive Policy to Predictive Control</p>
+          <h1>WAM<br><em>先理解未来<br>再生成动作</em></h1>
+          <p class="hero-lead">World Action Model 把“世界怎样变化”与“机器人该怎样动”放进同一学习系统。它可能显式生成未来视频，也可能只预测未来视觉特征，甚至只在训练时用未来预测塑造表示；真正的共同点是让动作学习获得时序动力学监督。</p>
+          <div class="hero-actions"><a class="primary-button" href="#definition">从三个公式开始 ↓</a><a class="ghost-button" href="#lawam">直接看 LaWAM ↗</a></div>
+          <div class="hero-stats"><div><strong>o</strong><span>当前观测</span></div><div><strong>l</strong><span>任务指令</span></div><div><strong>o′</strong><span>预测未来</span></div><div><strong>A</strong><span>动作块</span></div></div>
+        </div>
+        <div class="hero-board">
+          <div class="terminal-head"><span class="terminal-dots"><i></i><i></i><i></i></span><span>world_action_model.forward(o, language)</span></div>
+          <div class="ditflow-spine wam-hero-spine" style="margin-top:34px">
+            <article><span>CONTEXT</span><strong>o<sub>t</sub> + language</strong><small>current world</small></article><b>→</b>
+            <article><span>FORESIGHT</span><strong>ô<sub>t+H</sub> / û<sub>t+H</sub></strong><small>pixel or latent future</small></article><b>→</b>
+            <article><span>POLICY</span><strong>A<sub>t:t+H−1</sub></strong><small>continuous action chunk</small></article>
+          </div>
+          <div class="formula" style="margin-top:26px">p(A, o′ | o, l)　or　p(A | o, l, future feature)</div>
+          <div class="scope-note"><strong>最重要的边界：</strong>WAM 是快速演化中的方法族，并没有唯一架构。回答时必须说明“未来表示是什么、何时预测、如何进入动作头”。</div>
+        </div>
+      </section>
+
+      <section class="section reveal">
+        <div class="section-heading"><p class="section-index">01 · ELEVATOR PITCH</p><h2>面试先答这一分钟</h2></div>
+        <div class="interview-card"><strong>60 秒回答</strong><p>WAM 是 World Action Model。标准 VLA 通常直接建模 p(A|o,l)，依靠 VLM 的语义先验从当前观测和语言生成动作；World Model 建模 p(o′|o,A)，回答执行动作后世界怎样变化；WAM 把未来预测与动作生成连接起来，例如联合建模 p(A,o′|o,l)，或先预测未来视觉状态再通过 inverse dynamics/action expert 得到动作。它的动机是利用视频提供比低维动作更密集的时序监督，并把动力学先验暴露给策略。WAM 不等于“部署时先生成完整视频”：DreamZero 联合生成视频和动作，LaWAM 只预测一次 latent visual subgoal，Fast-WAM 更表明训练期 video co-training 可能比测试期显式想象更关键。工程上 WAM 的主要矛盾是动态泛化与推理延迟之间的权衡。</p></div>
+        <div class="memory-line"><strong>一句话</strong><p><strong>VLA 更擅长理解“要做什么”，WAM 重点补充“世界将怎样变化”；实际强模型正在把两者融合，而不是二选一。</strong></p></div>
+      </section>
+
+      <section class="section reveal" id="definition">
+        <div class="section-heading split-heading"><div><p class="section-index">02 · THREE DEFINITIONS</p><h2>先用条件分布区分三个概念</h2></div><p>这是后面所有论文的共同坐标系。</p></div>
+        <div class="card-grid three">
+          <article class="info-card"><span>VLA · POLICY</span><h3>当前 → 动作</h3><div class="formula">p(A | o, l)</div><p>从图像、语言和本体状态直接生成 action chunk。动力学知识可能隐含在参数中，但通常没有可查询的未来状态接口。</p></article>
+          <article class="info-card"><span>WORLD MODEL · DYNAMICS</span><h3>当前 + 动作 → 未来</h3><div class="formula">p(o′ | o, A)</div><p>给定当前状态与候选动作，预测后续图像、latent state、点轨迹、3D 状态或奖励。它本身不一定能输出可执行动作。</p></article>
+          <article class="info-card accent"><span>WAM · JOINT INTERFACE</span><h3>未来 ↔ 动作</h3><div class="formula">p(A, o′ | o, l)</div><p>让未来建模与动作解码共享表示、注意力或训练目标，从预测的世界演化中产生机器人动作。</p></article>
+        </div>
+        <div class="formula large" style="margin-top:16px">p(A,o′|o,l) = p(o′|o,l) · p(A|o,o′,l)　　或　　p(A|o,l,φ(o′))</div>
+        <div class="qa-grid" style="margin-top:16px">
+          <div class="interview-card"><strong>World Model 和 WAM 的差别？</strong><p>World Model 只要能预测转移就成立；WAM 必须再把世界预测与可执行动作建立接口。只有视频生成器而没有动作映射，不是完整机器人策略。</p></div>
+          <div class="interview-card"><strong>WAM 和 Model-Based RL 一样吗？</strong><p>不完全一样。经典 MBRL 常在 learned dynamics 中 rollout 候选动作并按 reward/value 规划；许多现代 WAM 直接用监督学习或 Flow Matching 输出 action chunk，并不进行显式 MPC。</p></div>
+          <div class="interview-card"><strong>Future token 就等于 WAM 吗？</strong><p>不能只看名字。要检查 future token 是否由可监督的未来状态/特征产生、是否表示 action-conditioned dynamics、推理时怎样影响动作，而不是普通 learnable query。</p></div>
+          <div class="interview-card"><strong>WAM 一定预测 RGB 吗？</strong><p>不一定。未来可以是像素视频、VAE latent、DINO feature、object slot、3D 几何、触觉状态或多个模态的联合状态。</p></div>
+        </div>
+      </section>
+
+      <section class="section reveal" id="motivation">
+        <div class="section-heading"><p class="section-index">03 · WHY WAM</p><h2>为什么仅做 observation-to-action 还不够</h2></div>
+        <div class="act-problem-grid">
+          <article><span>01 · DENSE SUPERVISION</span><strong>视频监督更密集</strong><p>一个动作向量只有少量关节/位姿数字，未来帧或未来特征包含物体运动、接触、遮挡与场景进度等大量监督。</p></article>
+          <article><span>02 · DYNAMICS PRIOR</span><strong>显式时序先验</strong><p>静态图文预训练擅长语义识别，视频预训练更直接暴露“什么会动、如何交互、状态怎样连续变化”。</p></article>
+          <article><span>03 · ACTION-FREE VIDEO</span><strong>利用无动作标签视频</strong><p>通过 latent action / inverse dynamics 学习转移变量，可从机器人或人类视频获得动力学先验，再用少量带动作数据完成 grounding。</p></article>
+          <article><span>04 · CROSS EMBODIMENT</span><strong>视觉结果跨本体共享</strong><p>不同机器人动作坐标不同，但“杯子被拿起”“抽屉被拉开”等视觉变化具有可迁移性；世界表示可作为中间接口。</p></article>
+          <article><span>05 · QUERYABLE FUTURE</span><strong>未来可以被检查</strong><p>若模型保留 forward dynamics，可比较候选动作的结果、发现预测—观测偏差并触发重规划。</p></article>
+          <article><span>06 · GENERALIZATION</span><strong>强调物理变化而非背景</strong><p>理想情况下，视频动力学目标促使模型关注运动和交互，而不是仅记住训练场景纹理；但这必须通过消融和扰动测试证明。</p></article>
+        </div>
+        <div class="callout warning"><strong>不要过度宣称</strong><p>“视频模型理解真实物理”不是自动成立的。生成清晰、看似合理的视频，不代表动作可执行、接触力正确或长期动力学一致；WAM 的收益必须与 action-only、无 world loss、无 future conditioning 等基线对照。</p></div>
+      </section>
+
+      <section class="section reveal" id="taxonomy">
+        <div class="section-heading split-heading"><div><p class="section-index">04 · DESIGN TAXONOMY</p><h2>四种常见 WAM，不要混为一谈</h2></div><p>分类关键是“future 在训练和推理的哪个位置”。</p></div>
+        <div class="table-scroll"><table class="shape-table"><thead><tr><th>范式</th><th>训练</th><th>推理</th><th>优势</th><th>主要代价</th><th>代表思路</th></tr></thead><tbody>
+          <tr><td><strong>Imagine → Execute</strong></td><td>学习未来视频与 inverse dynamics</td><td>先生成未来，再由 IDM/goal policy 出动作</td><td>未来可视、接口直观</td><td>像素生成慢，误差可能级联</td><td>video plan → action</td></tr>
+          <tr><td><strong>Joint Video–Action</strong></td><td>同一生成模型联合预测视频与动作</td><td>视频、动作共同去噪或自回归生成</td><td>两模态强耦合，可支持多种条件查询</td><td>模型大、采样贵、同步复杂</td><td>DreamZero / MotuBrain</td></tr>
+          <tr><td><strong>Latent Future → Action</strong></td><td>预测未来 feature/slot，再监督动作头</td><td>生成紧凑 latent subgoal 后输出动作</td><td>保留显式 foresight，省掉像素解码</td><td>latent 可解释性弱，表征选择敏感</td><td>LaWAM / OA-WAM</td></tr>
+          <tr><td><strong>Video Co-training Only</strong></td><td>未来预测作为辅助目标塑造 backbone</td><td>跳过未来生成，直接出动作</td><td>低延迟、部署简单</td><td>测试时无法直接查询未来</td><td>Fast-WAM / Light-WAM</td></tr>
+        </tbody></table></div>
+        <div class="memory-line"><strong>判断四问</strong><p>①未来表示是像素还是 latent？②future 是 action-conditioned 还是仅 task-conditioned？③推理时真的生成 future 吗？④action head 如何读取 future？</p></div>
+      </section>
+
+      <section class="section reveal" id="architecture">
+        <div class="section-heading"><p class="section-index">05 · COMMON ARCHITECTURE</p><h2>把 WAM 拆成五个可替换模块</h2></div>
+        <div class="ditflow-spine">
+          <article><span>01 · ENCODE</span><strong>current world</strong><small>RGB / state / language / tactile</small></article><b>→</b>
+          <article><span>02 · PREDICT</span><strong>future state</strong><small>pixel · latent · slot · geometry</small></article><b>→</b>
+          <article><span>03 · GROUND</span><strong>future ↔ motion</strong><small>IDM · latent action · shared attention</small></article><b>→</b>
+          <article><span>04 · DECODE</span><strong>action chunk</strong><small>AR · Diffusion · Flow · direct</small></article><b>→</b>
+          <article><span>05 · REPLAN</span><strong>closed loop</strong><small>queue · RTC · discrepancy trigger</small></article>
+        </div>
+        <div class="table-scroll" style="margin-top:16px"><table class="shape-table"><thead><tr><th>模块</th><th>输入/输出</th><th>面试要问的细节</th></tr></thead><tbody>
+          <tr><td><strong>Perception Encoder</strong></td><td>o → u</td><td>冻结 VLM/DINO/VAE 还是联合训练？是否保留空间 token？</td></tr>
+          <tr><td><strong>World Predictor</strong></td><td>(u, condition) → û′</td><td>预测跨度按帧还是按物理时间？未来是否依赖候选动作？</td></tr>
+          <tr><td><strong>Latent Action / IDM</strong></td><td>(u,u′) → z 或 A</td><td>动作无标签视频如何得到 transition code？怎样与真实机器人动作对齐？</td></tr>
+          <tr><td><strong>Action Expert</strong></td><td>(semantic, dynamics) → A</td><td>动作是关节、末端位姿还是增量？chunk 多长？生成目标是什么？</td></tr>
+          <tr><td><strong>Runtime</strong></td><td>A → controller</td><td>生成/执行 horizon、延迟、异步推理、观测刷新与安全限幅。</td></tr>
+        </tbody></table></div>
+        <pre><code># 统一伪代码：不同 WAM 的差别主要在 predict_future 与 action_expert
+u = vision_encoder(observation)
+semantic = vl_backbone(observation, language)
+future = world_predictor(u, semantic)          # pixels / latent / slots / None
+chunk = action_expert(semantic, u, future)     # [B, H, action_dim]
+execute(chunk[:, :n_action_steps])</code></pre>
+      </section>
+
+      <section class="section reveal" id="objective">
+        <div class="section-heading"><p class="section-index">06 · TRAINING OBJECTIVES</p><h2>World loss 与 Action loss 怎样协同</h2></div>
+        <div class="formula large">L = λ<sub>world</sub>L<sub>future</sub> + λ<sub>action</sub>L<sub>action</sub> + λ<sub>align</sub>L<sub>alignment</sub> + λ<sub>reg</sub>L<sub>regularization</sub></div>
+        <div class="card-grid three" style="margin-top:16px">
+          <article class="info-card"><span>WORLD</span><h3>未来预测</h3><p>像素噪声/速度 MSE、latent feature MSE、mask/slot/geometry prediction。目标是让表示包含任务相关的时序变化。</p></article>
+          <article class="info-card"><span>ACTION</span><h3>动作生成</h3><p>连续动作 L1、Diffusion ε/v、Flow velocity 或离散 action-token CE。最终要对接真实控制空间。</p></article>
+          <article class="info-card"><span>ALIGNMENT</span><h3>世界—动作对齐</h3><p>latent-action distillation、inverse dynamics、共享注意力、对比学习或跨模态一致性，防止 world branch 与 action branch 各学各的。</p></article>
+        </div>
+        <pre><code># 概念版 joint video-action flow matching
+t_v, t_a = sample_video_time(), sample_action_time()
+xv_t = interpolate(video_noise, future_video, t_v)
+xa_t = interpolate(action_noise, action_chunk, t_a)
+
+v_video, v_action = wam(xv_t, xa_t, t_v, t_a, current_obs, language)
+loss = mse(v_video, target_video_velocity) \
+     + lambda_action * masked_mse(v_action, target_action_velocity)</code></pre>
+        <div class="callout"><strong>两个时间变量的意义</strong><p>联合生成模型可能为视频和动作各设一个 noise clock：把动作 clock 从噪声推到数据、保持 world clock 在高噪声，可得到 action policy；给定 clean action 再去噪 world，可近似 forward dynamics；两者都去噪则得到联合未来。这是统一模型支持多种条件查询的一种实现方式，不是所有 WAM 都采用。</p></div>
+      </section>
+
+      <section class="section reveal" id="inference">
+        <div class="section-heading split-heading"><div><p class="section-index">07 · INFERENCE MODES</p><h2>“想象未来”有四种部署含义</h2></div><p>面试必须把训练期 world supervision 与测试期 future generation 分开。</p></div>
+        <div class="compare-grid">
+          <article class="compare-card"><span>EXPLICIT FUTURE</span><h3>生成未来视频</h3><p>可视化最直观，也能交给 IDM 或 verifier；但多步扩散和高维像素生成使延迟最大。</p></article>
+          <article class="compare-card accent"><span>LATENT FUTURE</span><h3>生成未来特征</h3><p>像 LaWAM 一次得到 latent visual subgoal，再让 Action DiT 条件化去噪，兼顾 foresight 与速度。</p></article>
+          <article class="compare-card"><span>DIRECT POLICY</span><h3>训练想象，推理直出</h3><p>Fast-WAM 类方法保留 video co-training 获得的动态表示，部署跳过 future generation。</p></article>
+          <article class="compare-card"><span>PLAN / VERIFY</span><h3>候选动作内部 rollout</h3><p>为多个 action chunk 预测后果，按 reward、task progress、碰撞或触觉风险选动作；计算最贵，但最接近显式规划。</p></article>
+        </div>
+        <div class="callout warning"><strong>高频错误</strong><p>不要把“WAM”固定解释成“先生成完整视频再执行”。Fast-WAM 的受控实验指出，强性能主要来自训练期 video co-training，而测试期显式 future imagination 的额外收益相对有限；LaWAM 则保留了测试期 latent future，但避免像素生成。</p></div>
+      </section>
+
+      <section class="section reveal" id="compare">
+        <div class="section-heading"><p class="section-index">08 · WAM VS VLA</p><h2>不是谁取代谁，而是先验和接口不同</h2></div>
+        <div class="table-scroll"><table class="shape-table"><thead><tr><th>维度</th><th>典型 VLA</th><th>典型 WAM</th><th>更准确的结论</th></tr></thead><tbody>
+          <tr><td><strong>核心分布</strong></td><td>p(A|o,l)</td><td>p(A,o′|o,l) 或 future-conditioned p(A|·)</td><td>WAM 多一个可监督/可查询的未来接口</td></tr>
+          <tr><td><strong>预训练来源</strong></td><td>图文、VLM、机器人轨迹</td><td>视频生成/预测、机器人与人类视频、动作轨迹</td><td>两者都可混合多源数据，差别在训练目标</td></tr>
+          <tr><td><strong>优势先验</strong></td><td>语言、对象、语义组合与知识迁移</td><td>运动、时序、交互结果与场景演化</td><td>复杂任务通常同时需要 semantics + dynamics</td></tr>
+          <tr><td><strong>动作输出</strong></td><td>token、回归、Diffusion/Flow expert</td><td>同样可以使用 Diffusion/Flow action expert</td><td>WAM 与 VLA 不由 action decoder 类型区分</td></tr>
+          <tr><td><strong>无动作视频</strong></td><td>通常难直接利用，需额外目标</td><td>可通过 world/latent-action 学习利用</td><td>仍需把 latent transition grounding 到本体动作</td></tr>
+          <tr><td><strong>推理延迟</strong></td><td>通常更低，尤其直接 action expert</td><td>显式视频生成通常更高</td><td>latent/direct WAM 正在缩小差距</td></tr>
+          <tr><td><strong>可解释输出</strong></td><td>常只有动作或语言 reasoning</td><td>可检查预测视频、feature、slot 或风险</td><td>可视化未来不等于物理正确</td></tr>
+          <tr><td><strong>长任务规划</strong></td><td>VLM 可做语言子任务分解</td><td>WAM 擅长短期物理执行与后果预测</td><td>DSWAM 类双系统将 VLM planner 与 WAM executor 结合</td></tr>
+          <tr><td><strong>触觉接触</strong></td><td>可通过额外触觉 encoder/fast path 注入</td><td>可进一步预测未来触觉或接触风险</td><td>纯视觉 WAM 同样看不到遮挡后的真实接触</td></tr>
+        </tbody></table></div>
+        <div class="interview-card" style="margin-top:16px"><strong>推荐回答：“WAM 比 VLA 更强吗？”</strong><p>不能一概而论。WAM 的视频动力学预训练在视觉扰动和新运动泛化上表现出优势，但显式未来生成会显著增加延迟；强 VLA 在语义与某些综合基准上仍可达到或超过 WAM。更重要的是控制数据、模型规模、动作头和评测协议必须匹配。当前趋势是混合系统：VLM/VLA 提供语义规划，world branch 提供动态 foresight，Action Expert 负责连续控制。</p></div>
+      </section>
+
+      <section class="section reveal" id="lawam">
+        <div class="section-heading split-heading"><div><p class="section-index">09 · LAWAM DEEP DIVE</p><h2>LaWAM：不生成像素的 latent future</h2></div><p>这是与你已有部署经历最直接相关的重点。</p></div>
+        <div class="memory-line"><strong>核心动机</strong><p>像素级未来包含大量背景和纹理冗余，而且多步去噪很慢；控制真正需要的是“这个 action chunk 应把场景推进到什么视觉状态”。LaWAM 因此在冻结视觉编码器的 feature space 预测一个 chunk-level latent visual subgoal。</p></div>
+
+        <div class="section-heading" style="margin-top:56px"><p class="section-index">STAGE 1 · LATENT WORLD MODEL</p><h2>先从无动作标签视频学习转移</h2></div>
+        <div class="act-cvae-flow">
+          <article><span>FROZEN ENCODER</span><strong>u=f(o), u<sub>T</sub>=f(o<sub>T</sub>)</strong><small>DINO-style visual features</small></article><b>→</b>
+          <article><span>LATENT IDM</span><strong>z ~ q<sub>φ</sub>(z|u,u<sub>T</sub>)</strong><small>transition / latent action</small></article><b>→</b>
+          <article class="accent"><span>LaWM DECODER</span><strong>ũ<sub>T</sub>=F<sub>ω</sub>(u,z)</strong><small>predict future feature</small></article>
+        </div>
+        <div class="formula" style="margin-top:16px">L<sub>LAM</sub> = ‖ũ<sub>T</sub>−u<sub>T</sub>‖² + ‖g(s,z)−s<sub>T</sub>‖² + β KL(q<sub>φ</sub> || N(0,I))</div>
+        <p class="scope-note">Inverse encoder 从当前—未来 feature 对中抽取 latent action；forward decoder 根据当前 feature 与 latent action 重建未来 feature。辅助末端状态预测迫使 z 编码真实运动，而不只是画面变化。预训练完成后，decoder 被保留为 LaWM。</p>
+
+        <div class="section-heading" style="margin-top:56px"><p class="section-index">STAGE 2 · POLICY INTEGRATION</p><h2>再让策略自己预测 z，并生成真实动作</h2></div>
+        <div class="ditflow-spine">
+          <article><span>POLICY PRIOR</span><strong>ẑ = p<sub>θ</sub>(o,l)</strong><small>distill latent action</small></article><b>→</b>
+          <article><span>LaWM</span><strong>û<sub>T</sub>=F<sub>ω</sub>(u,ẑ)</strong><small>one-pass latent subgoal</small></article><b>→</b>
+          <article><span>ALTERNATE-DiT</span><strong>A ~ p<sub>η</sub>(·|semantic,dynamics)</strong><small>flow-matching action chunk</small></article>
+        </div>
+        <div class="formula" style="margin-top:16px">L<sub>LaWAM</sub> = λ<sub>distill</sub>‖ẑ−z‖² + λ<sub>wm</sub>‖û<sub>T</sub>−u<sub>T</sub>‖² + L<sub>action-flow</sub></div>
+        <div class="qa-grid" style="margin-top:16px">
+          <div class="interview-card"><strong>为什么部署时不能用 q(z|u,uT)？</strong><p>它需要真实未来 uT，部署时不存在。因此第二阶段训练 policy prior 只根据当前观测与语言预测 ẑ，再由 LaWM 展开成未来 subgoal。</p></div>
+          <div class="interview-card"><strong>为什么不直接把 z 给动作头？</strong><p>z 是紧凑 transition code；将其通过 LaWM 展开为具有空间结构的未来视觉特征，能为 action expert 提供“哪里会变化、目标状态是什么”的 richer dynamics context。</p></div>
+          <div class="interview-card"><strong>Alternate-DiT 做什么？</strong><p>一条流读取 VLM 语义上下文，另一条流读取当前—未来 latent dynamics，上下文交替进入 action denoising，使“要做什么”和“场景怎样变化”共同约束动作。</p></div>
+          <div class="interview-card"><strong>Knowledge Insulation 的作用？</strong><p>阻止 action-expert 梯度破坏已学到的 LaWM 动力学表示，缓解联合训练时 world branch 被动作 loss 覆盖。</p></div>
+        </div>
+        <div class="table-scroll" style="margin-top:16px"><table class="shape-table"><thead><tr><th>论文报告</th><th>数值</th><th>怎样正确表述</th></tr></thead><tbody>
+          <tr><td><strong>模型规模</strong></td><td>LaWM 230M；完整模型 2.3B</td><td>world module 比大型像素视频 backbone 更紧凑</td></tr>
+          <tr><td><strong>推理延迟</strong></td><td>187 ms / action chunk</td><td>论文指定硬件与 10 denoising steps 下的 model-only 指标</td></tr>
+          <tr><td><strong>LIBERO</strong></td><td>98.6% average SR</td><td>论文协议为每任务 50 次；不要直接外推到真机</td></tr>
+          <tr><td><strong>RoboTwin</strong></td><td>91.22% average SR</td><td>应同时看 clean/randomized 与逐任务差异</td></tr>
+          <tr><td><strong>预训练视频</strong></td><td>约3000h机器人 + 1500h人类第一视角</td><td>人类视频只进入 LaWM dynamics prior，策略集成仍用机器人轨迹</td></tr>
+        </tbody></table></div>
+        <div class="callout warning"><strong>LaWAM ≠ LaWM</strong><p><strong>LaWM</strong> 是 latent-action-conditioned Latent World Model，即预测 future feature 的 decoder；<strong>LaWAM</strong> 是完整机器人策略，包含 policy prior、LaWM、VLM 语义流和 Action Expert。另有同名缩写的 Least Action World Model，面试时应先报论文全名避免混淆。</p></div>
+      </section>
+
+      <section class="section reveal" id="dreamzero">
+        <div class="section-heading"><p class="section-index">10 · DREAMZERO</p><h2>DreamZero：联合视频—动作 WAM 的代表</h2></div>
+        <div class="compare-grid">
+          <article class="compare-card accent"><span>WHAT CHANGED</span><h3>从 VLM backbone 转向 video diffusion backbone</h3><p>基于预训练视频生成模型，将未来视频与机器人动作在共享生成系统中联合建模；视频提供密集的物理变化表示。</p></article>
+          <article class="compare-card"><span>WHY IT MATTERS</span><h3>从重复模仿转向多样视频学习</h3><p>论文强调从异构、多本体、非重复轨迹和人类视频中吸收 motion prior，再通过 action channel grounding 到机器人控制。</p></article>
+          <article class="compare-card"><span>RUNTIME</span><h3>闭环而非一次梦完整任务</h3><p>按 action chunk 生成并执行，重新接收真实观测，用真实帧替代继续依赖幻觉的历史，减少长视频误差累积。</p></article>
+          <article class="compare-card"><span>ENGINEERING</span><h3>大模型实时化是核心难点</h3><p>论文通过模型与系统优化让 14B 视频扩散模型达到 7Hz 闭环控制；这个结果体现了 WAM 的潜力，也暴露其部署成本。</p></article>
+        </div>
+        <div class="memory-line"><strong>与 LaWAM 对比</strong><p>DreamZero 保留像素/视频级联合生成，表达直观但计算重；LaWAM 将未来压到冻结视觉 feature 中，一次预测 latent subgoal，再用 Action DiT 生成动作，目标是牺牲像素可视性换取低延迟。</p></div>
+      </section>
+
+      <section class="section reveal" id="papers">
+        <div class="section-heading split-heading"><div><p class="section-index">11 · PAPER MAP</p><h2>论文不要平均读，按问题读</h2></div><p>截至 2026-08，这一方向仍以快速迭代的预印本为主。</p></div>
+        <div class="table-scroll"><table class="shape-table"><thead><tr><th>论文</th><th>它在问什么</th><th>核心答案</th><th>你该记住什么</th><th>局限/追问</th></tr></thead><tbody>
+          <tr><td><strong>DreamZero</strong><small>World Action Models are Zero-shot Policies</small></td><td>视频模型能否直接成为通用机器人策略？</td><td>联合未来视频与动作生成，利用异构和跨本体视频</td><td>WAM 的起点；14B、7Hz、闭环真实观测刷新</td><td>训练/推理成本极高；是否真的学到新物理？</td></tr>
+          <tr><td><strong>LaWAM</strong><small>Latent World Action Models</small></td><td>能否不画未来像素仍保留 foresight？</td><td>latent action → LaWM → future feature → Action DiT</td><td>两阶段训练、三个 loss、187ms/chunk</td><td>latent future 难解释；依赖冻结 feature 的质量</td></tr>
+          <tr><td><strong>Fast-WAM</strong></td><td>测试时必须显式想象未来吗？</td><td>保留 video co-training，推理直接动作</td><td>world supervision 可能比 future rendering 更关键</td><td>没有 test-time future 接口，是否仍算强 WAM？</td></tr>
+          <tr><td><strong>MotuBrain</strong></td><td>能否用一个模型支持 policy/world/IDM/joint queries？</td><td>统一视频—动作生成，多流 Mixture-of-Transformers</td><td>多 noise clocks、多任务查询、跨本体 action representation</td><td>系统复杂，收益来自哪项组件需消融</td></tr>
+          <tr><td><strong>OA-WAM</strong></td><td>整体 future feature 如何精确指向目标物体？</td><td>机器人 slot + object slots，地址与内容解耦</td><td>object addressability，身份和状态分离</td><td>slot 获取、遮挡和对象数量变化</td></tr>
+          <tr><td><strong>Light/Faster-WAM</strong></td><td>WAM 怎样达到可部署延迟？</td><td>压缩 backbone、浅 action decoder、多层 state fusion</td><td>latency 是一等指标，不应只比 SR</td><td>压缩后 world branch 是否仍贡献控制</td></tr>
+          <tr><td><strong>DSWAM</strong></td><td>WAM 如何处理长时语言任务？</td><td>System 2 VLM 子任务规划 + System 1 WAM 执行</td><td>语义规划与物理执行互补</td><td>何时触发 planner、子任务错误怎样恢复</td></tr>
+          <tr><td><strong>WAM vs VLA Robustness</strong></td><td>WAM 是否真的更泛化？</td><td>在视觉扰动上表现强，但 VLA 并非普遍更差</td><td>必须控制数据、模型、任务与延迟后再比较</td><td>benchmark 与真实接触/动力学仍有差距</td></tr>
+          <tr><td><strong>Dream-Tac / HiTac-WAM</strong></td><td>纯视觉 future 能处理接触吗？</td><td>联合预测触觉/接触/形变/滑移并用于选择或重规划</td><td>与你触觉经历最相关的 WAM 前沿</td><td>触觉硬件域差异、同步与预测可校准性</td></tr>
+        </tbody></table></div>
+      </section>
+
+      <section class="section reveal" id="data">
+        <div class="section-heading"><p class="section-index">12 · DATA & PRETRAINING</p><h2>WAM 为什么能吃更多类型的数据</h2></div>
+        <div class="table-scroll"><table class="shape-table"><thead><tr><th>数据类型</th><th>可训练什么</th><th>缺什么</th><th>怎样补齐</th></tr></thead><tbody>
+          <tr><td><strong>带动作机器人轨迹</strong></td><td>world transition、action expert、IDM</td><td>规模小、成本高、动作空间本体专属</td><td>跨本体 action adapter、统一时间与坐标语义</td></tr>
+          <tr><td><strong>无动作机器人视频</strong></td><td>视觉 dynamics、latent action、future feature</td><td>没有真实 action grounding</td><td>少量 paired trajectories 训练 policy prior/controller</td></tr>
+          <tr><td><strong>人类第一视角视频</strong></td><td>对象交互、任务阶段和视觉结果</td><td>手与机器人形态、视角和控制空间不同</td><td>只迁移 world prior，不直接当机器人 action label</td></tr>
+          <tr><td><strong>互联网视频</strong></td><td>通用运动与语义先验</td><td>相机运动、剪辑、非因果关联、缺少精细接触</td><td>数据过滤、机器人 post-training、物理一致性评测</td></tr>
+          <tr><td><strong>仿真数据</strong></td><td>动作条件未来、3D/接触真值、失败数据</td><td>纹理、动力学与传感器 gap</td><td>域随机化、真机校准、小规模 real fine-tune</td></tr>
+        </tbody></table></div>
+        <div class="card-grid three" style="margin-top:16px">
+          <article class="info-card"><span>ALIGN TIME</span><h3>按物理时间对齐</h3><p>不同数据集控制频率不同。future horizon 应表示统一的秒数 τ，而不是都取“第16帧”；否则 latent action 混合不同运动跨度。</p></article>
+          <article class="info-card"><span>ALIGN VIEW</span><h3>区分相机与物体运动</h3><p>手持/头戴视频包含强 ego motion，world model 可能把相机变化当对象 dynamics，需要多视角、稳定化或显式相机状态。</p></article>
+          <article class="info-card"><span>ALIGN ACTION</span><h3>动作语义比 shape 更重要</h3><p>关节位置、末端增量、速度和夹爪状态不能只 padding 到同一维；必须建立 embodiment-aware adapter 与可执行约束。</p></article>
+        </div>
+      </section>
+
+      <section class="section reveal" id="runtime">
+        <div class="section-heading split-heading"><div><p class="section-index">13 · EFFICIENCY & RTC</p><h2>WAM 的工程主战场是延迟</h2></div><p>视频生成速度不等于机器人闭环速度。</p></div>
+        <div class="table-scroll"><table class="shape-table"><thead><tr><th>耗时来源</th><th>为什么贵</th><th>常用优化</th><th>风险</th></tr></thead><tbody>
+          <tr><td><strong>Video backbone</strong></td><td>高分辨率、多帧、大量 token</td><td>latent space、降采样、冻结/缓存视觉特征</td><td>丢失小物体与接触细节</td></tr>
+          <tr><td><strong>Iterative denoising</strong></td><td>每个采样步都跑大 DiT</td><td>减少 steps、distillation、solver、FP8、compile</td><td>future/action 质量下降不一致</td></tr>
+          <tr><td><strong>Video–action interaction</strong></td><td>两流 cross-attention 重复计算</td><td>KV cache、future feature 复用、浅 action module</td><td>缓存过时，环境变化后继续沿用旧未来</td></tr>
+          <tr><td><strong>Synchronous control</strong></td><td>机器人等模型生成完整 chunk</td><td>异步 server、RTC、执行当前 chunk 时生成下一段</td><td>新旧 chunk 衔接与观测滞后</td></tr>
+        </tbody></table></div>
+        <div class="act-execution-loop" style="margin-top:16px">
+          <article><span>CONTROL THREAD</span><strong>执行旧 chunk</strong><p>稳定频率下发动作，不等待 GPU。</p></article><b>↔</b>
+          <article><span>POLICY THREAD</span><strong>预测 future + 新 chunk</strong><p>队列剩余到阈值时发送最新观测。</p></article><b>→</b>
+          <article><span>RTC</span><strong>保留已承诺前缀</strong><p>冻结来不及修改的动作，平滑续写 postfix。</p></article>
+        </div>
+        <div class="memory-line"><strong>评测公式</strong><p>端到端闭环预算 = 传感采集 + 编码 + world prediction + action generation + 网络传输 + 控制下发。论文 model-only latency 不能替代真实机器人 timestamp。</p></div>
+      </section>
+
+      <section class="section reveal" id="tactile">
+        <div class="section-heading"><p class="section-index">14 · TACTILE WAM</p><h2>触觉让“未来世界”包含真实接触</h2></div>
+        <div class="compare-grid">
+          <article class="compare-card"><span>TACTILE AS INPUT</span><h3>当前触觉条件动作</h3><p>像 AT-VLA 一样把接触状态、触觉图像或短时窗口注入策略；它提升反馈反应，但不一定预测未来触觉。</p></article>
+          <article class="compare-card accent"><span>TACTILE AS FUTURE</span><h3>预测将发生的接触</h3><p>对候选 action chunk 预测未来接触、形变、滑移或触觉 latent，再用预测结果指导动作选择和重规划，才是更典型 tactile WAM。</p></article>
+        </div>
+        <div class="table-scroll" style="margin-top:16px"><table class="shape-table"><thead><tr><th>方法</th><th>未来预测</th><th>怎样用于动作</th><th>与你的关联</th></tr></thead><tbody>
+          <tr><td><strong>Dream-Tac</strong></td><td>未来视觉 + 触觉 dynamics + action</td><td>contact-gated 融合与 contact-aware attention</td><td>从“触觉输入”进一步走到“触觉未来建模”</td></tr>
+          <tr><td><strong>HiTac-WAM</strong></td><td>contact state → 3D deformation → slip risk</td><td>候选 chunk 排序；预测—观测偏差触发纠错</td><td>对应触觉状态分层、滑移与在线重规划</td></tr>
+          <tr><td><strong>QTac 可拓展方向</strong></td><td>未来在手数量分布 / 接触变化</td><td>在执行重抓前预测数量变化与失败风险</td><td>把 CountNet 从当前估计升级为 action-conditioned foresight</td></tr>
+        </tbody></table></div>
+        <div class="callout warning"><strong>触觉 WAM 的难点</strong><p>触觉高度依赖传感器材料、安装位置、预载、标定和采样率，跨设备 video prior 很难直接迁移。必须报告触觉预测的校准误差、缺帧策略和时间延迟，不能只看最终成功率。</p></div>
+      </section>
+
+      <section class="section reveal" id="evaluation">
+        <div class="section-heading"><p class="section-index">15 · EVALUATION</p><h2>一张漂亮未来图远远不够</h2></div>
+        <div class="selection-checklist">
+          <article><span>01</span><strong>Task Success</strong><p>标准任务成功率、阶段完成率、长时连续成功率。</p></article>
+          <article><span>02</span><strong>Action Quality</strong><p>轨迹误差、平滑度、碰撞、接触力、执行时间。</p></article>
+          <article><span>03</span><strong>Future Accuracy</strong><p>feature distance、point track、object state、contact/slip，而非只看 FID。</p></article>
+          <article><span>04</span><strong>Causal Use</strong><p>遮掉/交换 future token，动作是否按预测未来发生可解释变化。</p></article>
+          <article><span>05</span><strong>Robustness</strong><p>相机、光照、背景、布局、语言、初始状态和动力学扰动。</p></article>
+          <article><span>06</span><strong>Efficiency</strong><p>model-only、端到端延迟、Hz、显存、吞吐和能耗。</p></article>
+        </div>
+        <div class="table-scroll" style="margin-top:16px"><table class="shape-table"><thead><tr><th>必须做的消融</th><th>回答的问题</th></tr></thead><tbody>
+          <tr><td><strong>Action-only baseline</strong></td><td>提升究竟来自更大 backbone，还是 world objective？</td></tr>
+          <tr><td><strong>World loss on/off</strong></td><td>未来监督是否真的改善控制表示？</td></tr>
+          <tr><td><strong>Future conditioning on/off</strong></td><td>测试时 predicted future 是否被 action expert 使用？</td></tr>
+          <tr><td><strong>GT future vs predicted future</strong></td><td>上限有多高，瓶颈在 world predictor 还是 action decoder？</td></tr>
+          <tr><td><strong>Pixel vs latent future</strong></td><td>性能、延迟与可解释性的真实权衡。</td></tr>
+          <tr><td><strong>Matched VLA</strong></td><td>控制模型规模、数据、action head、steps 和评测协议后是否仍占优？</td></tr>
+        </tbody></table></div>
+      </section>
+
+      <section class="section reveal" id="failure">
+        <div class="section-heading split-heading"><div><p class="section-index">16 · LIMITATIONS & DEBUG</p><h2>WAM 常见失败模式</h2></div><p>先判断 world 错、action 错，还是二者没对齐。</p></div>
+        <div class="table-scroll"><table class="shape-table"><thead><tr><th>现象</th><th>可能原因</th><th>验证</th><th>改进</th></tr></thead><tbody>
+          <tr><td><strong>未来好看但动作失败</strong></td><td>world branch 学会渲染，未与 action grounding</td><td>GT future 输入 action head；world/action attention 消融</td><td>加强 IDM、alignment loss、action-relevant state target</td></tr>
+          <tr><td><strong>动作只跟语言，不看 future</strong></td><td>VLM/action expert 太强，future shortcut 被忽略</td><td>future swap/intervention，测动作变化</td><td>门控、梯度隔离、future dropout、因果约束</td></tr>
+          <tr><td><strong>开环越滚越错</strong></td><td>预测帧继续作为输入造成误差累积</td><td>不同 rollout horizon 的误差曲线</td><td>每 chunk 注入真实观测、短 horizon、RTC 重规划</td></tr>
+          <tr><td><strong>接触动作错误</strong></td><td>RGB 无法观察力、滑移和遮挡内状态</td><td>接触阶段单独评测；触觉/力传感对照</td><td>触觉 future、接触状态监督、低层反馈控制</td></tr>
+          <tr><td><strong>跨本体迁移失败</strong></td><td>latent action 未与新 embodiment 控制空间对齐</td><td>冻结 world branch，仅训练 adapter 的上限</td><td>统一动作表示、few-shot play data、embodiment token</td></tr>
+          <tr><td><strong>闭环卡顿</strong></td><td>视频去噪、数据传输和同步等待</td><td>端到端分段打点</td><td>latent future、缓存、量化、异步推理与 RTC</td></tr>
+        </tbody></table></div>
+      </section>
+
+      <section class="section reveal" id="resume">
+        <div class="section-heading"><p class="section-index">17 · CONNECT TO YOUR EXPERIENCE</p><h2>怎样诚实地讲你的 LaWAM 复现</h2></div>
+        <div class="resume-map">
+          <article><span>你可以强调</span><strong>完成官方模型部署与数据流验证</strong><p>说明你在自有平台上将观测预处理、模型输入、action chunk 反归一化和机器人控制接口串联起来，用 LaWAM 等 baseline 验证采集—训练—推理链路。</p><em>证据：离线 batch 对齐、动作回放、推理 latency、真机 rollout 记录。</em></article>
+          <article><span>你要掌握</span><strong>LaWAM 为何不是普通 VLA</strong><p>能够画出 latent action posterior、LaWM future feature、policy prior 与 Alternate-DiT，说明动作同时条件化语义上下文和预测 dynamics。</p><em>追问：如果移除 latent subgoal，性能是否下降？如果 LaWM 预测错，动作头会怎样？</em></article>
+          <article><span>不要夸大</span><strong>区分复现、适配与算法贡献</strong><p>如果没有重新训练 LaWM、改造模型结构或完成正式 benchmark，不要说“主导 WAM 研发”；应说完成 baseline 部署、接口适配和数据流正确性验证。</p><em>边界清楚反而更容易承接工程追问。</em></article>
+          <article><span>触觉拓展</span><strong>WAM 怎样与触觉项目连接</strong><p>当前触觉输入解决“现在接触如何”；tactile WAM 进一步回答“执行候选 chunk 后将发生什么接触、形变或滑移”，可用于候选动作选择和异常重规划。</p><em>这能自然连接 AT-VLA、QTac 与 RTC，而不是强行把它们归为同一模型。</em></article>
+        </div>
+        <div class="interview-card" style="margin-top:16px"><strong>推荐项目表述</strong><p>“我在自有实验平台上部署过 LaWAM 等开源 baseline，主要工作是完成模型依赖、观测预处理、动作空间适配与推理控制链路验证。LaWAM 与普通 VLA 的关键差别是，它先从当前观测和语言预测 latent action，经 LaWM 得到 chunk-level future visual feature，再由 Alternate-DiT 结合语义与动态上下文生成动作。我会把这项工作定位为 baseline 复现与系统验证，而不是原创 WAM 算法。”</p></div>
+      </section>
+
+      <section class="section reveal" id="interview">
+        <div class="section-heading"><p class="section-index">18 · INTERVIEW Q&A</p><h2>十个高频问题</h2></div>
+        <div class="qa-grid">
+          <div class="interview-card"><strong>Q1：WAM 的严格定义是什么？</strong><p>没有唯一实现，但必须把未来世界建模与可执行动作建立学习接口。回答应给出未来表示、factorization、训练目标和推理路径，而不只是“会预测视频”。</p></div>
+          <div class="interview-card"><strong>Q2：WAM 为什么可能比 VLA 泛化更好？</strong><p>视频预训练提供时序与运动先验，future objective 监督对象交互和状态变化，也能使用无动作标签视频。但优势取决于数据、动作 grounding 和评测扰动，不能普遍保证。</p></div>
+          <div class="interview-card"><strong>Q3：为什么生成未来能帮助生成动作？</strong><p>未来状态描述任务需要达到的局部结果，IDM/action expert 再求实现该转移的动作；它把“动作标签记忆”转成“目标变化 + 如何实现”的分解。</p></div>
+          <div class="interview-card"><strong>Q4：WAM 必须 test-time imagination 吗？</strong><p>不必须。显式视频 WAM 会生成；LaWAM 只生成 latent subgoal；Fast-WAM 仅在训练期做 video co-training，推理直接输出动作。</p></div>
+          <div class="interview-card"><strong>Q5：LaWAM 为什么要 latent action？</strong><p>它从无动作视频的当前—未来变化中提取紧凑 transition code，使 LaWM 能学习 z 条件下的未来 feature，也为第二阶段 policy prior 提供蒸馏目标。</p></div>
+          <div class="interview-card"><strong>Q6：LaWAM 怎样避免 train–test mismatch？</strong><p>训练期 posterior z 依赖真实未来；第二阶段通过 distillation 训练只看当前观测和语言的 policy prior，并用 predicted subgoal 训练动作头，减少部署时分布切换。</p></div>
+          <div class="interview-card"><strong>Q7：如何证明动作真的用了 world prediction？</strong><p>做 future removal/swap、GT-vs-predicted future、world loss on/off、gradient/attention intervention，并检查动作与任务成功率是否因未来变化而因果改变。</p></div>
+          <div class="interview-card"><strong>Q8：为什么 pixel future 慢？</strong><p>高维多帧 token 与多步扩散都昂贵，而且大量容量用于背景纹理。latent future 通过压缩和单步预测降低成本，但失去直观可视性。</p></div>
+          <div class="interview-card"><strong>Q9：WAM 与 RTC 的关系？</strong><p>WAM 解决动作生成是否获得动态 foresight；RTC 解决慢模型如何不停顿地闭环执行。大型 WAM 尤其需要异步生成、队列阈值与前缀续写。</p></div>
+          <div class="interview-card"><strong>Q10：触觉怎样加入 WAM？</strong><p>不仅把当前 tactile token 拼入条件，还可预测 action-conditioned future contact/deformation/slip，用于候选动作排序、风险评估和预测—观测偏差触发重规划。</p></div>
+        </div>
+      </section>
+
+      <section class="section reveal" id="practice">
+        <div class="section-heading"><p class="section-index">19 · ACTIVE RECALL</p><h2>三天把 WAM 讲顺</h2></div>
+        <div class="step-list">
+          <div class="step-row"><span>D1</span><strong>概念与对比</strong><p>默写 VLA、World Model、WAM 三个条件分布；按四种范式给 DreamZero、LaWAM、Fast-WAM 分类；完成一遍 WAM vs VLA 表格复述。</p></div>
+          <div class="step-row"><span>D2</span><strong>LaWAM 两阶段</strong><p>不看页面画 q(z|u,uT) → LaWM(u,z) → uT；再画 policy prior → latent subgoal → Alternate-DiT；默写两个 loss 并解释 Knowledge Insulation。</p></div>
+          <div class="step-row"><span>D3</span><strong>部署与项目追问</strong><p>准备 60 秒项目表述；回答 latency、动作空间适配、数据频率、future intervention、触觉 WAM 和 RTC；用事实区分“已复现”与“可拓展方向”。</p></div>
+        </div>
+        <div class="card-grid three" style="margin-top:16px">
+          <article class="practice-card"><span class="card-label">10 MIN</span><h3>画四类 WAM</h3><p class="prompt">每类只画 current、future、action 三个节点，标出 train-only 与 inference。</p></article>
+          <article class="practice-card"><span class="card-label">15 MIN</span><h3>手推 LaWAM</h3><p class="prompt">从为什么未来不可见开始，推出 posterior、policy prior 与 distillation。</p></article>
+          <article class="practice-card"><span class="card-label">20 MIN</span><h3>设计消融</h3><p class="prompt">证明 WAM 提升不是因为参数更多，证明 action head 真正用了 predicted future。</p></article>
+        </div>
+
+        <div class="section-heading" style="margin-top:70px"><p class="section-index">PRIMARY SOURCES</p><h2>推荐阅读顺序</h2></div>
+        <div class="source-grid">
+          <a class="source-card" href="https://arxiv.org/abs/2602.15922" target="_blank" rel="noreferrer"><span>FOUNDATION · 2026</span><strong>World Action Models are Zero-shot Policies</strong><p>DreamZero：联合视频—动作生成、跨本体数据和实时闭环。</p></a>
+          <a class="source-card" href="https://arxiv.org/abs/2606.15768" target="_blank" rel="noreferrer"><span>FOCUS · 2026</span><strong>LaWAM: Latent World Action Models</strong><p>latent action、LaWM、future visual subgoal 与 Alternate-DiT。</p></a>
+          <a class="source-card" href="https://github.com/RLinf/LaWAM" target="_blank" rel="noreferrer"><span>OFFICIAL CODE</span><strong>RLinf/LaWAM</strong><p>训练、checkpoint、LIBERO/RoboTwin 推理与部署目录。</p></a>
+          <a class="source-card" href="https://arxiv.org/abs/2603.16666" target="_blank" rel="noreferrer"><span>ABLATION · 2026</span><strong>Fast-WAM</strong><p>测试期显式想象是否必要，video co-training 的作用。</p></a>
+          <a class="source-card" href="https://arxiv.org/abs/2603.22078" target="_blank" rel="noreferrer"><span>COMPARISON · 2026</span><strong>Do WAMs Generalize Better than VLAs?</strong><p>扰动基准、鲁棒性与公平对比边界。</p></a>
+          <a class="source-card" href="https://arxiv.org/abs/2605.06481" target="_blank" rel="noreferrer"><span>OBJECT-CENTRIC</span><strong>OA-WAM</strong><p>object slots、可寻址未来和场景迁移。</p></a>
+          <a class="source-card" href="https://arxiv.org/abs/2607.04927" target="_blank" rel="noreferrer"><span>HYBRID SYSTEM</span><strong>DSWAM</strong><p>VLM 子任务规划与 WAM 精细执行的双系统。</p></a>
+          <a class="source-card" href="https://arxiv.org/abs/2606.08737" target="_blank" rel="noreferrer"><span>TACTILE FRONTIER</span><strong>Dream-Tac</strong><p>未来视觉、触觉 dynamics 与 action 的联合建模。</p></a>
+          <a class="source-card" href="https://arxiv.org/abs/2608.19574" target="_blank" rel="noreferrer"><span>TACTILE FRONTIER</span><strong>HiTac-WAM</strong><p>接触、3D形变、滑移风险和预测偏差重规划。</p></a>
+          <a class="source-card" href="vla-interview.html"><span>LOCAL · COMPARE</span><strong>VLA 系统架构</strong><p>对照 VLM、融合、Action Expert、数据与 Sim2Real。</p></a>
+          <a class="source-card" href="dit.html"><span>LOCAL · ACTION</span><strong>DiT × Diffusion / Flow</strong><p>理解 WAM 中视频 DiT 与 Action DiT 的生成基础。</p></a>
+          <a class="source-card" href="rtc.html"><span>LOCAL · RUNTIME</span><strong>RTC 实时动作分块</strong><p>把慢速 WAM 接入不停顿的闭环控制。</p></a>
+        </div>
+      </section>
+
+      <footer class="footer"><span>WAM · World Modeling × Action Generation × Closed-loop Control</span><nav class="footer-links"><a href="vla-interview.html">← VLA</a><a href="wam.html">WAM</a><a href="rtc.html">RTC →</a><a href="index.html">返回 Main</a></nav></footer>
+    </main>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>

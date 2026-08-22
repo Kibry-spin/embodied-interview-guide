@@ -26,9 +26,10 @@
     },
     {
       label: "VLA",
-      pages: ["vla-interview.html", "pi-series.html", "wall-oss.html", "at-vla.html"],
+      pages: ["vla-interview.html", "wam.html", "pi-series.html", "wall-oss.html", "at-vla.html"],
       links: [
         ["vla-interview.html", "VLA 总览", "架构、数据与 Sim2Real"],
+        ["wam.html", "WAM", "未来世界建模、LaWAM 与 VLA 对比"],
         ["pi-series.html", "π 系列", "Flow Action Expert 演进"],
         ["wall-oss.html", "WALL", "Gradient Bridge 与跨本体"],
         ["at-vla.html", "AT-VLA", "触觉门控与快慢双流"],
@@ -71,10 +72,16 @@
       ["vla-interview.html", "系统层", "将个人项目放回 VLA 端到端能力图。"],
     ],
     "vla-interview.html": [
-      ["pi-series.html", "模型演进", "从 VLA 总览深入 Flow Action Expert 路线。"],
+      ["wam.html", "预测式策略", "比较直接 observation-to-action 与未来世界建模。"],
       ["wall-oss.html", "训练机制", "理解语义模型与连续动作的梯度桥。"],
       ["at-vla.html", "触觉 VLA", "观察高频触觉如何进入慢速 VLA。"],
       ["index.html#ditflow", "代码落地", "在 Main 中对照一个完整 LeRobot 生成策略。"],
+    ],
+    "wam.html": [
+      ["vla-interview.html", "对照基线", "回到 VLA 的语义主干、融合与 Action Expert。"],
+      ["dit.html", "生成基础", "理解视频 DiT、Action DiT 与 Flow Matching。"],
+      ["rtc.html", "实时执行", "把高延迟 world-action policy 接入异步闭环。"],
+      ["tactile-interview.html", "接触拓展", "从当前触觉输入继续理解未来接触与滑移预测。"],
     ],
     "tactile-interview.html": [
       ["at-vla.html", "模型融合", "从传感原理继续学习触觉门控与双流。"],
