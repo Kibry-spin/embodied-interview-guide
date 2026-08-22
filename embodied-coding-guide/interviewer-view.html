@@ -1,0 +1,321 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="从具身智能算法工程师和面试官视角，系统整理动作生成、VLM 与 Action Head、π0/π0.5/GR00T、WAM、快慢系统、真机 Debug 和新机器人迁移问题。">
+  <meta name="theme-color" content="#0f1715">
+  <title>面试官视角｜具身智能算法岗深挖</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="scroll-progress"><span id="scroll-progress-bar"></span></div>
+  <header class="topbar">
+    <a class="brand" href="index.html"><span class="brand-mark">IV</span><span class="brand-copy"><strong>面试官视角</strong><small>Action · System · Debug</small></span></a>
+    <nav class="topnav"><a href="index.html">Main</a></nav>
+    <div class="top-actions"><button class="top-button" id="focus-toggle" type="button">专注阅读</button><a class="top-button strong" href="#rubric">开始评估 ↓</a></div>
+  </header>
+
+  <div class="page-shell">
+    <aside class="sidebar">
+      <p class="eyebrow">INTERVIEWER'S MAP</p>
+      <ol class="side-nav">
+        <li><a href="#overview"><span>01</span>判断主线</a></li>
+        <li><a href="#rubric"><span>02</span>能力评分</a></li>
+        <li><a href="#action"><span>03</span>动作表示</a></li>
+        <li><a href="#condition"><span>04</span>Condition</a></li>
+        <li><a href="#architectures"><span>05</span>主流架构</a></li>
+        <li><a href="#wam"><span>06</span>VLA / WAM</a></li>
+        <li><a href="#dual-system"><span>07</span>快慢系统</a></li>
+        <li><a href="#debug"><span>08</span>真机 Debug</a></li>
+        <li><a href="#symptoms"><span>09</span>症状定位</a></li>
+        <li><a href="#migration"><span>10</span>新本体迁移</a></li>
+        <li><a href="#boundaries"><span>11</span>问题拆层</a></li>
+        <li><a href="#question-bank"><span>12</span>分层问题库</a></li>
+        <li><a href="#cases"><span>13</span>现场案例</a></li>
+        <li><a href="#sources"><span>14</span>一手资料</a></li>
+      </ol>
+      <div class="sidebar-card"><strong>核心判断</strong><p>论文和 benchmark 是线索，不是结论。真正需要确认的是：候选人能否定义系统契约、解释信息与梯度路径、用观测证据拆分问题，并把策略安全地接到真实机器人。</p></div>
+    </aside>
+
+    <main>
+      <section class="hero compact reveal visible" id="overview">
+        <div>
+          <p class="kicker">Embodied Algorithm Engineer · Interviewer's View</p>
+          <h1>不只问模型名字<br><em>要问系统是否闭环</em></h1>
+          <p class="hero-lead">真正有区分度的面试，不是候选人发了多少论文，也不是 LIBERO 跑了多少分，而是他能否说清 action 怎样表示和生成、语义条件怎样进入动作模型、训练与推理的数据契约是否一致，以及真机异常究竟来自模型、数据、标定、控制接口还是执行器。</p>
+          <div class="hero-actions"><a class="primary-button" href="#rubric">查看评分维度 ↓</a><a class="ghost-button" href="#question-bank">直接进入问题库 ↗</a></div>
+          <div class="hero-stats"><div><strong>6</strong><span>判断主线</span></div><div><strong>7</strong><span>Debug 层级</span></div><div><strong>14</strong><span>核心追问</span></div></div>
+        </div>
+        <div class="hero-board">
+          <div class="terminal-head"><span class="terminal-dots"><i></i><i></i><i></i></span><span>candidate.system_trace()</span></div>
+          <div class="resume-stack-mini">
+            <article><span>01 · REPRESENT</span><strong>Action Contract</strong><small>space · frame · unit · horizon</small></article>
+            <b>↓</b><article><span>02 · CONDITION</span><strong>VLM → Policy</strong><small>token · attention · gradient</small></article>
+            <b>↓</b><article><span>03 · EXECUTE</span><strong>Postprocess → Control</strong><small>IK · WBC · queue · safety</small></article>
+            <b>↓</b><article class="accent"><span>04 · DEBUG</span><strong>Evidence → Root Cause</strong><small>input · output · command · motion</small></article>
+          </div>
+          <div class="formula">能画数据流 + 能画时间轴 + 能说明坐标系 + 能用日志证伪</div>
+        </div>
+      </section>
+
+      <section class="section reveal" id="rubric">
+        <div class="section-heading split-heading"><div><p class="section-index">01 · EVALUATION RUBRIC</p><h2>我会怎样判断候选人</h2></div><p>重点不是术语覆盖率，而是回答能否从抽象机制落到张量、时间、坐标和真机证据。</p></div>
+        <div class="table-scroll"><table class="shape-table"><thead><tr><th>能力维度</th><th>建议权重</th><th>强信号</th><th>危险信号</th></tr></thead><tbody>
+          <tr><td><strong>动作表示与生成</strong></td><td>25%</td><td>先定义 action 语义，再比较 MSE、AR、Diffusion、Flow 的目标与推理代价</td><td>只说“Flow 更先进”，说不出 shape、horizon、控制频率和反归一化</td></tr>
+          <tr><td><strong>真机 Debug</strong></td><td>25%</td><td>建立逐层 trace，用 raw output、commanded action 和 executed motion 证伪</td><td>真机失败默认归因于模型或“数据不够”</td></tr>
+          <tr><td><strong>架构与 Condition</strong></td><td>20%</td><td>能画 token、attention mask、condition 注入和 gradient path</td><td>把所有 VLA 都概括为“最后一个 hidden state 接 MLP”</td></tr>
+          <tr><td><strong>数据、标定与同步</strong></td><td>15%</td><td>能说明 timestamp、frame、单位、stats、外参版本和数据切分</td><td>只确认 shape 对得上，不确认物理语义</td></tr>
+          <tr><td><strong>控制与本体迁移</strong></td><td>15%</td><td>知道何时直接关节控制、何时用 task-space + IK/WBC/MPC，并能说明安全边界</td><td>认为换机器人只需 padding 到统一 DoF</td></tr>
+        </tbody></table></div>
+        <div class="card-grid three" style="margin-top:16px">
+          <article class="info-card"><span>LEVEL 1</span><h3>会复述</h3><p>知道论文模块和常用名词，但一追问 action 语义、数据时间轴或控制接口就回到概念描述。</p></article>
+          <article class="info-card"><span>LEVEL 2</span><h3>会实现</h3><p>能写训练和推理代码、跑通离线实验，也能解释主要张量与 loss，但真机问题定位经验有限。</p></article>
+          <article class="info-card"><span>LEVEL 3</span><h3>会闭环</h3><p>能定义跨模块契约、量化误差与延迟、设计最小证伪实验，并根据失败更新数据、模型或控制系统。</p></article>
+        </div>
+        <div class="memory-line"><strong>统一回答框架</strong><p>结论 → 输入输出契约 → 信息/梯度路径 → 训练与推理差异 → 真机验证 → 失败模式与取舍。</p></div>
+      </section>
+
+      <section class="section reveal" id="action">
+        <div class="section-heading"><p class="section-index">02 · ACTION REPRESENTATION</p><h2>先定义 Action，再讨论 Action Head</h2><p>同一个 <code>[B,H,D]</code> 可以表示完全不同的控制问题；shape 对了不代表策略接对了。</p></div>
+        <div class="table-scroll"><table class="shape-table"><thead><tr><th>必须定义</th><th>典型选项</th><th>面试追问</th><th>真机风险</th></tr></thead><tbody>
+          <tr><td><strong>控制变量</strong></td><td>joint position/velocity/torque；EE pose/delta；gripper；base velocity</td><td>模型输出的是 target、delta 还是 rate？对应什么控制器？</td><td>把 target 当 delta 会持续漂移；把位置当速度可能直接危险</td></tr>
+          <tr><td><strong>坐标系</strong></td><td>base、world、camera、wrist、task/object frame</td><td>平移和旋转分别在哪个 frame？左乘还是右乘？</td><td>稳定偏移、镜像、方向颠倒</td></tr>
+          <tr><td><strong>旋转表示</strong></td><td>Euler、quaternion、axis-angle、6D rotation</td><td>如何归一、处理 q/−q、奇异和连续性？</td><td>角度跨界跳变、IK 抖动</td></tr>
+          <tr><td><strong>时间语义</strong></td><td>当前动作、未来 H 步 chunk、绝对时间或相对间隔</td><td>H 步对应多少秒？从哪个 observation timestamp 起算？</td><td>训练/部署相位错位、动作滞后</td></tr>
+          <tr><td><strong>归一化</strong></td><td>mean/std、min-max、1–99% quantile、per-dataset stats</td><td>推理使用哪版 stats？超范围如何 clip？</td><td>离线正常、真机尺度异常</td></tr>
+          <tr><td><strong>执行语义</strong></td><td>commanded、filtered、IK target、executed/measured action</td><td>数据监督的是命令还是实测？二者延迟和误差多大？</td><td>模型被迫学习控制器跟踪误差</td></tr>
+        </tbody></table></div>
+
+        <div class="section-heading" style="margin-top:64px"><p class="section-index">GENERATION FAMILIES</p><h2>四类动作生成方法怎样取舍</h2></div>
+        <div class="table-scroll"><table class="shape-table"><thead><tr><th>方法</th><th>训练目标</th><th>优势</th><th>局限</th><th>适合场景</th></tr></thead><tbody>
+          <tr><td><strong>直接回归 / MSE</strong></td><td>最小化 ‖â−a‖²，近似条件均值</td><td>训练和推理快、实现简单、延迟低</td><td>多种合理动作并存时容易平均，产生“谁都不像”的轨迹</td><td>单峰、确定性强、低延迟任务；也可作为强基线</td></tr>
+          <tr><td><strong>自回归 Action Token</strong></td><td>离散化动作后做 next-token CE</td><td>复用 LLM 训练栈，易与语言/视觉 token 统一和规模化</td><td>量化误差；token-by-token 延迟和误差累积；高频长 chunk token 数大</td><td>低频动作或使用 FAST 等压缩 tokenizer</td></tr>
+          <tr><td><strong>Diffusion</strong></td><td>回归噪声、score 或 diffusion velocity</td><td>适合连续、高维、多峰 action chunk，训练稳定</td><td>多步去噪增加推理延迟；solver/schedule 影响结果</td><td>复杂操作、多解轨迹和离线模仿学习</td></tr>
+          <tr><td><strong>Flow Matching</strong></td><td>回归噪声到数据概率路径上的速度场</td><td>连续多峰生成；直线/OT 路径常可少步 ODE 积分</td><td>仍需迭代采样；步数、积分器与训练路径要匹配</td><td>π 系列、GR00T 和高维连续 chunk</td></tr>
+        </tbody></table></div>
+        <div class="qa-grid" style="margin-top:16px">
+          <article class="interview-card"><strong>Action token 的正确理解</strong><p>连续动作先归一化和离散化，再映射为词表 token。<b>token ID 是类别索引，不应直接当连续动作距离。</b>在 OpenVLA 一类标量分桶中，bin 与保留 token 可以按顺序映射，相邻 bin 对应相近标量；但 CE 对“错一个 bin”和“错很多 bin”没有天然距离感知。FAST 经 DCT、量化和 BPE 后，一个 token 还可能代表压缩的频域子序列，此时 ID 数值更无物理邻近意义。</p></article>
+          <article class="interview-card"><strong>为什么 MSE 会平均多峰？</strong><p>对固定 observation，如果专家可能从物体左侧或右侧绕行，平方误差的最优单点预测接近两种模式的均值，可能落在障碍物中。问题不是 MSE 数值不稳定，而是单点条件均值不能表达多峰分布；可改用 mixture、CVAE、Diffusion 或 Flow。</p></article>
+        </div>
+        <div class="memory-line"><strong>继续深挖</strong><p><a href="vla-loss.html">CE / MSE / Flow Loss →</a>　<a href="act.html">ACT 与 CVAE →</a>　<a href="dit.html">Diffusion / Flow / DiT →</a></p></div>
+      </section>
+
+      <section class="section reveal" id="condition">
+        <div class="section-heading split-heading"><div><p class="section-index">03 · CONDITION PATH</p><h2>VLM 怎么接 Action Head，要画信息路径</h2></div><p>“接一个 action head”不是完整架构描述；必须说明哪些表示作为 condition、在哪一层交互、怎样 mask，以及 action loss 的梯度流向哪里。</p></div>
+        <div class="e2e-pipeline">
+          <article><span>ENCODE</span><strong>Image · Language · State</strong><p>patch/token/vector 与时间信息</p><em>谁共享 backbone？</em></article><b>→</b>
+          <article><span>FUSE</span><strong>Condition Interface</strong><p>last hidden / pooled / prefix / cross-attn</p><em>空间和时序是否保留？</em></article><b>→</b>
+          <article><span>GENERATE</span><strong>Action Head / Expert</strong><p>regression · AR · DiT · Flow</p><em>预测什么参数化？</em></article><b>→</b>
+          <article><span>TRAIN</span><strong>Gradient Path</strong><p>freeze · LoRA · full FT · stop-grad</p><em>谁被 action loss 更新？</em></article>
+        </div>
+        <div class="table-scroll" style="margin-top:16px"><table class="shape-table"><thead><tr><th>Condition 方式</th><th>机制</th><th>优点</th><th>可能丢失什么</th></tr></thead><tbody>
+          <tr><td><strong>最后/池化 hidden state</strong></td><td>把 VLM 压成单个向量，送入 MLP/DiT</td><td>简单、计算便宜、接口稳定</td><td>细粒度空间位置、长 token 级对应关系</td></tr>
+          <tr><td><strong>Prefix / Joint Self-Attention</strong></td><td>观测 token 与动作 token 在同一序列交互，用 block mask 控制可见性</td><td>动作 token 可查询多模态上下文，表达细致</td><td>序列更长，mask、KV cache 和梯度路径更复杂</td></tr>
+          <tr><td><strong>Cross-Attention</strong></td><td>动作 query 对 VLM/视觉 token 做 K/V 检索</td><td>编码器—动作解码器职责清楚，便于缓存 condition</td><td>交互只发生在指定 cross-attn 层</td></tr>
+          <tr><td><strong>AdaLN / FiLM</strong></td><td>condition 生成每层 scale/shift/gate 调制动作网络</td><td>适合固定全局条件，计算高效</td><td>若 condition 过度池化，空间 token 细节难恢复</td></tr>
+        </tbody></table></div>
+        <div class="table-scroll" style="margin-top:16px"><table class="shape-table"><thead><tr><th>追问 Condition 时必须回答</th><th>具体问题</th></tr></thead><tbody>
+          <tr><td><strong>表示</strong></td><td>输入是单向量还是 token 序列？shape、模态顺序和位置/时间编码是什么？</td></tr>
+          <tr><td><strong>可见性</strong></td><td>谁能 attend 谁？动作内部是否双向？是否 causal？是否会看到未来信息？</td></tr>
+          <tr><td><strong>注入位置</strong></td><td>只在 action head 输入注入一次，还是每个 block 都注入？</td></tr>
+          <tr><td><strong>梯度</strong></td><td>action loss 更新 action head、projection、VLM 哪些层？mask 与 stop-gradient 是两回事。</td></tr>
+          <tr><td><strong>运行时</strong></td><td>condition 能否缓存？新 observation 到来时重算哪些 token？延迟占比多少？</td></tr>
+          <tr><td><strong>缺失与错位</strong></td><td>相机缺帧、state 延迟、语言为空时怎样 mask？训练是否覆盖这些情况？</td></tr>
+        </tbody></table></div>
+      </section>
+
+      <section class="section reveal" id="architectures">
+        <div class="section-heading"><p class="section-index">04 · ARCHITECTURE READING</p><h2>π₀、π₀.₅ 与 GR00T 应怎样讲</h2><p>不要只背“VLM + Action Head”；要说清专家、token、attention 和训练目标如何连接。</p></div>
+        <div class="table-scroll"><table class="shape-table"><thead><tr><th>架构</th><th>VLM 与动作模块的连接</th><th>动作生成</th><th>面试重点</th></tr></thead><tbody>
+          <tr><td><strong>π₀</strong></td><td>单个 Transformer 中有两套 expert 权重：图像/语言走 VLM expert，state/noisy action 走 action expert；两类 token 通过 self-attention 交互</td><td>Action Expert 对整段连续动作做 Flow Matching；动作 token 可看观测 prefix 和彼此</td><td>不是“取最后 hidden state 接 MLP”；blockwise mask、专家路由和 KV cache 都是架构的一部分</td></tr>
+          <tr><td><strong>π₀.₅</strong></td><td>预训练阶段还预测 FAST action token；后训练加入 Flow Action Expert。VLM prefix 到 action expert 是单向信息流，expert 不看 FAST action token</td><td>高层可自回归输出语义子任务；低层 Flow Expert 输出连续 50-step chunk</td><td>异构 co-training、高低层统一模型、FAST→Flow 两阶段，以及 mask 的真实作用边界</td></tr>
+          <tr><td><strong>GR00T N1</strong></td><td>VLM System 2 编码图像和语言，其输出与机器人 state/action encoding 一起送入 DiT System 1</td><td>DiT 使用 Flow Matching 产生高频连续 action chunk</td><td>功能上语义/动作模块清晰分工，但论文明确两者紧密耦合并端到端联合训练，不能说成完全独立系统</td></tr>
+        </tbody></table></div>
+        <div class="qa-grid" style="margin-top:16px">
+          <article class="interview-card"><strong>π₀ 为什么不是 last hidden + head？</strong><p>π₀ 为每个 noisy action timestep 构造动作 token，state 和动作进入较小 action expert，图像/语言 token 进入预训练 VLM expert；它们在同一个 Transformer 的 self-attention 中交换信息。动作块内部是双向 attention，动作 token 直接查询整个输入 prefix。</p></article>
+          <article class="interview-card"><strong>“Knowledge insulation”怎样严谨回答？</strong><p>π₀.₅ 的 attention mask 使 VLM embedding 不 attend action expert，信息从 VLM prefix 单向流向 Flow expert，并禁止 Flow action token 看 FAST action token以避免两种动作表示泄漏。可以把它理解为表征层面的隔离；但<b>mask 不等于 stop-gradient</b>，action expert 读取 VLM K/V 时，action loss 仍可能沿计算图影响上游。论文还通过 next-token 与 Web/高层数据联合训练维持语义能力。</p></article>
+          <article class="interview-card"><strong>GR00T 的“解耦”是什么？</strong><p>System 2 负责视觉语言语义表示，System 1 的 DiT 负责高频连续控制，因此模块职责和动作参数化是解耦的；但它不是两个完全分离、只靠文本通信的服务，官方论文称其 tightly coupled、jointly trained end-to-end。</p></article>
+          <article class="interview-card"><strong>比较架构不能漏什么？</strong><p>除了 backbone 名称，还应比较 action space、chunk 长度/频率、condition 粒度、训练目标、attention mask、梯度范围、采样步数、缓存方式、跨本体适配和在线延迟。</p></article>
+        </div>
+        <div class="callout warning"><strong>不要把论文概念口号化</strong><p>“知识隔离”“语义动作解耦”“快慢系统”都要落到可执行问题：是哪组 token 不可见？哪个 loss 更新哪些参数？两个模块交换什么张量？交换频率、时间戳和失败返回是什么？</p></div>
+        <div class="memory-line"><strong>继续深挖</strong><p><a href="pi-series.html">π 系列 →</a>　<a href="vla-interview.html">VLA 架构总览 →</a>　<a href="attention.html">Attention Mask →</a></p></div>
+      </section>
+
+      <section class="section reveal" id="wam">
+        <div class="section-heading split-heading"><div><p class="section-index">05 · VLA VS WAM</p><h2>一个回答“做什么”，一个评估“做了会怎样”</h2></div><p>这是功能定位，不是绝对二分；World-Action Model 也可能联合生成未来表示和动作。</p></div>
+        <div class="formula large">VLA: p(A | o, ℓ)　　World Model: p(o′ or z′ | o, A)　　Planning: argmax<sub>A</sub> Score(ŏ′)</div>
+        <div class="table-scroll" style="margin-top:16px"><table class="shape-table"><thead><tr><th>维度</th><th>直接 VLA</th><th>WAM / Action-conditioned World Model</th></tr></thead><tbody>
+          <tr><td><strong>主要输出</strong></td><td>动作或 action chunk</td><td>未来像素、latent、状态；部分模型也联合预测动作</td></tr>
+          <tr><td><strong>决策方式</strong></td><td>观测到动作的摊销映射，一次/少步生成</td><td>预测候选动作后果，再规划、排序或反事实比较</td></tr>
+          <tr><td><strong>优势</strong></td><td>链路短、推理直接、容易达到实时控制</td><td>显式建模动力学，可做候选评估、安全检查和更丰富预训练</td></tr>
+          <tr><td><strong>风险</strong></td><td>缺少显式后果模型，失败原因较难解释</td><td>预测误差复合；视觉上合理不等于物理可执行；视频生成成本高</td></tr>
+          <tr><td><strong>关键评测</strong></td><td>任务成功、轨迹质量、反应延迟</td><td>除任务成功外还要验证 action sensitivity、时序一致性和反事实排序能力</td></tr>
+        </tbody></table></div>
+        <div class="qa-grid" style="margin-top:16px">
+          <article class="interview-card"><strong>WAM 怎么用于安全检查？</strong><p>前提是模型对 action 条件敏感。对多个候选 action rollout 未来状态，检查碰撞、工作空间、接触或任务风险，再选择/否决候选；高风险约束仍应由几何碰撞检测和底层安全控制器兜底，不能只信生成视频。</p></article>
+          <article class="interview-card"><strong>怎样识别世界模型没学 action？</strong><p>固定 observation，系统性改变 action，检查未来预测是否按物理方向变化；用 action shuffle、zero-action、反向 action 和真实下一状态对照。若各种 action 产生相似未来，模型可能主要依赖视觉先验。</p></article>
+        </div>
+        <div class="memory-line"><strong>继续深挖</strong><p><a href="wam.html">WAM、LaWAM 与 VLA 完整对比 →</a></p></div>
+      </section>
+
+      <section class="section reveal" id="dual-system">
+        <div class="section-heading"><p class="section-index">06 · FAST / SLOW SYSTEM</p><h2>快慢系统的核心是接口，不是两个模型名字</h2><p>慢系统给出可验证的意图和约束；快系统负责实时闭环，并持续返回进度与失败原因。</p></div>
+        <div class="e2e-pipeline">
+          <article><span>SLOW · 0.1–2 Hz</span><strong>Memory & Planning</strong><p>语义理解、场景记忆、任务分解、子目标</p><em>不直接承担高频稳定控制</em></article><b>→ typed contract →</b>
+          <article class="accent"><span>FAST · 20–1000 Hz</span><strong>Policy & Control</strong><p>局部避障、跟踪、接触响应、控制与安全</p><em>频率取决于 policy/controller 层级</em></article><b>→ feedback →</b>
+          <article><span>MONITOR</span><strong>Progress & Failure</strong><p>完成度、超时、不可达、碰撞、重规划请求</p><em>形成闭环而非单向下发</em></article>
+        </div>
+        <div class="table-scroll" style="margin-top:16px"><table class="shape-table"><thead><tr><th>慢系统输出</th><th>最小字段</th><th>适合任务</th><th>快系统职责</th></tr></thead><tbody>
+          <tr><td><strong>Object goal</strong></td><td>object/receptacle ID、置信度、场景版本</td><td>“拿起指定杯子”“放入抽屉”</td><td>目标定位、抓取候选、局部执行</td></tr>
+          <tr><td><strong>Waypoint</strong></td><td>position、orientation、frame_id、timestamp、tolerance</td><td>导航、预抓取、绕障</td><td>轨迹生成、动态避障和跟踪</td></tr>
+          <tr><td><strong>Skill</strong></td><td>skill_id、参数、precondition、success/failure、timeout</td><td>抓、放、开门、擦拭等技能库</td><td>选择控制模式，执行并返回结构化结果</td></tr>
+          <tr><td><strong>Target pose / constraint</strong></td><td>SE(3) target、速度/力约束、坐标系和标定版本</td><td>精细末端操作</td><td>IK/WBC/MPC、限幅和接触控制</td></tr>
+        </tbody></table></div>
+        <pre><code>{
+  "goal_type": "target_pose",
+  "target": {"position": [x, y, z], "quaternion": [qx, qy, qz, qw]},
+  "frame_id": "robot_base",
+  "observation_timestamp": 1730000000.125,
+  "scene_version": 42,
+  "calibration_version": "cam_base_2026_08_20",
+  "tolerance": {"translation_m": 0.01, "rotation_rad": 0.08},
+  "timeout_s": 4.0,
+  "success": "object_grasped",
+  "failure": ["unreachable", "collision_risk", "target_lost", "timeout"]
+}</code></pre>
+        <div class="callout"><strong>好接口的判断标准</strong><p>可解释、可版本化、可超时、可拒绝、可回放。只传一个 <code>[x,y,z]</code> 或自然语言字符串，缺少 frame、timestamp、场景版本和完成条件，系统就很难稳定 Debug。</p></div>
+      </section>
+
+      <section class="section reveal" id="debug">
+        <div class="section-heading split-heading"><div><p class="section-index">07 · REAL-ROBOT DEBUG</p><h2>真机 Debug 要拆成七段链路</h2></div><p>每一段都保存输入、输出、时间戳和版本，才能确定误差第一次出现在哪里。</p></div>
+        <div class="e2e-pipeline">
+          <article><span>01</span><strong>Sensor</strong><p>原始 RGB-D、state、tactile</p><em>timestamp · health</em></article><b>→</b>
+          <article><span>02</span><strong>Preprocess</strong><p>resize、normalize、frame transform</p><em>stats · calibration</em></article><b>→</b>
+          <article><span>03</span><strong>Model</strong><p>raw action / token / chunk</p><em>checkpoint · condition</em></article><b>→</b>
+          <article><span>04</span><strong>Postprocess</strong><p>decode、unnormalize、filter、clip</p><em>unit · frame</em></article><b>→</b>
+          <article><span>05</span><strong>Controller</strong><p>IK/WBC/PID 与 command</p><em>queue · limits</em></article><b>→</b>
+          <article><span>06</span><strong>Robot</strong><p>measured q / pose / current</p><em>tracking error</em></article><b>→</b>
+          <article><span>07</span><strong>Environment</strong><p>contact、object motion、task state</p><em>success · failure</em></article>
+        </div>
+        <div class="table-scroll" style="margin-top:16px"><table class="shape-table"><thead><tr><th>每次 rollout 应记录</th><th>用途</th></tr></thead><tbody>
+          <tr><td><strong>统一时间线</strong>：sensor capture、model start/end、command enqueue/send、robot feedback</td><td>定位感知、推理、队列和执行延迟；计算 P50/P95/P99</td></tr>
+          <tr><td><strong>三条动作</strong>：raw model output、postprocessed/controller command、measured motion</td><td>判断抖动/偏差第一次出现在哪一层</td></tr>
+          <tr><td><strong>坐标与版本</strong>：frame_id、TCP、外参、深度尺度、stats、checkpoint、代码 commit</td><td>重放同一数据并避免“换了配置却以为模型变了”</td></tr>
+          <tr><td><strong>控制状态</strong>：IK residual、joint limits、collision flags、saturation、queue depth</td><td>识别控制器裁剪、奇异、限幅和动作积压</td></tr>
+          <tr><td><strong>任务事件</strong>：接触、抓住、滑移、目标丢失、人工接管、终止原因</td><td>把整条失败定位到阶段并形成数据飞轮</td></tr>
+        </tbody></table></div>
+        <div class="memory-line"><strong>Debug 原则</strong><p>先找到“第一个不符合预期的中间变量”，再修改对应层。不要同时换标定、滤波、checkpoint 和控制增益，否则即使成功也不知道原因。</p></div>
+      </section>
+
+      <section class="section reveal" id="symptoms">
+        <div class="section-heading"><p class="section-index">08 · SYMPTOM → ROOT CAUSE</p><h2>从症状设计最小证伪实验</h2></div>
+        <div class="table-scroll"><table class="shape-table"><thead><tr><th>症状</th><th>优先检查</th><th>最小实验</th><th>不要先做</th></tr></thead><tbody>
+          <tr><td><strong>每次都稳定抓偏同一方向</strong></td><td>相机内外参、base↔camera、TCP、深度尺度、图像 crop/resize 映射</td><td>固定标定点和 AprilTag；将 3D 目标投影回图像；低速走到多个已知点测系统偏差</td><td>直接重新训练或增加随机增强</td></tr>
+          <tr><td><strong>raw action 平滑，机器人抖</strong></td><td>反归一化、绝对/增量语义、IK 支路、控制增益、发送周期、网络 jitter</td><td>并排画 raw→command→measured；先空载低速回放同一 command</td><td>把模型 loss 换成更强平滑项</td></tr>
+          <tr><td><strong>raw action 本身抖</strong></td><td>观测抖动、时间错位、chunk 边界、采样噪声、condition 是否变化</td><td>冻结 observation 重复推理；比较同 seed/不同 seed；画相邻 chunk 重叠区</td><td>只调 PID</td></tr>
+          <tr><td><strong>离线 loss 好、真机差</strong></td><td>数据泄漏、预处理/stats 不一致、action target 与 executed 不一致、covariate shift</td><td>保存真机 observation 离线重放；逐 tensor 比较训练和部署 pipeline</td><td>只报告 validation loss</td></tr>
+          <tr><td><strong>反应总是慢半拍</strong></td><td>相机曝光/缓冲、推理时延、action queue、训练 target 是否做 latency matching</td><td>用突发事件测 capture→command→motion 时间线；改变执行 horizon</td><td>盲目提高控制频率</td></tr>
+          <tr><td><strong>仅接触阶段失败</strong></td><td>触觉/力信号同步、接触状态分布、刚度/摩擦、动作频率和安全裁剪</td><td>分阶段统计；回放同一预接触轨迹，改变末端速度/力阈值</td><td>把所有失败归因于视觉</td></tr>
+          <tr><td><strong>换场景或光照立即失效</strong></td><td>视觉分布、曝光/白平衡、crop、语言目标绑定、背景捷径</td><td>固定几何只变光照/背景；feature 可视化和对照增强</td><td>把它叫作“Sim2Real”后停止分析</td></tr>
+        </tbody></table></div>
+        <div class="qa-grid" style="margin-top:16px">
+          <article class="interview-card"><strong>轨迹抖动怎么判断来自模型还是控制？</strong><p>画三条同一时间轴曲线：模型原始输出 a<sub>raw</sub>、控制器接收命令 a<sub>cmd</sub>、机器人实测 a<sub>meas</sub>。若 raw 已抖，查观测/模型/chunk；raw 平滑而 cmd 抖，查后处理/IK；cmd 平滑而 measured 抖，查通信、控制器和机构。</p></article>
+          <article class="interview-card"><strong>稳定偏差为什么先查标定？</strong><p>稳定、可重复、方向一致的误差更像确定性系统偏置，而非策略随机性。可用多点位姿误差拟合：常量平移提示 TCP/外参，随距离放大提示尺度，随姿态旋转提示 frame 或旋转外参。</p></article>
+        </div>
+      </section>
+
+      <section class="section reveal" id="migration">
+        <div class="section-heading split-heading"><div><p class="section-index">09 · NEW EMBODIMENT</p><h2>新机器人迁移先设计中间动作接口</h2></div><p>“不要直接输出 30+ DoF”不是绝对定律，而是跨本体、数据有限和安全要求较高时更稳健的工程默认。</p></div>
+        <div class="table-scroll"><table class="shape-table"><thead><tr><th>输出层级</th><th>优势</th><th>代价</th><th>什么时候选</th></tr></thead><tbody>
+          <tr><td><strong>全关节动作</strong><small>30+ DoF q / dq</small></td><td>可利用本体冗余和整身协调，端到端上限高</td><td>强本体绑定、数据需求大、关节限位/碰撞和安全负担重</td><td>本体固定、数据充足、低层控制和安全系统成熟</td></tr>
+          <tr><td><strong>任务空间动作</strong><small>EE pose / delta / wrench</small></td><td>跨机械臂迁移更自然，语义和几何清晰</td><td>需要 IK/WBC；可能丢失零空间姿态和灵巧手细节</td><td>新机械臂、跨本体预训练、需要可解释约束</td></tr>
+          <tr><td><strong>Waypoint / trajectory</strong></td><td>便于规划、碰撞检测、时间参数化和人工检查</td><td>对快速接触反应不足，依赖局部控制器</td><td>导航、预抓取、长时程子目标</td></tr>
+          <tr><td><strong>Skill + parameters</strong></td><td>接口稳定、可复用、易加入成功失败条件</td><td>能力受技能库覆盖限制，端到端灵活性下降</td><td>产品系统、安全敏感和长时程任务</td></tr>
+          <tr><td><strong>手部 synergy / latent</strong></td><td>降低灵巧手高维动作空间，便于跨手型映射</td><td>可能限制精细独立指控制</td><td>数据有限的灵巧手、手势/抓型迁移</td></tr>
+        </tbody></table></div>
+        <div class="e2e-pipeline" style="margin-top:16px">
+          <article><span>01</span><strong>定义本体契约</strong><p>DoF、限位、control mode、state/action names</p><em>不能只 padding</em></article><b>→</b>
+          <article><span>02</span><strong>统一时空接口</strong><p>frame、TCP、单位、timestamp、frequency</p><em>建立 adapter</em></article><b>→</b>
+          <article><span>03</span><strong>重定向与可达性</strong><p>task-space → IK/WBC/MPC</p><em>collision · singularity</em></article><b>→</b>
+          <article><span>04</span><strong>数据与训练</strong><p>通用数据 + 新本体补采 + adapter/fine-tune</p><em>覆盖失败与恢复</em></article><b>→</b>
+          <article><span>05</span><strong>分级验证</strong><p>离线 → 仿真 → 空载 → 低速 → 完整任务</p><em>safety gate</em></article>
+        </div>
+        <div class="table-scroll" style="margin-top:16px"><table class="shape-table"><thead><tr><th>迁移问题</th><th>需要回答</th><th>验证证据</th></tr></thead><tbody>
+          <tr><td><strong>Action adapter</strong></td><td>源数据的关节/末端动作怎样变成新本体目标？保留哪些 task-space invariance？</td><td>离线轨迹可达率、IK residual、joint velocity/limit violation</td></tr>
+          <tr><td><strong>Observation adapter</strong></td><td>相机视角、分辨率、state 维度和触觉模态怎样对齐？</td><td>训练/部署 tensor parity、投影叠加、缺失模态测试</td></tr>
+          <tr><td><strong>控制接口</strong></td><td>VLA 输出频率与 WBC/PID 频率怎样衔接？插值、保持和超时策略是什么？</td><td>tracking error、latency、queue depth、saturation</td></tr>
+          <tr><td><strong>补采数据</strong></td><td>哪些是本体特定数据：极限姿态、接触动力学、恢复、手型映射？</td><td>按失败类别的数据覆盖和受控消融</td></tr>
+          <tr><td><strong>安全验证</strong></td><td>速度/力/工作空间/自碰撞限制，通信丢失和模型异常怎样 fail-safe？</td><td>单元测试、仿真注错、硬件限幅、急停和回归清单</td></tr>
+        </tbody></table></div>
+        <div class="callout warning"><strong>保留反例</strong><p>π₀.₅ 等系统确实可以直接预测多维关节/末端目标，再由简单 PD 以高频跟踪。直接控制不是错误；关键问题是是否有足够同本体数据、统一 action schema、成熟安全约束和可接受的迁移成本。回答应说明条件，而不是给绝对结论。</p></div>
+      </section>
+
+      <section class="section reveal" id="boundaries">
+        <div class="section-heading"><p class="section-index">10 · FAULT BOUNDARIES</p><h2>模型、数据、标定和控制接口怎样拆开</h2></div>
+        <div class="table-scroll"><table class="shape-table"><thead><tr><th>层</th><th>它负责什么</th><th>可观测证据</th><th>典型错误</th><th>最小隔离方法</th></tr></thead><tbody>
+          <tr><td><strong>数据</strong></td><td>训练分布、标签、时间窗口、成功失败和统计量</td><td>episode 回放、schema、timestamp、分布报告</td><td>错位、泄漏、动作语义混合、长尾缺失</td><td>固定模型，抽样人工审计并重放训练 sample</td></tr>
+          <tr><td><strong>标定</strong></td><td>传感器、机器人、TCP 和对象间几何关系</td><td>重投影误差、多点位姿残差、变换闭环</td><td>稳定偏差、轴反、尺度错误</td><td>不用模型，执行已知几何点位</td></tr>
+          <tr><td><strong>模型</strong></td><td>从条件到动作分布或未来预测</td><td>raw output、condition ablation、离线 rollout</td><td>模式平均、忽略语言/状态、OOD</td><td>冻结输入重复推理；替换 condition 做反事实</td></tr>
+          <tr><td><strong>后处理</strong></td><td>decode、反归一化、frame conversion、filter、clip</td><td>raw 与 physical action 的逐维对照</td><td>单位、顺序、绝对/增量、裁剪错误</td><td>用手工 action 穿过同一 processor</td></tr>
+          <tr><td><strong>控制接口</strong></td><td>IK/WBC/MPC/PID、频率、队列和约束</td><td>command、IK residual、saturation、tracking error</td><td>支路跳变、奇异、增益/频率不匹配</td><td>低速回放已知平滑轨迹</td></tr>
+          <tr><td><strong>硬件/环境</strong></td><td>执行器、机构、摩擦、接触和对象变化</td><td>encoder、电流、力、温度、视觉结果</td><td>回差、打滑、过热、柔性形变</td><td>重复同一命令，比较空载/负载和不同对象</td></tr>
+        </tbody></table></div>
+        <div class="callout"><strong>系统思维</strong><p>一条失败可以同时跨层，但 Root Cause Analysis 仍要找“最早出现异常的层”。例如目标 pose 已经偏了，就先解决感知/标定；目标正确但 IK command 跳变，才进入控制接口；command 平滑而实测抖动，再查控制器与硬件。</p></div>
+      </section>
+
+      <section class="section reveal" id="question-bank">
+        <div class="section-heading split-heading"><div><p class="section-index">11 · LAYERED QUESTION BANK</p><h2>我会重点问的十四个问题</h2></div><p>主问题确认基础，追问确认是否真正理解，证据问题确认是否亲自做过。</p></div>
+        <div class="table-scroll"><table class="shape-table"><thead><tr><th>主问题</th><th>递进追问</th><th>强回答信号</th></tr></thead><tbody>
+          <tr><td><strong>1. 你的 action 到底是什么？</strong></td><td>frame、unit、absolute/delta、H、Hz、commanded/executed？</td><td>先给完整数据契约，再谈模型</td></tr>
+          <tr><td><strong>2. 同一观测有多种正确动作怎么办？</strong></td><td>MSE 为什么平均？CVAE/DP/FM 各怎样表示多峰？</td><td>能用条件分布和具体轨迹例子解释</td></tr>
+          <tr><td><strong>3. Action token 是否保留动作距离？</strong></td><td>标量分桶、词表映射、CE、FAST/DCT/BPE 有何区别？</td><td>区分 bin 顺序、token ID 和 loss geometry</td></tr>
+          <tr><td><strong>4. VLM 表示怎样进入 action model？</strong></td><td>哪个 token/层？Cross-Attn 还是 joint attention？condition 能否缓存？</td><td>能画 shape、mask 和信息流</td></tr>
+          <tr><td><strong>5. Action loss 更新 VLM 吗？</strong></td><td>freeze/LoRA/full FT/stop-grad？mask 是否等于阻断梯度？</td><td>能沿计算图解释梯度，不靠口号</td></tr>
+          <tr><td><strong>6. π₀ 为什么不是最后 hidden 接 head？</strong></td><td>两套 expert 权重如何通过 self-attention 交互？</td><td>提到 token routing、block mask、noisy action token</td></tr>
+          <tr><td><strong>7. π₀.₅ 相比 π₀ 改了什么？</strong></td><td>FAST 预训练、Flow 后训练、HL/WD、单向 mask 各解决什么？</td><td>能区分训练阶段与推理阶段</td></tr>
+          <tr><td><strong>8. GR00T 的快慢/双系统如何连接？</strong></td><td>为什么说功能解耦但仍端到端联合训练？</td><td>知道 VLM output + state/action encoding → DiT</td></tr>
+          <tr><td><strong>9. VLA 和 WAM 的区别？</strong></td><td>怎样做反事实和候选评分？怎么验证模型真正使用 action？</td><td>提出 action intervention 与真实后果评测</td></tr>
+          <tr><td><strong>10. 慢系统该给快系统什么？</strong></td><td>消息字段、频率、frame、timestamp、success/failure、timeout？</td><td>给出 typed contract，而非“传子目标”</td></tr>
+          <tr><td><strong>11. 真机一直稳定抓偏怎么查？</strong></td><td>怎样区分外参、TCP、深度尺度和模型偏差？</td><td>先做无模型多点几何验证</td></tr>
+          <tr><td><strong>12. 轨迹抖动怎么定位？</strong></td><td>raw output、command 和 measured motion 哪条先抖？</td><td>统一时间轴、逐层证伪</td></tr>
+          <tr><td><strong>13. 离线好、线上差怎么查？</strong></td><td>预处理 parity、stats、延迟、queue、covariate shift？</td><td>保存线上输入离线重放并逐 tensor 对比</td></tr>
+          <tr><td><strong>14. 模型迁移到 30+ DoF 新机器人？</strong></td><td>为何选 task-space/skill/full joint？IK/WBC、安全和补数怎么做？</td><td>说明选择条件、接口、验收指标和分级上线</td></tr>
+        </tbody></table></div>
+        <div class="memory-line"><strong>判断是否“亲自做过”</strong><p>继续问一个具体失败、当时看到的日志/曲线、最小验证实验、最终修改和指标变化。真实工程经历通常包含不完美的中间过程，而不只是顺滑的最终架构。</p></div>
+      </section>
+
+      <section class="section reveal" id="cases">
+        <div class="section-heading"><p class="section-index">12 · ONSITE CASES</p><h2>四道现场系统题</h2><p>不要求唯一答案，重点观察假设、测量、优先级和安全意识。</p></div>
+        <div class="qa-grid">
+          <article class="interview-card"><strong>Case A · 抓取点始终向右偏 3 cm</strong><p><b>期望路径：</b>先确认偏差是否随深度/姿态变化；检查 RGB-D 对齐、depth unit、camera→base 外参、TCP；用多个已知 3D 点验证变换与重投影。几何链正确后，再固定 observation 查看模型 raw target 是否已偏。<br><b>加分：</b>能从误差模式判断常量偏置、尺度或旋转误差。</p></article>
+          <article class="interview-card"><strong>Case B · 每个 action chunk 交界处抖一下</strong><p><b>期望路径：</b>画相邻 chunk 的重叠区、队列索引和实际发送时间；检查是否从错误 offset 开始执行、旧新 chunk 是否直接覆盖；对比 temporal ensemble、prefix/inpainting RTC 或缩短执行 horizon。<br><b>加分：</b>同时评估平滑和响应速度，而非只加低通。</p></article>
+          <article class="interview-card"><strong>Case C · 新机器人关节数翻倍</strong><p><b>期望路径：</b>先选跨本体 action interface，而非直接 zero-pad；优先评估任务空间末端/手部 synergy + IK/WBC，建立 action/state adapter；离线检查可达率、碰撞与速度，再采集本体特定数据微调。<br><b>加分：</b>能说明何时全关节端到端更合适。</p></article>
+          <article class="interview-card"><strong>Case D · WAM 预测视频很好但控制没提升</strong><p><b>期望路径：</b>检查未来预测是否 action-sensitive，而非仅复现视觉先验；比较候选动作的排序与真实 rollout；区分像素质量和任务相关 latent；检查规划延迟与模型误差是否抵消收益。<br><b>加分：</b>提出 action shuffle/zero-action/反向 action 干预。</p></article>
+        </div>
+        <div class="callout warning"><strong>一票否决式危险信号</strong><p>无法说明 action 单位/坐标；真机未做安全限幅和超时；把内部未完成工作包装成完整复现；把他人系统贡献当个人成果；遇到问题同时修改多层且没有对照；只展示成功视频而没有失败分类和固定评测。</p></div>
+      </section>
+
+      <section class="section reveal" id="sources">
+        <div class="section-heading"><p class="section-index">13 · PRIMARY SOURCES</p><h2>架构判断对应的一手资料</h2><p>页面中的工程评估框架是基于这些模型事实做出的系统化整理；模型版本会继续演进。</p></div>
+        <div class="source-grid">
+          <article><span>ACTION EXPERT</span><h3>π₀</h3><p>两套 expert 权重、blockwise attention、Flow action chunk 与 KV cache。</p><a href="https://www.physicalintelligence.company/download/pi0.pdf" target="_blank" rel="noopener">阅读论文 ↗</a></article>
+          <article><span>HYBRID TRAINING</span><h3>π₀.₅</h3><p>FAST 预训练、Flow 后训练、高层推理和单向 attention mask。</p><a href="https://www.physicalintelligence.company/download/pi05.pdf" target="_blank" rel="noopener">阅读论文 ↗</a></article>
+          <article><span>DUAL SYSTEM</span><h3>GR00T N1</h3><p>VLM System 2 与 Flow/DiT System 1 的组合及联合训练。</p><a href="https://arxiv.org/abs/2503.14734" target="_blank" rel="noopener">阅读论文 ↗</a></article>
+          <article><span>ACTION TOKEN</span><h3>OpenVLA Tokenizer</h3><p>连续动作分桶并映射到 VLM 词表保留 token 的官方实现。</p><a href="https://github.com/openvla/openvla/blob/main/prismatic/vla/action_tokenizer.py" target="_blank" rel="noopener">查看源码 ↗</a></article>
+          <article><span>ACTION COMPRESSION</span><h3>FAST</h3><p>DCT、量化和 BPE 压缩高频 action chunk，并分析 AR 推理取舍。</p><a href="https://arxiv.org/abs/2501.09747" target="_blank" rel="noopener">阅读论文 ↗</a></article>
+          <article><span>WORLD-ACTION MODEL</span><h3>WAM 专题来源</h3><p>World Model、LaWAM、future-conditioned action 与 VLA 对比。</p><a href="wam.html">打开本站 WAM 专题 →</a></article>
+          <article><span>DATA CONTRACT</span><h3>LeRobot 数据</h3><p>v2.1/v3、metadata、时间窗口、UMI 对齐和失败数据。</p><a href="lerobot-data.html">打开本站数据专题 →</a></article>
+          <article><span>REAL-TIME</span><h3>RTC</h3><p>同步 action chunk、异步推理、inpainting 与 prefix conditioning。</p><a href="rtc.html">打开本站 RTC 专题 →</a></article>
+        </div>
+      </section>
+
+      <footer class="footer">
+        <span>具身智能算法岗 · 面试官视角</span>
+        <nav class="footer-links"><a href="resume-end-to-end.html">下一页：项目证据主线 →</a><a href="index.html">返回 Main</a></nav>
+      </footer>
+    </main>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>

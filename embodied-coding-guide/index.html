@@ -44,9 +44,9 @@
         <div>
           <p class="kicker">One System · Multiple Interview Angles</p>
           <h1>把传感器、数据、模型和控制<br><em>串成一条主线</em></h1>
-          <p class="hero-lead">具身面试不是十六个互不相关的专题问答。真正的主线始终是：机器人如何获得同步观测，怎样形成可学习的数据，模型如何生成连续动作，动作怎样在实时控制器中闭环执行，最后如何用任务指标证明有效。</p>
+          <p class="hero-lead">具身面试不是十七个互不相关的专题问答。真正的主线始终是：机器人如何获得同步观测，怎样形成可学习的数据，模型如何生成连续动作，动作怎样在实时控制器中闭环执行，最后如何用任务指标证明有效。</p>
           <div class="hero-actions"><a class="primary-button" href="#knowledge-map">先看系统地图 ↓</a><a class="ghost-button" href="#ditflow">进入 DiTFlow 源码主线 ↗</a></div>
-          <div class="hero-stats"><div><strong>16</strong><span>专题模块</span></div><div><strong>5</strong><span>系统层级</span></div><div><strong>4</strong><span>复习路线</span></div><div><strong>1</strong><span>统一 Main</span></div></div>
+          <div class="hero-stats"><div><strong>17</strong><span>专题模块</span></div><div><strong>5</strong><span>系统层级</span></div><div><strong>4</strong><span>复习路线</span></div><div><strong>1</strong><span>统一 Main</span></div></div>
         </div>
         <div class="hero-board hub-hero-board">
           <div class="terminal-head"><span class="terminal-dots"><i></i><i></i><i></i></span><span>embodied_system.forward(task)</span></div>
@@ -64,7 +64,7 @@
       <section class="section reveal" id="knowledge-map">
         <div class="section-heading split-heading"><div><p class="section-index">01 · GLOBAL SYSTEM MAP</p><h2>所有知识点放回五层系统</h2></div><p>遇到陌生模型时，先判断它改的是哪一层、上一层给它什么、下一层怎样使用。</p></div>
         <div class="hub-layer-map">
-          <article><span>LAYER 01 · TASK & EVIDENCE</span><strong>任务定义与证据边界</strong><p>定义成功、失败、MAE、延迟和泛化；明确论文贡献、复现工作与个人职责。</p><div><a href="resume-end-to-end.html">简历项目主线</a><a href="vla-interview.html#action">动作空间</a></div></article>
+          <article><span>LAYER 01 · TASK & EVIDENCE</span><strong>任务定义与证据边界</strong><p>定义成功、失败、MAE、延迟和泛化；明确论文贡献、复现工作与个人职责。</p><div><a href="resume-end-to-end.html">简历项目主线</a><a href="interviewer-view.html">面试判断</a><a href="vla-interview.html#action">动作空间</a></div></article>
           <b>↓ 任务决定需要什么数据</b>
           <article><span>LAYER 02 · SENSOR & DATA</span><strong>观测、同步、标定与数据组织</strong><p>机械臂、灵巧手、RGB-D、VR/Tracker 与触觉在统一时钟和坐标系中形成 episode。</p><div><a href="tactile-interview.html">触觉系统</a><a href="lerobot-data.html">LeRobot 数据</a><a href="resume-end-to-end.html#data">项目数据工程</a></div></article>
           <b>↓ 数据决定模型能学到什么</b>
@@ -88,12 +88,12 @@
       </section>
 
       <section class="section reveal" id="module-groups">
-        <div class="section-heading"><p class="section-index">03 · MODULE GROUPS</p><h2>十六个专题，归入四个知识簇</h2></div>
+        <div class="section-heading"><p class="section-index">03 · MODULE GROUPS</p><h2>十七个专题，归入四个知识簇</h2></div>
         <div class="hub-module-groups">
           <article><div><span>FOUNDATION</span><h3>序列建模与目标函数</h3><p>回答“信息怎样交换、网络究竟监督什么”。</p></div><ul><li><a href="attention.html"><strong>Attention</strong><small>QKV、Mask、PE、KV Cache</small></a></li><li><a href="transformer.html"><strong>Transformer</strong><small>Encoder–Decoder、Pre-Norm、Teacher Forcing</small></a></li><li><a href="vla-loss.html"><strong>Loss</strong><small>CE、MSE、Flow、Action Chunk</small></a></li></ul></article>
           <article class="accent"><div><span>ACTION POLICY</span><h3>动作序列生成</h3><p>回答“为什么输出一段动作，怎样表达多模态轨迹”。</p></div><ul><li><a href="act.html"><strong>ACT</strong><small>CVAE、DETR Query、Temporal Ensemble</small></a></li><li><a href="#ditflow"><strong>DiTFlow</strong><small>已完整并入 Main：条件、训练、采样、队列</small></a></li><li><a href="dit.html"><strong>DiT</strong><small>adaLN-Zero、DDPM 与 Action Flow</small></a></li><li><a href="rtc.html"><strong>RTC</strong><small>异步推理、inpainting、prefix conditioning</small></a></li></ul></article>
           <article><div><span>VLA · WAM · MULTIMODAL</span><h3>大模型、世界模型与多模态策略</h3><p>回答“语义知识、未来动力学如何与连续动作结合”。</p></div><ul><li><a href="vla-interview.html"><strong>VLA 总览</strong><small>架构、数据、微调、Sim2Real</small></a></li><li><a href="wam.html"><strong>WAM</strong><small>World Model、LaWAM、future-conditioned action</small></a></li><li><a href="pi-series.html"><strong>π 系列</strong><small>Flow Expert、FAST、开放世界与 RL</small></a></li><li><a href="wall-oss.html"><strong>WALL</strong><small>MoT、Gradient Bridge、跨本体</small></a></li><li><a href="at-vla.html"><strong>AT-VLA</strong><small>触觉门控、Adaptive Query、快慢双流</small></a></li></ul></article>
-          <article><div><span>ENGINEERING & INTERVIEW</span><h3>数据、真机与代码能力</h3><p>回答“系统是否真正跑通、个人证据是什么”。</p></div><ul><li><a href="resume-end-to-end.html"><strong>简历项目</strong><small>QTac、数采、遥操作、部署闭环</small></a></li><li><a href="lerobot-data.html"><strong>LeRobot 数据</strong><small>v2.1/v3、UMI 对齐、失败数据与面经</small></a></li><li><a href="tactile-interview.html"><strong>触觉工程</strong><small>选型、标定、数据流、故障诊断</small></a></li><li><a href="rl.html"><strong>强化学习</strong><small>DQN、Double DQN、SAC</small></a></li><li><a href="leetcode.html"><strong>算法题</strong><small>BFS、DFS、DP 与字符串</small></a></li></ul></article>
+          <article><div><span>ENGINEERING & INTERVIEW</span><h3>数据、真机与代码能力</h3><p>回答“系统是否真正跑通、个人证据是什么”。</p></div><ul><li><a href="interviewer-view.html"><strong>面试官视角</strong><small>Action、Condition、真机 Debug 与本体迁移</small></a></li><li><a href="resume-end-to-end.html"><strong>简历项目</strong><small>QTac、数采、遥操作、部署闭环</small></a></li><li><a href="lerobot-data.html"><strong>LeRobot 数据</strong><small>v2.1/v3、UMI 对齐、失败数据与面经</small></a></li><li><a href="tactile-interview.html"><strong>触觉工程</strong><small>选型、标定、数据流、故障诊断</small></a></li><li><a href="rl.html"><strong>强化学习</strong><small>DQN、Double DQN、SAC</small></a></li><li><a href="leetcode.html"><strong>算法题</strong><small>BFS、DFS、DP 与字符串</small></a></li></ul></article>
         </div>
       </section>
 

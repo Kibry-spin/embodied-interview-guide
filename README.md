@@ -7,6 +7,7 @@
 ## 在线阅读
 
 - [统一 Main 页面](https://kibry-spin.github.io/embodied-interview-guide/)
+- [面试官视角：Action、架构、真机 Debug 与本体迁移](https://kibry-spin.github.io/embodied-interview-guide/embodied-coding-guide/interviewer-view.html)
 - [简历项目与端到端系统](https://kibry-spin.github.io/embodied-interview-guide/embodied-coding-guide/resume-end-to-end.html)
 - [VLA 系统架构](https://kibry-spin.github.io/embodied-interview-guide/embodied-coding-guide/vla-interview.html)
 - [WAM 世界动作模型与 LaWAM](https://kibry-spin.github.io/embodied-interview-guide/embodied-coding-guide/wam.html)
@@ -44,6 +45,7 @@ DiTFlow 的架构、训练公式、张量、采样、动作队列、源码地图
 
 ### 4. 工程与项目
 
+- 面试官视角的问题树：Action Contract、Condition 信息流、架构边界、快慢系统接口、真机分层排障与新本体迁移
 - QTac、无本体数采、双臂遥操作、G3 触觉与硬件复现
 - LeRobot Dataset v2.1/v3.0 的目录、metadata、episode/file 组织差异、迁移检查与时间窗口
 - UMI 到真机的频率与延迟对齐、任务空间轨迹、IK/可视化验收和失败数据利用

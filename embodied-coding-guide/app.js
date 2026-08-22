@@ -37,8 +37,9 @@
     },
     {
       label: "系统",
-      pages: ["resume-end-to-end.html", "lerobot-data.html", "tactile-interview.html", "rtc.html"],
+      pages: ["interviewer-view.html", "resume-end-to-end.html", "lerobot-data.html", "tactile-interview.html", "rtc.html"],
       links: [
+        ["interviewer-view.html", "面试官视角", "Action、架构、Debug 与本体迁移"],
         ["resume-end-to-end.html", "项目主线", "数据—训练—部署闭环"],
         ["lerobot-data.html", "LeRobot 数据", "v2.1/v3、UMI 对齐与失败数据"],
         ["tactile-interview.html", "触觉", "传感器、数据流与策略融合"],
@@ -66,11 +67,17 @@
   }
 
   const relatedMap = {
+    "interviewer-view.html": [
+      ["resume-end-to-end.html", "项目证据", "用 QTac、遥操作和触觉部署经历回答系统问题。"],
+      ["lerobot-data.html", "数据契约", "继续拆解 episode、时间同步、失败数据与动作语义。"],
+      ["pi-series.html", "架构深挖", "对照 π₀、π₀.₅ 的 VLM 与 Action Expert 信息流。"],
+      ["wam.html", "路线比较", "区分直接动作策略与预测未来后再规划。"],
+    ],
     "resume-end-to-end.html": [
       ["tactile-interview.html", "感知层", "用触觉页补全传感器选型、标定与融合。"],
       ["lerobot-data.html", "数据层", "把 LeRobot v2.1/v3、UMI 对齐和失败数据讲完整。"],
       ["rtc.html", "部署层", "把动作队列继续升级为异步闭环执行。"],
-      ["vla-interview.html", "系统层", "将个人项目放回 VLA 端到端能力图。"],
+      ["interviewer-view.html", "面试判断", "把项目经历转换成 Action、Debug 与迁移证据。"],
     ],
     "lerobot-data.html": [
       ["resume-end-to-end.html", "项目证据", "把通用数据知识落回 QTac、数采和遥操作经历。"],
