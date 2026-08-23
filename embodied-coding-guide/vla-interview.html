@@ -34,8 +34,9 @@
         <li><a href="#sim2real"><span>12</span>Sim2Real</a></li>
         <li><a href="#evaluation"><span>13</span>评测体系</a></li>
         <li><a href="#deployment"><span>14</span>部署与安全</a></li>
-        <li><a href="#interview"><span>15</span>面试题</a></li>
-        <li><a href="#sources"><span>16</span>资料来源</a></li>
+        <li><a href="#agibot-round1"><span>15</span>智元一面复盘</a></li>
+        <li><a href="#interview"><span>16</span>面试题</a></li>
+        <li><a href="#sources"><span>17</span>资料来源</a></li>
       </ol>
       <div class="sidebar-card"><strong>本页过关标准</strong><p>能用 2 分钟画出 VLA 数据流；能比较 π、RT、OpenVLA；能结合自己的数据和部署经验回答追问。</p></div>
     </aside>
@@ -47,7 +48,7 @@
           <h1>VLA 系统<br><em>从感知到动作</em></h1>
           <p class="hero-lead">VLA 不是简单的“VLM 后面接机械臂”。它需要把视觉、语言与机器人状态对齐为条件表示，再通过离散 token、连续回归或生成式动作头输出可执行控制量。</p>
           <div class="hero-actions"><a class="primary-button" href="#architecture">先画整体架构 ↓</a><a class="ghost-button" href="vla-loss.html">进入 Loss 手撕页 ↗</a></div>
-          <div class="hero-stats"><div><strong>3+</strong><span>输入模态</span></div><div><strong>4</strong><span>动作解码路线</span></div><div><strong>16</strong><span>面试模块</span></div></div>
+          <div class="hero-stats"><div><strong>3+</strong><span>输入模态</span></div><div><strong>4</strong><span>动作解码路线</span></div><div><strong>17</strong><span>面试模块</span></div></div>
         </div>
         <div class="hero-board">
           <div class="terminal-head"><span class="terminal-dots"><i></i><i></i><i></i></span><span>vla_system_view</span></div>
@@ -291,8 +292,69 @@
         <div class="interview-card" style="margin-top:16px"><strong>贴合 G3 与遥操作平台的回答</strong><p>我的优化顺序会先 profile 触觉采集、解析、processor、模型和控制发送的分段延迟，再决定是否改模型。上线时先做离线回放和开放环，再空载低速闭环；所有输出经过单位/坐标检查、速度与工作空间限幅，出现触觉超时、队列积压或控制跟踪异常时进入保持/撤退并允许人工接管。</p></div>
       </section>
 
+      <section class="section reveal" id="agibot-round1">
+        <div class="section-heading split-heading"><div><p class="section-index">15 · AGIBOT VLA ROUND 1</p><h2>智元一面：从“会背”转向“能复盘实验”</h2></div><p>这轮的 QKV、KV Cache、MHA 和 Flow Matching 已有独立手撕页；这里仅补充项目细节题和写完代码后的检查点。</p></div>
+        <div class="path-grid">
+          <a class="path-card" href="attention.html#cache"><span class="number">已覆盖 · 1 / 2 / 9</span><h3>QKV、KV Cache 与 MHA</h3><p>公式、shape、mask、伪代码、缓存复杂度和闭卷练习。</p><span class="go">进入专题 →</span></a>
+          <a class="path-card" href="vla-loss.html#flow-code"><span class="number">已覆盖 · 3</span><h3>Flow Matching 手撕</h3><p>直线路径、速度目标、时间广播、训练和 Euler 采样。</p><span class="go">进入专题 →</span></a>
+          <a class="path-card" href="lerobot-data.html#umi"><span class="number">已覆盖 · 7</span><h3>UMI、时间对齐与 IK</h3><p>6DoF 追踪、相对轨迹、延迟匹配、重采样和可执行性检查。</p><span class="go">进入专题 →</span></a>
+        </div>
+
+        <div class="section-heading" style="margin-top:58px"><p class="section-index">ACTION LABEL & DATA SCALE</p><h2 style="font-size:32px">“关节角还是末端位姿”不能只选一个词</h2></div>
+        <div class="table-scroll"><table class="shape-table"><thead><tr><th>面试追问</th><th>回答主线</th><th>工程取舍</th><th>贴合你的项目</th></tr></thead><tbody>
+          <tr><td><strong>训练标签是什么？</strong></td><td>先区分原始记录与策略监督：数据最好同时保留关节状态、末端位姿、夹爪/手指状态和 commanded/executed action；真正训练哪一种由 policy config 决定。</td><td>关节动作执行直接但绑定本体；末端动作更易跨机械臂，但依赖坐标变换、IK 与底层控制器。</td><td>双臂 Franka + Sharpa 数据要明确左右臂/手字段顺序、绝对或增量动作、参考坐标系和控制频率，不能只回答“14 维”。</td></tr>
+          <tr><td><strong>为什么常用末端增量？</strong></td><td>它描述局部任务空间运动，弱化机器人零位与连杆差异，也更接近 UMI/Tracker 的轨迹表示。</td><td>仍需定义增量相对哪一帧、旋转表示、缩放、action horizon，以及由谁完成 IK。</td><td>你的 OMMO 手部关键点已统一到相机系；继续映射机器人时还要接 base–camera 外参和 retarget/IK。</td></tr>
+          <tr><td><strong>训练数据量多大？</strong></td><td>报告 episode 数、成功时长、控制频率、任务/物体/场景/操作者覆盖，以及训练后可形成的有效窗口数。</td><td>“十万帧”可能只是高 FPS 重复帧；“几百条轨迹”也可能包含不同长度和质量。必须同时给物理时长与分布。</td><td>分别报告 QTac 示教、遥操作数据和触觉链路验证数据，不把调试日志或无标签采集都算成有效专家轨迹。</td></tr>
+          <tr><td><strong>怎样划分数据？</strong></td><td>以 episode、物体或场景分组切分，窗口只能在所属 split 内生成。</td><td>逐帧随机划分会让同一条轨迹同时进入训练和验证，造成严重泄漏。</td><td>QTac 可按已见/未见物体拆分；遥操作平台应另外保留跨操作者、初态和场景测试。</td></tr>
+        </tbody></table></div>
+        <div class="interview-card" style="margin-top:16px"><strong>数据量回答模板</strong><p>“我使用的是［动作定义与频率］，共［episode 数］条、约［有效时长］小时，覆盖［任务/物体/场景/操作者］；过滤异常与失败标签后生成约［有效窗口数］个训练样本，按［episode/物体/场景］划分训练和测试。这里的数量只统计可训练数据，不把设备调试记录计入。” 数字不确定时回去查 metadata，不要现场估大。</p></div>
+
+        <div class="section-heading" style="margin-top:58px"><p class="section-index">LORA EXPERIMENT REPORT</p><h2 style="font-size:32px">效果和训练时长必须带实验条件</h2></div>
+        <div class="table-scroll"><table class="shape-table"><thead><tr><th>必须报告</th><th>至少包含</th><th>为什么</th></tr></thead><tbody>
+          <tr><td><strong>模型与更新范围</strong></td><td>基座版本、LoRA 插入层、rank/alpha、动作头是否训练、冻结哪些模块</td><td>同样叫 LoRA，训练容量可能相差很大。</td></tr>
+          <tr><td><strong>数据与训练预算</strong></td><td>episode/小时、图像分辨率、序列与 chunk 长度、batch/梯度累积、steps/epochs</td><td>训练时长不能脱离 token 数、视觉开销和更新步数比较。</td></tr>
+          <tr><td><strong>硬件与墙钟时间</strong></td><td>GPU 型号/数量、精度、峰值显存、吞吐、总训练小时</td><td>只说“训练一天”没有可迁移意义。</td></tr>
+          <tr><td><strong>效果</strong></td><td>固定测试集 loss + 真机成功率/误差/恢复率，并与 zero-shot、action-head-only 或全参基线比较</td><td>离线 loss 下降不保证闭环动作更好。</td></tr>
+        </tbody></table></div>
+        <div class="qa-grid" style="margin-top:16px">
+          <article class="interview-card"><strong>尚未完成完整 LoRA 时</strong><p>可以如实回答：我做过生成式动作策略的训练与真机部署，理解 LoRA 的实现和实验设计，但尚未完成可报告的完整 VLA LoRA 对比；因此不会编训练时长或提升幅度。接下来会固定数据、评测和算力，对比 action-head-only、LoRA 与逐层解冻。</p></article>
+          <article class="interview-card"><strong>怎样判断 LoRA 是否有效</strong><p>先看训练/验证是否欠拟合或过拟合，再看闭环成功率和失败阶段；如果语言遵循正确但动作差，优先检查 action head、动作归一化和数据；如果目标识别就错，再考虑视觉/projector/VLM 的适配范围。</p></article>
+        </div>
+
+        <div class="section-heading" style="margin-top:58px"><p class="section-index">DATA AUGMENTATION</p><h2 style="font-size:32px">增强要保持观测—动作标签一致</h2></div>
+        <div class="table-scroll"><table class="shape-table"><thead><tr><th>增强对象</th><th>可用方法</th><th>最容易犯的错误</th><th>应怎样验证效果</th></tr></thead><tbody>
+          <tr><td><strong>视觉外观</strong></td><td>亮度/对比度/色温、轻度噪声、背景变化、合理遮挡</td><td>颜色本身是任务线索时仍做强 color jitter；遮掉接触点或目标物</td><td>按光照、背景、遮挡建立 OOD 子集，报告分组成功率。</td></tr>
+          <tr><td><strong>视觉几何</strong></td><td>crop、resize、相机位姿扰动、仿真视角随机化</td><td>图像变化后没有同步变换像素坐标、相机内参或空间标签</td><td>检查重投影和空间动作误差，不只看训练 loss。</td></tr>
+          <tr><td><strong>时间维</strong></td><td>帧丢弃、采样抖动、延迟扰动、历史窗口裁剪</td><td>破坏 observation→future action 的因果对应，或跨 episode 取样</td><td>注入已知延迟/丢帧，比较 deadline、跟踪误差和成功率。</td></tr>
+          <tr><td><strong>状态与动作</strong></td><td>小幅传感噪声、起始状态扰动、动作平滑扰动、左右对称任务镜像</td><td>超过物理可达范围；镜像后未同步旋转、夹爪和语言标签</td><td>离线检查限位/碰撞，再做闭环鲁棒性和 jerk 回归。</td></tr>
+          <tr><td><strong>触觉</strong></td><td>增益/偏置、漂移、噪声、局部 taxel dropout、时间错位、整模态 dropout</td><td>把真实“无接触零值”和传感器掉线混为同一输入</td><td>分别测试无接触、缺帧、饱和、滑移和未见材质；输入 validity mask。</td></tr>
+          <tr><td><strong>语言</strong></td><td>同义改写、指代变化、长短指令、无关修饰和必要的澄清样本</td><td>改写改变目标、数量、顺序或左右关系，却仍保留原动作标签</td><td>建立语义等价组和歧义组，分别测一致性与澄清率。</td></tr>
+        </tbody></table></div>
+        <div class="callout warning"><strong>“用了哪些增强、效果如何”的标准回答</strong><p>给出 baseline → 单项增强 → 组合增强的受控消融，固定数据划分、训练预算和随机种子；同时报告 ID 与目标 OOD 子集。增强若只提高平均分、却损害精细接触或数量判断，应保留分项结果，而不是笼统称为有效。</p></div>
+
+        <div class="section-heading" style="margin-top:58px"><p class="section-index">COLLECTION SOP & DEBUG</p><h2 style="font-size:32px">数采 pipeline 用三个验收门组织</h2></div>
+        <div class="e2e-pipeline">
+          <article><span>01</span><strong>采前 Gate</strong><p>时钟 · 标定 · 单位 · schema</p><em>空载回放通过</em></article><b>→</b>
+          <article><span>02</span><strong>采中 Gate</strong><p>心跳 · tracking · queue · preview</p><em>异常立即标记</em></article><b>→</b>
+          <article><span>03</span><strong>采后 Gate</strong><p>同步 · 轨迹 · 动作 · 标签</p><em>自动 QC + 人工抽检</em></article><b>→</b>
+          <article><span>04</span><strong>训练 Gate</strong><p>切分 · 统计 · window · replay</p><em>数据卡可追溯</em></article>
+        </div>
+        <div class="table-scroll" style="margin-top:16px"><table class="shape-table"><thead><tr><th>常见问题</th><th>先看什么证据</th><th>处理原则</th></tr></thead><tbody>
+          <tr><td><strong>UMI/Tracker 轨迹跳变</strong></td><td>tracking confidence、重定位时刻、速度/角速度尖峰和视频画面</td><td>异常段标记或剔除；不能只靠强平滑掩盖错误位姿。</td></tr>
+          <tr><td><strong>多设备越采越错位</strong></td><td>原始硬件 timestamp、时钟漂移、帧间隔分布、触发与接收时间</td><td>统一时钟或估计 drift；按物理时间重采样，不按数组下标硬拼。</td></tr>
+          <tr><td><strong>离线轨迹正常、真机仍滞后</strong></td><td>capture-to-command 延迟、action queue、commanded/executed 轨迹</td><td>训练标签与部署延迟一致；必要时预测更靠后的 future action。</td></tr>
+          <tr><td><strong>转换 LeRobot 后模型不学</strong></td><td>episode 边界、action/state 含义、归一化统计、视频帧索引和 window mask</td><td>先用小样本过拟合和离线回放验证契约，再扩大训练。</td></tr>
+          <tr><td><strong>不同操作者质量不一致</strong></td><td>成功标签、时长、轨迹 jerk、接管/暂停、任务分组统计</td><td>先定义示范规范与最小验收；保留 operator id 用于分层分析。</td></tr>
+        </tbody></table></div>
+        <div class="interview-card" style="margin-top:16px"><strong>结合你的经历回答 pipeline</strong><p>可以从两条链路举证：无本体方案中，完成 OMMO/触觉手套接入、数据解析、时间同步，并将手部关键点变换到相机坐标系；遥操作平台中，检查 Tracker/Manus 或 Avatar、双臂 Franka 与 Sharpa 的动作语义，将 episode 转为 LeRobot 后，通过回放以及 LaWAM、π 类参考 baseline 验证数据流；QTac 则提供 Flow 策略训练与真机闭环经验。强调你负责的模块，不把参考 T-Rex 的硬件方案或公司已有数采框架说成个人原创。</p></div>
+
+        <div class="section-heading" style="margin-top:58px"><p class="section-index">MHA CODE REVIEW</p><h2 style="font-size:32px">写完 MHA 后，面试官通常检查这七件事</h2></div>
+        <div class="memory-strip"><article><span>01</span><strong>可整除</strong><p><code>D % H == 0</code>，每头维度 <code>Dh=D/H</code>。</p></article><article><span>02</span><strong>拆头顺序</strong><p><code>[B,L,D] → [B,H,L,Dh]</code>，不是只 reshape 不 transpose。</p></article><article><span>03</span><strong>Score shape</strong><p><code>Q @ Kᵀ → [B,H,Lq,Lk]</code>。</p></article><article><span>04</span><strong>缩放位置</strong><p>softmax 前除以 <code>√Dh</code>。</p></article></div>
+        <div class="memory-strip" style="margin-top:14px"><article><span>05</span><strong>Mask 语义</strong><p>明确 True 是允许还是屏蔽，并能广播到 scores。</p></article><article><span>06</span><strong>合并 heads</strong><p>transpose 后用 reshape/contiguous，恢复 <code>[B,Lq,D]</code>。</p></article><article><span>07</span><strong>Cache 边界</strong><p>自回归只缓存每层 K/V；新 Query 长度通常为 1，cache 随序列线性增长。</p></article></div>
+      </section>
+
       <section class="section reveal" id="interview">
-        <div class="section-heading"><p class="section-index">15 · INTERVIEW DRILL</p><h2>高频追问与回答骨架</h2></div>
+        <div class="section-heading"><p class="section-index">16 · INTERVIEW DRILL</p><h2>高频追问与回答骨架</h2></div>
         <div class="card-grid">
           <article class="practice-card"><span class="card-label">问题 1</span><h3>VLA 与 VLM 的本质区别？</h3><p class="prompt">从输入、输出、时间与部署四点回答。</p><button class="reveal-button" data-reveal="answer-vlm">查看回答</button><div class="solution" id="answer-vlm"><p style="color:var(--soft);font-size:12px">VLM 主要建立图像—文本语义映射；VLA 进一步输入本体/历史状态，输出带坐标系和控制频率定义的机器人动作，并在闭环中持续执行。因此它额外面对时序对齐、动作表示、控制延迟和安全约束。</p></div></article>
           <article class="practice-card"><span class="card-label">问题 2</span><h3>为什么 π₀ 用 Flow Matching？</h3><p class="prompt">结合连续动作、多模态分布和高频 chunk。</p><button class="reveal-button" data-reveal="answer-pi">查看回答</button><div class="solution" id="answer-pi"><p style="color:var(--soft);font-size:12px">Flow Matching 可直接生成连续动作 chunk，避免逐维离散 token 的量化和自回归延迟；从随机噪声还能表达同一条件下多种合理动作模式，适合高频、灵巧的连续控制。</p></div></article>
@@ -304,6 +366,11 @@
           <article class="practice-card"><span class="card-label">问题 8</span><h3>部署延迟高先优化哪里？</h3><p class="prompt">先给延迟账本，再给压缩工具。</p><button class="reveal-button" data-reveal="answer-latency">查看回答</button><div class="solution" id="answer-latency"><p style="color:var(--soft);font-size:12px">先记录 capture、传输、预处理、vision/VLM、生成采样、后处理、排队和机器人响应的 P50/P95。再针对最大项选择缓存、降低 token、减少采样步、量化或异步流水线，并用任务成功率、jerk 和 deadline miss 做回归。</p></div></article>
           <article class="practice-card"><span class="card-label">问题 9</span><h3>你是否做过完整 VLA 微调？</h3><p class="prompt">用边界清晰的经历回答。</p><button class="reveal-button" data-reveal="answer-vla-boundary">查看回答</button><div class="solution" id="answer-vla-boundary"><p style="color:var(--soft);font-size:12px">我完成过多模态数据采集、LeRobot 转换、生成式动作策略训练和真机部署，也做过 G3 触觉推理输入链适配；尚未把这些表述为互联网规模 VLA 预训练或完整 AT-VLA 复现。我的下一步是基于现有数据做可控 LoRA/Action Expert 对比和固定真机评测。</p></div></article>
           <article class="practice-card"><span class="card-label">问题 10</span><h3>VLM Judge 能替代真机指标吗？</h3><p class="prompt">区分语义评估与物理可测量量。</p><button class="reveal-button" data-reveal="answer-judge">查看回答</button><div class="solution" id="answer-judge"><p style="color:var(--soft);font-size:12px">不能。它适合辅助判断语言遵循和阶段完成，但精确数量、轨迹误差、碰撞、接触力、延迟和安全违规应由传感器与任务规则计算。使用 Judge 前还要验证其与人工标注的一致性。</p></div></article>
+          <article class="practice-card"><span class="card-label">问题 11</span><h3>训练标签是关节角还是末端位姿？</h3><p class="prompt">先分清原始日志、策略输出和控制接口。</p><button class="reveal-button" data-reveal="answer-action-label">查看回答</button><div class="solution" id="answer-action-label"><p style="color:var(--soft);font-size:12px">数据层尽量同时保留 q、末端 pose、夹爪状态和 commanded/executed action；策略可按迁移目标选择关节或末端增量。关节动作执行直接但绑定本体，末端动作更易跨本体却依赖坐标、IK 与底层控制。最后必须说明频率、绝对/增量、旋转表示和归一化。</p></div></article>
+          <article class="practice-card"><span class="card-label">问题 12</span><h3>训练数据量应该怎样报告？</h3><p class="prompt">不要只报帧数或磁盘大小。</p><button class="reveal-button" data-reveal="answer-data-scale">查看回答</button><div class="solution" id="answer-data-scale"><p style="color:var(--soft);font-size:12px">同时给 episode、有效小时、控制频率、有效 action windows，以及任务/物体/场景/操作者覆盖；说明过滤规则和 split 单位。逐帧随机切分会泄漏，同一 episode 生成的窗口必须留在同一 split。</p></div></article>
+          <article class="practice-card"><span class="card-label">问题 13</span><h3>LoRA 效果和训练时长如何回答？</h3><p class="prompt">训练时间必须带模型、数据和硬件条件。</p><button class="reveal-button" data-reveal="answer-lora-report">查看回答</button><div class="solution" id="answer-lora-report"><p style="color:var(--soft);font-size:12px">报告基座、插入层、rank、动作头更新范围、数据规模、分辨率、batch/steps、GPU/精度、显存和墙钟时间；效果同时比较离线指标与固定真机成功率。若尚无完整实验，就明确未完成并给对比计划，不编提升和时长。</p></div></article>
+          <article class="practice-card"><span class="card-label">问题 14</span><h3>数据增强为什么可能让效果变差？</h3><p class="prompt">检查增强是否保持任务与动作标签。</p><button class="reveal-button" data-reveal="answer-augmentation">查看回答</button><div class="solution" id="answer-augmentation"><p style="color:var(--soft);font-size:12px">增强可能遮掉关键接触区域、改变任务相关颜色，或在几何/时间变换后没有同步更新坐标、内参和 action target。应做单项消融，分别报告 ID、目标 OOD 和精细接触任务，不能只看平均训练 loss。</p></div></article>
+          <article class="practice-card"><span class="card-label">问题 15</span><h3>数采 pipeline 遇到问题怎样排查？</h3><p class="prompt">用采前、采中、采后、训练四个 Gate 回答。</p><button class="reveal-button" data-reveal="answer-collection-debug">查看回答</button><div class="solution" id="answer-collection-debug"><p style="color:var(--soft);font-size:12px">采前验证时钟、标定、单位与 schema；采中监控 tracking、心跳和队列；采后检查 timestamp、轨迹连续性、action/state、episode 与标签；训练前做回放、小样本过拟合和 split 防泄漏。再用 commanded/executed 轨迹区分数据问题与控制问题。</p></div></article>
         </div>
 
         <div class="quiz-list" style="margin-top:18px">
@@ -315,7 +382,7 @@
       </section>
 
       <section class="section reveal" id="sources">
-        <div class="section-heading"><p class="section-index">16 · PRIMARY SOURCES</p><h2>模型与数据资料入口</h2><p>页面内容按论文、官方项目页和官方文档整理；模型细节更新时优先回到这些来源。</p></div>
+        <div class="section-heading"><p class="section-index">17 · PRIMARY SOURCES</p><h2>模型与数据资料入口</h2><p>页面内容按论文、官方项目页和官方文档整理；模型细节更新时优先回到这些来源。</p></div>
         <div class="source-grid">
           <a class="source-card" href="https://www.physicalintelligence.company/blog/pi0" target="_blank" rel="noreferrer"><span>MODEL</span><strong>π₀ 官方项目</strong><p>VLM + Flow Matching action expert</p></a>
           <a class="source-card" href="https://www.physicalintelligence.company/download/pi05.pdf" target="_blank" rel="noreferrer"><span>MODEL</span><strong>π₀.₅ 论文</strong><p>开放环境泛化与异构数据协同</p></a>

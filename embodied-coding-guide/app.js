@@ -28,7 +28,7 @@
       label: "VLA",
       pages: ["vla-interview.html", "wam.html", "pi-series.html", "wall-oss.html", "at-vla.html"],
       links: [
-        ["vla-interview.html", "VLA 总览", "架构、后训练、评测与部署"],
+      ["vla-interview.html", "VLA 总览", "架构、智元面经、评测与部署"],
         ["wam.html", "WAM", "未来世界建模、LaWAM 与 VLA 对比"],
         ["pi-series.html", "π 系列", "Flow Action Expert 演进"],
         ["wall-oss.html", "WALL", "Gradient Bridge 与跨本体"],

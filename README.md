@@ -37,7 +37,7 @@ DiTFlow 的架构、训练公式、张量、采样、动作队列、源码地图
 
 ### 3. VLA 与多模态
 
-- VLA 架构、动作生成、微调与后训练、鲁棒性、Sim2Real、评测及部署安全
+- VLA 架构、动作生成、微调与后训练、智元一面复盘、鲁棒性、评测及部署安全
 - WAM、World Model、LaWAM、DreamZero 与 VLA 对比
 - π 系列模型演进
 - WALL-OSS-0.5 的 MoT、Gradient Bridge、RVQ 与跨本体数据
