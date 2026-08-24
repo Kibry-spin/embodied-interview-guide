@@ -64,6 +64,35 @@
       const menu = group.links.map(([href, title, note]) => `<a href="${href}"><strong>${title}</strong><small>${note}</small></a>`).join("");
       return `<span class="nav-cluster"><button class="nav-cluster-button${active}" type="button" aria-haspopup="true">${group.label}<i>⌄</i></button><span class="nav-menu">${menu}</span></span>`;
     }).join("")}`;
+
+    const mobilePageField = document.createElement("label");
+    mobilePageField.className = "mobile-page-field";
+    mobilePageField.innerHTML = `<span>专题</span><select class="mobile-page-select" aria-label="切换知识专题"></select><i aria-hidden="true">⌄</i>`;
+    const mobilePageSelect = $(".mobile-page-select", mobilePageField);
+
+    const mainOption = document.createElement("option");
+    mainOption.value = "index.html";
+    mainOption.textContent = "Main · 总览";
+    mobilePageSelect.appendChild(mainOption);
+
+    navGroups.forEach(group => {
+      const optionGroup = document.createElement("optgroup");
+      optionGroup.label = group.label;
+      group.links.forEach(([href, title]) => {
+        if (href.includes("#")) return;
+        const option = document.createElement("option");
+        option.value = href;
+        option.textContent = title;
+        optionGroup.appendChild(option);
+      });
+      mobilePageSelect.appendChild(optionGroup);
+    });
+
+    if ($(`option[value="${currentPage}"]`, mobilePageSelect)) mobilePageSelect.value = currentPage;
+    mobilePageSelect.addEventListener("change", () => {
+      if (mobilePageSelect.value) location.href = mobilePageSelect.value;
+    });
+    topnav.insertAdjacentElement("afterend", mobilePageField);
   }
 
   const relatedMap = {
@@ -197,13 +226,65 @@
     : null;
   $$(".reveal").forEach(el => observer ? observer.observe(el) : el.classList.add("visible"));
 
-  const sections = $$("main section[id]");
   const sideLinks = $$(".side-nav a");
+  let mobileChapterSelect = null;
+  let mobileChapterCurrent = null;
+
+  if (sideLinks.length) {
+    const mobileNav = document.createElement("nav");
+    mobileNav.className = "mobile-chapter-nav";
+    mobileNav.setAttribute("aria-label", "本页章节导航");
+    mobileNav.innerHTML = `
+      <label class="mobile-chapter-field">
+        <span class="mobile-chapter-label">本页章节</span>
+        <select class="mobile-chapter-select" aria-label="选择本页章节"></select>
+        <span class="mobile-chapter-chevron" aria-hidden="true">⌄</span>
+      </label>
+      <span class="mobile-chapter-count"><b>01</b> / ${String(sideLinks.length).padStart(2, "0")}</span>`;
+
+    mobileChapterSelect = $(".mobile-chapter-select", mobileNav);
+    mobileChapterCurrent = $(".mobile-chapter-count b", mobileNav);
+    sideLinks.forEach((link, index) => {
+      const number = link.querySelector("span")?.textContent.trim() || String(index + 1).padStart(2, "0");
+      const title = link.textContent.replace(/^\s*\d+\s*/, "").trim();
+      const option = document.createElement("option");
+      option.value = link.getAttribute("href");
+      option.textContent = `${number} · ${title}`;
+      mobileChapterSelect.appendChild(option);
+    });
+
+    const initialHash = location.hash;
+    if (initialHash && sideLinks.some(link => link.getAttribute("href") === initialHash)) {
+      mobileChapterSelect.value = initialHash;
+      const index = sideLinks.findIndex(link => link.getAttribute("href") === initialHash);
+      mobileChapterCurrent.textContent = String(index + 1).padStart(2, "0");
+    }
+
+    mobileChapterSelect.addEventListener("change", () => {
+      const hash = mobileChapterSelect.value;
+      const target = hash ? document.getElementById(hash.slice(1)) : null;
+      if (!target) return;
+      target.classList.add("visible");
+      target.scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
+      history.replaceState(null, "", hash);
+      mobileChapterSelect.blur();
+    });
+
+    $(".topbar")?.insertAdjacentElement("afterend", mobileNav);
+  }
+
+  const sections = $$("main section[id]");
   if (sections.length && sideLinks.length && "IntersectionObserver" in window) {
     const navObserver = new IntersectionObserver(entries => {
       const active = entries.filter(e => e.isIntersecting).sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
       if (!active) return;
-      sideLinks.forEach(link => link.classList.toggle("active", link.getAttribute("href") === `#${active.target.id}`));
+      const activeHash = `#${active.target.id}`;
+      sideLinks.forEach(link => link.classList.toggle("active", link.getAttribute("href") === activeHash));
+      const index = sideLinks.findIndex(link => link.getAttribute("href") === activeHash);
+      if (mobileChapterSelect && index >= 0) {
+        mobileChapterSelect.value = activeHash;
+        mobileChapterCurrent.textContent = String(index + 1).padStart(2, "0");
+      }
     }, { rootMargin: "-20% 0px -65%", threshold: [0, .2, .6] });
     sections.forEach(section => navObserver.observe(section));
   }
