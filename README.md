@@ -23,8 +23,8 @@ DiTFlow 的架构、训练公式、张量、采样、动作队列、源码地图
 
 ### 1. 基础与手撕
 
-- Attention：Self/Cross Attention、Multi-Head、Mask、位置编码与 KV Cache
-- Transformer：Encoder–Decoder、Pre-Norm、Teacher Forcing 与多模态融合
+- Attention：Self/Cross Attention、MHA/GQA/MQA、Mask、位置编码与 KV Cache
+- Transformer：Encoder–Decoder、BN/LN/RMSNorm、分布式训练与多模态融合
 - Loss：CE、MSE、Flow Matching、Action Chunk 与 Temporal Ensemble
 - 强化学习与算法题：DQN、Double DQN、SAC、BFS、DFS、DP
 

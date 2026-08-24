@@ -30,11 +30,12 @@
         <li><a href="#mask"><span>08</span>三类 Mask</a></li>
         <li><a href="#full"><span>09</span>完整模型</a></li>
         <li><a href="#train"><span>10</span>训练与推理</a></li>
-        <li><a href="#modern"><span>11</span>现代 Transformer</a></li>
-        <li><a href="#vla"><span>12</span>VLA 中的用法</a></li>
-        <li><a href="#interview"><span>13</span>高频追问</a></li>
-        <li><a href="#practice"><span>14</span>默写与自测</a></li>
-        <li><a href="#sources"><span>15</span>参考资料</a></li>
+        <li><a href="#distributed"><span>11</span>分布式与时长</a></li>
+        <li><a href="#modern"><span>12</span>现代 Transformer</a></li>
+        <li><a href="#vla"><span>13</span>VLA 中的用法</a></li>
+        <li><a href="#interview"><span>14</span>高频追问</a></li>
+        <li><a href="#practice"><span>15</span>默写与自测</a></li>
+        <li><a href="#sources"><span>16</span>参考资料</a></li>
       </ol>
       <div class="sidebar-card"><strong>本页过关标准</strong><p>能画完整 Encoder–Decoder；10 分钟写出 Pre-Norm EncoderBlock；解释三种 mask；写对 target shift；说清现代 VLM/VLA 为何多使用 decoder-only 或专用 action expert。</p></div>
     </aside>
@@ -144,7 +145,16 @@ class FeedForward(nn.Module):
           <article class="compare-card good"><h3>Pre-Norm · 常见现代实现</h3><div class="formula">y = x + Sublayer(LN(x))</div><ul><li>残差主干保持直接恒等路径</li><li>深层网络通常更容易训练</li><li>堆叠末尾通常再加一次 final norm</li></ul></article>
         </div>
         <div class="formula" style="margin-top:15px">LayerNorm(x) = γ · (x−μ) / √(σ²+ε) + β<small>对每个 token 的最后一个特征维 D 求均值与方差，不依赖 batch 内其他样本。</small></div>
-        <div class="callout"><strong>为什么不用 BatchNorm</strong><p>序列长度和 padding 会变化，小 batch 也很常见；LayerNorm 对每个样本、每个 token 独立归一化，更适合序列建模和自回归推理。</p></div>
+        <div class="table-scroll" style="margin-top:16px"><table class="shape-table"><thead><tr><th>方法</th><th>以 x:[B,L,D] 为例统计什么</th><th>是否依赖 batch</th><th>训练/推理差异</th><th>适用判断</th></tr></thead><tbody>
+          <tr><td><strong>BatchNorm</strong></td><td>序列写法需指定通道布局；CNN 常对每个 channel 跨 N/H/W 统计</td><td>依赖；小 batch 或不同设备局部统计可能不稳</td><td>训练用当前 batch，推理用 running mean/var</td><td>适合卷积视觉骨干；不自然适配变长 token 和自回归。</td></tr>
+          <tr><td><strong>LayerNorm</strong></td><td>每个 token 独立沿最后一维 D 求均值和方差</td><td>不依赖</td><td>训练与推理使用当前 token 自身统计</td><td>Transformer 的经典选择，中心化并缩放。</td></tr>
+          <tr><td><strong>RMSNorm</strong></td><td>每个 token 沿 D 只计算均方根，不减均值</td><td>不依赖</td><td>训练与推理一致</td><td>省去中心化，现代 LLM 常用；不等于 BatchNorm 的简化版。</td></tr>
+        </tbody></table></div>
+        <div class="formula" style="margin-top:15px">RMSNorm(x) = γ · x / √(mean(x²)+ε)<small>只做尺度归一化，不减去 μ；常见实现只有缩放参数，没有独立偏置 β。</small></div>
+        <div class="qa-grid" style="margin-top:15px">
+          <div class="interview-card"><strong>为什么 Transformer 少用 BatchNorm</strong><p>序列长度、padding 和 batch 大小都可能变化，自回归解码甚至一次只有一个新 token；BN 的跨样本统计会让输出依赖同 batch 其他样本，并产生 train/eval 两套统计。LN/RMSNorm 对每个 token 独立，更契合序列模型。</p></div>
+          <div class="interview-card"><strong>Pre-Norm 与 RMSNorm 是一回事吗？</strong><p>不是。Pre/Post 描述 Norm 放在子层前还是残差相加后；LN/RMSNorm 描述归一化算子本身。可以组合成 Pre-LN、Pre-RMSNorm 等结构。</p></div>
+        </div>
       </section>
 
       <section class="section reveal" id="encoder">
@@ -345,8 +355,29 @@ def greedy_decode(model, src, src_mask, bos_id, eos_id, pad_id, max_len):
         </div>
       </section>
 
+      <section class="section reveal" id="distributed">
+        <div class="section-heading split-heading"><div><p class="section-index">11 · DISTRIBUTED TRAINING & ETA</p><h2>先算 step，再解释为什么没有线性加速</h2></div><p>“训练多久”必须同时给模型、数据、分辨率/序列、全局 batch、更新步数、硬件和并行策略。</p></div>
+        <div class="formula large">B<sub>global</sub> = B<sub>gpu</sub> × gradient accumulation × world size<br><small>optimizer steps / epoch = ceil(N<sub>samples</sub> / B<sub>global</sub>)</small></div>
+        <div class="formula" style="margin-top:15px">训练墙钟时间 ≈ optimizer steps × 平均 step time + eval / checkpoint / restart<small>吞吐最好同时报告 samples/s 或 tokens/s；只报“训练两天”无法比较。</small></div>
+        <div class="table-scroll" style="margin-top:16px"><table class="shape-table"><thead><tr><th>策略</th><th>每张卡放什么</th><th>主要通信</th><th>解决的问题</th><th>代价/陷阱</th></tr></thead><tbody>
+          <tr><td><strong>DDP</strong></td><td>完整模型、梯度和优化器状态</td><td>梯度 All-Reduce</td><td>模型能单卡放下时扩大全局吞吐</td><td>显存不随卡数明显下降；小 batch、慢数据或通信会降低效率。</td></tr>
+          <tr><td><strong>FSDP / ZeRO</strong></td><td>分片参数、梯度和/或优化器状态</td><td>按层 All-Gather、Reduce-Scatter</td><td>单卡放不下大 VLM/VLA</td><td>通信更频繁；wrap 粒度、prefetch 和 checkpoint 保存方式影响很大。</td></tr>
+          <tr><td><strong>Tensor Parallel</strong></td><td>单层矩阵按维度切分</td><td>层内集合通信</td><td>单层或模型宽度过大</td><td>强依赖高速互联，跨节点代价高。</td></tr>
+          <tr><td><strong>Pipeline Parallel</strong></td><td>不同层放不同设备</td><td>阶段间激活传输</td><td>模型深且可分阶段</td><td>micro-batch 不足会产生 pipeline bubble。</td></tr>
+        </tbody></table></div>
+        <div class="card-grid three" style="margin-top:16px">
+          <article class="info-card"><span>COMPUTE</span><h3>GPU 没吃满</h3><p>检查图像解码、DataLoader、CPU→GPU copy、动态 shape、频繁日志和小 kernel，而不是先加卡。</p></article>
+          <article class="info-card"><span>COMMUNICATION</span><h3>卡越多越慢</h3><p>记录 All-Reduce/All-Gather 占比、跨节点带宽和 straggler；增加 world size 会减少单卡计算，通信却不同比例减少。</p></article>
+          <article class="info-card"><span>MEMORY</span><h3>OOM 先拆构成</h3><p>参数、梯度、优化器、激活、视觉 token 和临时 buffer 来源不同；AMP、checkpointing、FSDP 各解决不同部分。</p></article>
+        </div>
+        <div class="qa-grid" style="margin-top:16px">
+          <div class="interview-card"><strong>扩展效率怎么算</strong><p><code>speedup(N)=T₁/Tₙ</code>，<code>efficiency=speedup/N</code>。例如 8 卡只快 6 倍，扩展效率是 75%。必须确保比较时全局 batch、训练步数和数值配方可比。</p></div>
+          <div class="interview-card"><strong>贴合你的回答边界</strong><p>可以强调自己能把 QTac/策略训练做成配置化、混合精度、断点恢复和固定评测，并理解 DDP/FSDP 的适用条件；如果没有亲自完成大规模多节点预训练，就不要把单机训练包装成分布式经验。</p></div>
+        </div>
+      </section>
+
       <section class="section reveal" id="modern">
-        <div class="section-heading"><p class="section-index">11 · MODERN TRANSFORMER</p><h2>原始论文会写，现代变化也要说得出</h2></div>
+        <div class="section-heading"><p class="section-index">12 · MODERN TRANSFORMER</p><h2>原始论文会写，现代变化也要说得出</h2></div>
         <div class="table-scroll"><table class="shape-table"><thead><tr><th>组件</th><th>原始 Transformer</th><th>现代常见方案</th><th>主要动机</th></tr></thead><tbody>
           <tr><td>总体架构</td><td>Encoder–Decoder</td><td>LLM 多为 Decoder-only</td><td>统一自回归目标，易规模化</td></tr>
           <tr><td>归一化</td><td>Post-LayerNorm</td><td>Pre-Norm / RMSNorm</td><td>改善深层训练稳定性、减少计算</td></tr>
@@ -360,7 +391,7 @@ def greedy_decode(model, src, src_mask, bos_id, eos_id, pad_id, max_len):
       </section>
 
       <section class="section reveal" id="vla">
-        <div class="section-heading split-heading"><div><p class="section-index">12 · TRANSFORMER IN VLA</p><h2>文本 token 只是输入的一部分</h2></div><p>具身模型的关键是：每类 token 表示什么、谁能看谁、输出如何变成动作。</p></div>
+        <div class="section-heading split-heading"><div><p class="section-index">13 · TRANSFORMER IN VLA</p><h2>文本 token 只是输入的一部分</h2></div><p>具身模型的关键是：每类 token 表示什么、谁能看谁、输出如何变成动作。</p></div>
         <div class="vla-token-chain">
           <article><span>VISION</span><strong>Image Tokens</strong><small>ViT patches / projector</small></article><b>+</b>
           <article><span>LANGUAGE</span><strong>Instruction Tokens</strong><small>tokenizer + embedding</small></article><b>+</b>
@@ -381,7 +412,7 @@ def greedy_decode(model, src, src_mask, bos_id, eos_id, pad_id, max_len):
       </section>
 
       <section class="section reveal" id="interview">
-        <div class="section-heading"><p class="section-index">13 · HIGH-FREQUENCY QUESTIONS</p><h2>面试官通常从这里追问</h2></div>
+        <div class="section-heading"><p class="section-index">14 · HIGH-FREQUENCY QUESTIONS</p><h2>面试官通常从这里追问</h2></div>
         <div class="qa-grid">
           <div class="interview-card"><strong>Q1：为什么除以 √dₖ？</strong><p>若 q、k 各维独立且方差约为1，点积方差随 dₖ 增长。除以 √dₖ 将方差拉回稳定量级，避免 softmax 饱和导致梯度过小。</p></div>
           <div class="interview-card"><strong>Q2：为什么多头不是直接切原始 embedding？</strong><p>实现通常先用 D×D 线性层一次性生成全部 heads，再 reshape；每个 head 的特征都来自原始 D 维的学习投影，而非机械截取一段原向量。</p></div>
@@ -392,10 +423,18 @@ def greedy_decode(model, src, src_mask, bos_id, eos_id, pad_id, max_len):
           <div class="interview-card"><strong>Q7：Pre-Norm 为什么更好训练？</strong><p>残差主干保留近似恒等的直接梯度路径，梯度不必在每个 Block 后穿过 LayerNorm；深层堆叠通常更稳定，但最终需配合 final norm。</p></div>
           <div class="interview-card"><strong>Q8：VLA 为什么不一定用自回归动作 token？</strong><p>离散 token 易融入 VLM，却有量化与逐 token 延迟；ACT、Diffusion、Flow 可一次生成连续 action chunk。现代 VLA 常让 Transformer 做条件融合，再由连续动作头负责执行。</p></div>
         </div>
+        <div class="path-grid" style="margin-top:18px">
+          <a class="path-card" href="rl.html"><span class="number">已有专题</span><h3>RL 经典问题</h3><p>DQN、Double DQN、SAC、重参数化和手撕 loss。</p><span class="go">进入 →</span></a>
+          <a class="path-card" href="act.html#dagger"><span class="number">已有专题</span><h3>Action Chunk 与 DAgger</h3><p>Chunk、Temporal Ensemble、covariate shift 和纠错数据闭环。</p><span class="go">进入 →</span></a>
+          <a class="path-card" href="pi-series.html#pi05-connection"><span class="number">已有专题</span><h3>π₀.₅ Action Expert</h3><p>前向注意力连接、层级推理与 Knowledge Insulation。</p><span class="go">进入 →</span></a>
+          <a class="path-card" href="leetcode.html"><span class="number">已有专题</span><h3>力扣简单题</h3><p>BFS、DFS、DP、边界条件和复杂度表达。</p><span class="go">进入 →</span></a>
+          <a class="path-card" href="resume-end-to-end.html#qtac"><span class="number">个人主线</span><h3>主包 Paper 深挖</h3><p>从任务定义、方法、指标、消融、失败与个人贡献组织 QTac。</p><span class="go">进入 →</span></a>
+        </div>
+        <div class="callout" style="margin-top:18px"><strong>反问：不同 base 地业务差异较大，应该确认什么</strong><p>不要只问“做什么模型”。应确认所在团队更偏基础模型预训练、下游微调、数据闭环还是真机系统；主要本体和任务、算法与硬件实验占比、是否需要长期驻场、核心评测指标，以及该岗位前三个月最重要的交付。这样才能判断同一职位名称下真实工作是否匹配你的触觉、多模态数据和真机部署优势。</p></div>
       </section>
 
       <section class="section reveal" id="practice">
-        <div class="section-heading"><p class="section-index">14 · CLOSED-BOOK PRACTICE</p><h2>按 15 → 30 → 45 分钟练三档</h2></div>
+        <div class="section-heading"><p class="section-index">15 · CLOSED-BOOK PRACTICE</p><h2>按 15 → 30 → 45 分钟练三档</h2></div>
         <div class="card-grid three">
           <article class="practice-card"><span class="card-label">LEVEL 1 · 15 MIN</span><h3>EncoderBlock</h3><p class="prompt">从零写 Pre-Norm Encoder Layer，包含 MHA、FFN、两次残差、Dropout 和 src mask。</p><button class="reveal-button" data-reveal="answer-encoder">查看检查项</button><div class="solution" id="answer-encoder"><p>检查：Norm 在子层前；Q/K/V 同源；输出 shape 不变；Dropout 在加残差前；mask 能广播至 scores。</p></div></article>
           <article class="practice-card"><span class="card-label">LEVEL 2 · 30 MIN</span><h3>DecoderBlock + Masks</h3><p class="prompt">写 causal self-attention、cross-attention，并构造 tgt padding + causal 联合 mask。</p><button class="reveal-button" data-reveal="answer-decoder">查看检查项</button><div class="solution" id="answer-decoder"><p>检查：Cross 的 Q 来自目标，K/V 来自 memory；tgt mask 为 [B,1,T,T]；memory mask 屏蔽源 PAD。</p></div></article>
@@ -410,12 +449,15 @@ def greedy_decode(model, src, src_mask, bos_id, eos_id, pad_id, max_len):
       </section>
 
       <section class="section reveal" id="sources">
-        <div class="section-heading"><p class="section-index">15 · SOURCES</p><h2>参考文章与权威资料</h2></div>
+        <div class="section-heading"><p class="section-index">16 · SOURCES</p><h2>参考文章与权威资料</h2></div>
         <div class="source-grid">
           <a class="source-card" href="https://wkq9411.github.io/2026-01-01/Code-Transformer.html" target="_blank" rel="noreferrer"><span>REFERENCE NOTE</span><strong>WKQ · 手撕 Transformer</strong><p>从零构建、Mask、翻译训练/预测及 PyTorch 封装用法。</p></a>
           <a class="source-card" href="https://arxiv.org/abs/1706.03762" target="_blank" rel="noreferrer"><span>ORIGINAL PAPER</span><strong>Attention Is All You Need</strong><p>Encoder–Decoder、MHA、FFN、位置编码和训练设置的原始定义。</p></a>
           <a class="source-card" href="https://docs.pytorch.org/docs/stable/generated/torch.nn.Transformer.html" target="_blank" rel="noreferrer"><span>PYTORCH DOCS</span><strong>torch.nn.Transformer</strong><p>官方模块参数、shape、mask 与 norm_first 接口。</p></a>
           <a class="source-card" href="https://docs.pytorch.org/docs/stable/generated/torch.nn.functional.scaled_dot_product_attention.html" target="_blank" rel="noreferrer"><span>PYTORCH SDPA</span><strong>Scaled Dot Product Attention</strong><p>现代 fused attention 接口及 mask 语义。</p></a>
+          <a class="source-card" href="https://arxiv.org/abs/2305.13245" target="_blank" rel="noreferrer"><span>GQA PAPER</span><strong>GQA: Training Generalized Multi-Query Transformer Models</strong><p>Grouped-Query Attention 的质量—速度折中与模型转换方法。</p></a>
+          <a class="source-card" href="https://papers.neurips.cc/paper/2019/hash/1e8a19426224ca89e83cef47f1e7f53b-Abstract.html" target="_blank" rel="noreferrer"><span>NORM PAPER</span><strong>Root Mean Square Layer Normalization</strong><p>RMSNorm 的尺度归一化定义与效率动机。</p></a>
+          <a class="source-card" href="https://docs.pytorch.org/docs/stable/fsdp.html" target="_blank" rel="noreferrer"><span>PYTORCH DOCS</span><strong>FullyShardedDataParallel</strong><p>参数分片、通信与官方接口。</p></a>
           <a class="source-card" href="attention.html"><span>LOCAL MODULE</span><strong>Attention 手撕专题</strong><p>MHA 完整代码、维度计算器、位置编码和 KV Cache。</p></a>
           <a class="source-card" href="vla-interview.html"><span>LOCAL MODULE</span><strong>VLA 系统专题</strong><p>图像、语言、本体状态和动作的融合方式。</p></a>
         </div>

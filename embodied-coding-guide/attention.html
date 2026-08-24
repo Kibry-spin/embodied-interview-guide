@@ -23,14 +23,15 @@
         <li><a href="#overview"><span>01</span>核心公式</a></li>
         <li><a href="#shapes"><span>02</span>尺寸推导</a></li>
         <li><a href="#minimal"><span>03</span>多头实现</a></li>
-        <li><a href="#self-cross"><span>04</span>Self / Cross</a></li>
-        <li><a href="#mask"><span>05</span>Mask</a></li>
-        <li><a href="#position"><span>06</span>位置编码</a></li>
-        <li><a href="#cache"><span>07</span>KV Cache</a></li>
-        <li><a href="#practice"><span>08</span>默写练习</a></li>
-        <li><a href="#quiz"><span>09</span>快速自测</a></li>
+        <li><a href="#gqa"><span>04</span>MHA / GQA / MQA</a></li>
+        <li><a href="#self-cross"><span>05</span>Self / Cross</a></li>
+        <li><a href="#mask"><span>06</span>Mask</a></li>
+        <li><a href="#position"><span>07</span>位置编码</a></li>
+        <li><a href="#cache"><span>08</span>KV Cache</a></li>
+        <li><a href="#practice"><span>09</span>默写练习</a></li>
+        <li><a href="#quiz"><span>10</span>快速自测</a></li>
       </ol>
-      <div class="sidebar-card"><strong>本页过关标准</strong><p>15 分钟内从零写出 MHA；不看资料写出正弦位置编码；能画出 KV Cache 的 shape。</p></div>
+      <div class="sidebar-card"><strong>本页过关标准</strong><p>15 分钟内从零写出 MHA；能区分 MHA/GQA/MQA；不看资料写出位置编码并画出 KV Cache shape。</p></div>
     </aside>
 
     <main>
@@ -134,8 +135,42 @@ class MultiHeadAttention(nn.Module):
         <div class="interview-card" style="margin-top:15px"><strong>30 秒面试表达</strong><p>输入先分别线性投影成 Q、K、V，再拆成多个 head。每个 head 计算缩放点积注意力，经过 mask 和 softmax 后对 V 加权；最后把 heads 合并并做输出投影。多头的意义是在不同表示子空间并行建模不同关系。</p></div>
       </section>
 
+      <section class="section reveal" id="gqa">
+        <div class="section-heading split-heading"><div><p class="section-index">04 · MHA / GQA / MQA</p><h2>减少的是 KV 头，不是 Query 头</h2></div><p>GQA 的主要工程收益出现在自回归解码：KV Cache 更小、读取带宽更低，同时保留多个 Query 头的表达能力。</p></div>
+        <div class="table-scroll"><table class="shape-table"><thead><tr><th>结构</th><th>Query 头 H<sub>q</sub></th><th>KV 头 H<sub>kv</sub></th><th>共享关系</th><th>典型取舍</th></tr></thead><tbody>
+          <tr><td><strong>MHA</strong></td><td>H</td><td>H</td><td>每个 Q 头有独立 K/V 头</td><td>表达充分；KV Cache 最大。</td></tr>
+          <tr><td><strong>GQA</strong></td><td>H</td><td>G，1&lt;G&lt;H</td><td>每 H/G 个 Q 头共享一组 K/V</td><td>在质量与缓存/带宽之间折中。</td></tr>
+          <tr><td><strong>MQA</strong></td><td>H</td><td>1</td><td>所有 Q 头共享同一组 K/V</td><td>缓存最小、解码快；共享最强。</td></tr>
+        </tbody></table></div>
+        <div class="shape-flow" style="margin-top:16px">
+          <div class="shape-node"><b>Q</b><code>[B,Hq,Lq,Dh]</code></div><span class="shape-arrow">＋</span>
+          <div class="shape-node"><b>K / V</b><code>[B,Hkv,Lk,Dh]</code></div><span class="shape-arrow">→</span>
+          <div class="shape-node"><b>group size</b><code>Hq / Hkv</code></div><span class="shape-arrow">→</span>
+          <div class="shape-node"><b>output</b><code>[B,Hq,Lq,Dh]</code></div>
+        </div>
+        <div class="code-card">
+          <div class="code-head"><div><i></i><strong>gqa_shape_core.py</strong></div><button class="copy-button" data-copy="gqa-code">复制代码</button></div>
+          <pre id="gqa-code"># q: [B, Hq, Lq, Dh]
+# k,v: [B, Hkv, Lk, Dh]，要求 Hq % Hkv == 0
+groups = Hq // Hkv
+
+# 教学写法：让每组 Query 读取同一份 K/V
+k_for_q = k.repeat_interleave(groups, dim=1)
+v_for_q = v.repeat_interleave(groups, dim=1)
+
+scores = q @ k_for_q.transpose(-2, -1) / math.sqrt(Dh)
+out = scores.softmax(dim=-1) @ v_for_q  # [B,Hq,Lq,Dh]</pre>
+        </div>
+        <div class="qa-grid" style="margin-top:15px">
+          <div class="interview-card"><strong>KV Cache 能省多少？</strong><p>每层缓存元素量近似为 <code>2·B·L·Hkv·Dh</code>。相对 MHA，GQA 的 K/V 部分理论上按 <code>Hkv/Hq</code> 缩小；实际总显存还包含参数、激活和运行时工作区。</p></div>
+          <div class="interview-card"><strong>计算量也同比下降吗？</strong><p>不能简单回答“下降 Hq/Hkv 倍”。每个 Query 头仍要与 K/V 做注意力，score 的主要计算仍与 Hq 相关；GQA 更直接降低的是 K/V 投影、缓存容量和解码时的显存带宽。</p></div>
+          <div class="interview-card"><strong>代码为什么不应真的 repeat？</strong><p><code>repeat_interleave</code> 便于理解 shape，但会物化重复 K/V。高效 kernel 会按分组广播或映射 Query 头，避免重新占用本应节省的缓存和带宽。</p></div>
+          <div class="interview-card"><strong>从 MHA 改成 GQA 的约束</strong><p>需要满足 <code>Hq % Hkv == 0</code>，并重新设计 K/V 投影输出维度；若把既有 MHA checkpoint 转为 GQA，通常还需对同组 K/V 权重做聚合或继续训练。</p></div>
+        </div>
+      </section>
+
       <section class="section reveal" id="self-cross">
-        <div class="section-heading"><p class="section-index">04 · SELF VS CROSS</p><h2>代码相同，输入来源不同</h2><p>不要把 Self-Attention 简化成“Q=K=V 的数值完全相同”：它们来自同一个输入，但经过不同投影层。</p></div>
+        <div class="section-heading"><p class="section-index">05 · SELF VS CROSS</p><h2>代码相同，输入来源不同</h2><p>不要把 Self-Attention 简化成“Q=K=V 的数值完全相同”：它们来自同一个输入，但经过不同投影层。</p></div>
         <div class="compare-grid">
           <article class="compare-card good"><h3>Self-Attention</h3><div class="formula">Q=XW<sub>Q</sub>, K=XW<sub>K</sub>, V=XW<sub>V</sub></div><ul><li>Q/K/V 的来源都是同一序列 X</li><li>用于序列内部元素之间的信息交互</li><li>Decoder 自回归时通常加 causal mask</li></ul></article>
           <article class="compare-card"><h3>Cross-Attention</h3><div class="formula">Q=X<sub>query</sub>W<sub>Q</sub>, K/V=X<sub>context</sub>W<sub>K/V</sub></div><ul><li>Q 来自待更新序列，K/V 来自条件序列</li><li>允许两种模态或 encoder/decoder 交互</li><li>Lq 与 Lk 可以不同</li></ul></article>
@@ -156,7 +191,7 @@ cross_out, cross_map = mha(
       </section>
 
       <section class="section reveal" id="mask">
-        <div class="section-heading"><p class="section-index">05 · MASK SEMANTICS</p><h2>Mask 先约定语义，再写代码</h2></div>
+        <div class="section-heading"><p class="section-index">06 · MASK SEMANTICS</p><h2>Mask 先约定语义，再写代码</h2></div>
         <div class="card-grid">
           <article class="formula-card"><span class="card-label">Padding Mask</span><h3>屏蔽补齐位置</h3><p>常见基础 shape 为 <code>[B,Lk]</code>，扩成 <code>[B,1,1,Lk]</code> 后广播给所有 head 和 query。</p><div class="code-card"><pre>valid = token_ids != pad_id       # [B,Lk]
 mask = valid[:, None, None, :]    # [B,1,1,Lk]</pre></div></article>
@@ -168,7 +203,7 @@ mask = mask.to(x.device)</pre></div></article>
       </section>
 
       <section class="section reveal" id="position">
-        <div class="section-heading split-heading"><div><p class="section-index">06 · POSITIONAL ENCODING</p><h2>正弦位置编码从头写</h2></div><p>Self-Attention 对输入排列本身不敏感，位置编码负责注入顺序信息。</p></div>
+        <div class="section-heading split-heading"><div><p class="section-index">07 · POSITIONAL ENCODING</p><h2>正弦位置编码从头写</h2></div><p>Self-Attention 对输入排列本身不敏感，位置编码负责注入顺序信息。</p></div>
         <div class="formula large">PE(pos,2i)=sin(pos/10000<sup>2i/D</sup>)<br>PE(pos,2i+1)=cos(pos/10000<sup>2i/D</sup>)</div>
         <div class="code-card">
           <div class="code-head"><div><i></i><strong>sinusoidal_pe.py</strong></div><button class="copy-button" data-copy="pe-code">复制代码</button></div>
@@ -204,7 +239,7 @@ class SinusoidalPE(nn.Module):
       </section>
 
       <section class="section reveal" id="cache">
-        <div class="section-heading"><p class="section-index">07 · AUTOREGRESSIVE INFERENCE</p><h2>KV Cache：缓存过去，当前只算一次</h2><p>自回归生成第 t 个 token 时，过去 token 的 K/V 不会改变，因此每层只计算新 token 的 K/V，并拼到缓存末尾。</p></div>
+        <div class="section-heading"><p class="section-index">08 · AUTOREGRESSIVE INFERENCE</p><h2>KV Cache：缓存过去，当前只算一次</h2><p>自回归生成第 t 个 token 时，过去 token 的 K/V 不会改变，因此每层只计算新 token 的 K/V，并拼到缓存末尾。</p></div>
         <div class="shape-flow">
           <div class="shape-node"><b>旧缓存</b><code>K,V [B,H,t−1,Dh]</code></div><span class="shape-arrow">＋</span>
           <div class="shape-node"><b>新 token</b><code>Knew,Vnew [B,H,1,Dh]</code></div><span class="shape-arrow">→</span>
@@ -240,7 +275,7 @@ class SinusoidalPE(nn.Module):
       </section>
 
       <section class="section reveal" id="practice">
-        <div class="section-heading"><p class="section-index">08 · CLOSED-BOOK PRACTICE</p><h2>遮住答案再写一次</h2></div>
+        <div class="section-heading"><p class="section-index">09 · CLOSED-BOOK PRACTICE</p><h2>遮住答案再写一次</h2></div>
         <div class="card-grid">
           <article class="practice-card"><span class="card-label">练习 A · 10 分钟</span><h3>实现单头 Cross-Attention</h3><p class="prompt">输入 <code>q:[B,Lq,D]</code>、<code>context:[B,Lc,D]</code>，返回 <code>[B,Lq,D]</code>。要求包含缩放与可选 mask。</p><button class="reveal-button" data-reveal="solution-cross">查看参考实现</button><div class="solution" id="solution-cross"><div class="code-card"><pre>def cross_attention(q, context, mask=None):
     d = q.size(-1)
@@ -261,12 +296,13 @@ class SinusoidalPE(nn.Module):
       </section>
 
       <section class="section reveal" id="quiz">
-        <div class="section-heading"><p class="section-index">09 · QUICK CHECK</p><h2>四题确认是否真的掌握</h2></div>
+        <div class="section-heading"><p class="section-index">10 · QUICK CHECK</p><h2>五题确认是否真的掌握</h2></div>
         <div class="quiz-list">
           <article class="quiz-item" data-answer="1"><strong>1. 输入为 [B,L,D]，拆成 H 个 head 后正确 shape 是？</strong><div class="quiz-options"><button>[B,L,H,D/H]</button><button>[B,H,L,D/H]</button><button>[H,B,D,L]</button><button>[B,H,D,L/H]</button></div><p class="quiz-note">标准计算布局是 [B,H,L,Dh]，让倒数两维完成序列点积。</p></article>
           <article class="quiz-item" data-answer="2"><strong>2. 为什么除以 √Dₕ？</strong><div class="quiz-options"><button>减少参数量</button><button>让输出均值为 0</button><button>控制点积方差，避免 softmax 饱和</button><button>保证注意力对称</button></div><p class="quiz-note">若 q/k 各维方差约为 1，点积方差约为 Dₕ，除以 √Dₕ 后恢复到稳定量级。</p></article>
           <article class="quiz-item" data-answer="0"><strong>3. Cross-Attention 中哪项正确？</strong><div class="quiz-options"><button>Q 与 K/V 可以来自不同序列</button><button>Lq 必须等于 Lk</button><button>不能使用 mask</button><button>V 必须等于 Q</button></div><p class="quiz-note">Q 决定“查询什么”，K/V 提供被查询的上下文，两个序列长度可以不同。</p></article>
           <article class="quiz-item" data-answer="3"><strong>4. KV Cache 的缓存维度通常是？</strong><div class="quiz-options"><button>[B,L,D]</button><button>[L,B,H]</button><button>[B,D,H,L]</button><button>[B,H,L,Dh]</button></div><p class="quiz-note">每一层分别缓存 K 和 V，常见布局为 [batch, heads, sequence, head_dim]。</p></article>
+          <article class="quiz-item" data-answer="1"><strong>5. GQA 相比 MHA 直接减少的是哪一项？</strong><div class="quiz-options"><button>Query 头数</button><button>KV 头数与缓存</button><button>序列长度</button><button>模型层数</button></div><p class="quiz-note">GQA 保留较多 Query 头，让一组 Query 头共享较少的 K/V 头。</p></article>
         </div>
       </section>
 

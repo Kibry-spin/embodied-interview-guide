@@ -92,6 +92,20 @@
           <tr><td><strong>DAgger</strong></td><td>策略访问状态后由专家补标</td><td>是</td><td>补充 d<sub>π</sub> 下的纠错数据，减轻 covariate shift</td><td>可作为 ACT 的数据闭环，而非替代网络</td></tr>
           <tr><td><strong>Offline RL</strong></td><td>带奖励的离线数据</td><td>训练时否</td><td>在数据支持范围内优化回报</td><td>目标不再只是复现专家动作</td></tr>
         </tbody></table></div>
+        <div class="section-heading" id="dagger" style="margin-top:54px"><p class="section-index">DAGGER LOOP</p><h2 style="font-size:32px">收集的是策略访问状态上的专家纠错</h2></div>
+        <div class="e2e-pipeline">
+          <article><span>01</span><strong>Train</strong><p>先用聚合数据 D<sub>i</sub> 训练 π<sub>i</sub></p><em>监督学习</em></article><b>→</b>
+          <article><span>02</span><strong>Rollout</strong><p>让当前策略进入真实 d<sub>πi</sub></p><em>可混合专家保证安全</em></article><b>→</b>
+          <article><span>03</span><strong>Query</strong><p>专家为访问到的状态给正确动作</p><em>不是复制失败动作</em></article><b>→</b>
+          <article><span>04</span><strong>Aggregate</strong><p>D<sub>i+1</sub>=D<sub>i</sub>∪D<sub>new</sub></p><em>重复迭代</em></article>
+        </div>
+        <div class="table-scroll" style="margin-top:16px"><table class="shape-table"><thead><tr><th>问题</th><th>正确理解</th><th>真机实现</th></tr></thead><tbody>
+          <tr><td><strong>为什么优于纯 BC？</strong></td><td>训练分布逐步覆盖策略自己会进入的状态，专家标签教它如何从偏差状态恢复。</td><td>先在低速、限幅和可接管条件下 rollout，按失败类型分层补数据。</td></tr>
+          <tr><td><strong>一定要专家全程控制吗？</strong></td><td>经典 DAgger 可以逐状态查询专家；真实机器人常用 intervention/安全 DAgger，只在风险或偏差出现时接管。</td><td>记录接管前状态、专家纠正动作、恢复段和接管原因。</td></tr>
+          <tr><td><strong>怎样适配 action chunk？</strong></td><td>专家可标注未来 chunk，但必须给出有效 mask；接管边界不能把策略动作和专家动作混成一个无来源标签。</td><td>保存 action source、timestamp、intervention flag，并在 episode 内构造窗口。</td></tr>
+          <tr><td><strong>与在线 RL 的差别？</strong></td><td>DAgger 仍用专家动作做监督，不需要奖励、价值函数或策略梯度。</td><td>成本来自专家标注与真机 rollout，而不是 reward exploration。</td></tr>
+        </tbody></table></div>
+        <div class="interview-card" style="margin-top:16px"><strong>贴合你的遥操作平台</strong><p>可以让机器人先执行当前 ACT/Flow/VLA 策略，当 Tracker/Manus 或 Avatar 操作者检测到抓取偏差、碰撞风险或任务停滞时接管；系统同时保存接管前观测、策略原动作、人工纠正动作、恢复轨迹和触觉状态。重新训练时对这些稀有纠错窗口重采样，并单独报告接管率和恢复成功率。</p></div>
         <pre><code># ACT 仍遵循标准监督训练，只是 target 从 a_t 变成 action chunk
 for batch in loader:
     obs, actions, is_pad = batch                 # actions: [B, k, Da]

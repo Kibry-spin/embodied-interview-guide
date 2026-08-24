@@ -10,8 +10,8 @@
       label: "基础",
       pages: ["attention.html", "transformer.html", "vla-loss.html"],
       links: [
-        ["attention.html", "Attention", "QKV、Mask、KV Cache"],
-        ["transformer.html", "Transformer", "Encoder–Decoder 与多模态融合"],
+      ["attention.html", "Attention", "QKV、MHA/GQA、Mask 与 KV Cache"],
+      ["transformer.html", "Transformer", "Norm、完整手写与分布式训练"],
         ["vla-loss.html", "Loss", "CE、MSE、Flow 与 Action Chunk"],
       ],
     },

@@ -150,6 +150,21 @@
         </div>
         <div class="callout"><strong>“同一模型”是高频追问</strong><p>高层与低层不是两套互不相干的网络。π0.5 用同一 Transformer 表示两种分布：先自回归采样高层文本子任务，再在该子任务条件下用 action expert 生成连续动作；高层运行频率可以低于低层。</p></div>
 
+        <div class="section-heading" id="pi05-connection" style="margin-top:54px"><p class="section-index">VLM ↔ ACTION EXPERT</p><h2 style="font-size:32px">连接分成前向信息、参数路由与反向梯度</h2></div>
+        <div class="architecture-stack">
+          <article class="architecture-layer"><span>VLM PREFIX</span><div><strong>图像、语言、状态与高层子任务 token</strong><p>VLM expert 先形成语义条件；状态在 π0.5 预训练配方中可作为离散文本 token 进入 prefix。</p></div><code>K<sub>vlm</sub>, V<sub>vlm</sub></code></article>
+          <article class="architecture-layer"><span>ACTION SUFFIX</span><div><strong>带噪 action chunk + Flow timestep</strong><p>由 action expert 的独立参数处理，每个动作时刻对应一个连续 token。</p></div><code>Q<sub>action</sub></code></article>
+          <article class="architecture-layer"><span>JOINT ATTENTION</span><div><strong>动作 token 查询 VLM 条件</strong><p>两类 token 在同一层的联合注意力中交互，但 FFN/投影等参数可按 token 类型路由给不同 expert。</p></div><code>Attn(Q<sub>a</sub>, K/V<sub>prefix+a</sub>)</code></article>
+          <article class="architecture-layer"><span>FLOW OUTPUT</span><div><strong>每个动作 token 输出速度</strong><p>多次积分把高斯噪声 action chunk 推向可执行连续动作。</p></div><code>v<sub>θ</sub>(A<sup>τ</sup>|I,ℓ,q,subtask)</code></article>
+        </div>
+        <div class="table-scroll" style="margin-top:16px"><table class="shape-table"><thead><tr><th>层面</th><th>π₀.₅ / KI 中发生什么</th><th>不能说成什么</th></tr></thead><tbody>
+          <tr><td><strong>前向信息</strong></td><td>Action tokens 能读取图像、语言、状态和子任务 prefix；blockwise mask 阻止动作噪声反向污染 prefix 表示。</td><td>“只取 VLM 最后一个 hidden state 接 MLP。”</td></tr>
+          <tr><td><strong>参数路由</strong></td><td>VLM token 与 action token 使用不同 expert 参数，但在注意力中共享上下文。</td><td>“两套完全独立、互不通信的模型。”</td></tr>
+          <tr><td><strong>训练损失</strong></td><td>Web/文本/FAST token 用 CE 学知识与离散动作；连续 action expert 用 Flow loss 学执行。</td><td>“π₀.₅ 只训练一个 Flow loss。”</td></tr>
+          <tr><td><strong>反向梯度</strong></td><td>采用 Knowledge Insulation 时，连续 Flow loss 不回写 VLM；VLM 仍由 CE 目标更新。</td><td>“stop-gradient 等于前向断开”或“VLM 全程冻结”。</td></tr>
+        </tbody></table></div>
+        <div class="interview-card" style="margin-top:16px"><strong>30 秒回答</strong><p>π₀.₅ 不是把 VLM 最后一个向量交给独立动作 MLP。图像、语言、状态和子任务构成 prefix，带噪 action chunk 构成 suffix；VLM expert 与 action expert 使用各自参数，但动作 token 通过联合注意力读取 prefix 的 K/V，并预测 Flow 速度场。采用 Knowledge Insulation 时，前向条件仍然连通，只阻断连续动作损失回到 VLM 的梯度，VLM 继续由 Web、文本和 FAST token 的交叉熵训练。</p></div>
+
         <div class="card-grid">
           <article class="formula-card"><span class="card-label">STATE AS TEXT TOKENS</span><h3>连续状态怎样变成 token</h3><p>先按训练统计量归一化，再把每个状态维度分到离散区间，将区间编号写成普通文本数字 token。原始 π0.5 论文明确采用这种表示。</p><div class="formula" style="margin-top:14px">q<sub>i</sub> → normalize → bin(q<sub>i</sub>) → “37”</div></article>
           <article class="formula-card"><span class="card-label">TRADE-OFF</span><h3>为什么不永远这样做</h3><p>好处是格式接近 VLM 预训练时见过的数字文本；代价是量化误差、token 数较多、相邻状态的连续关系被硬分桶。KI 研究也比较了普通文本、特殊 token 与连续投影三种方案。</p><div class="formula" style="margin-top:14px">可复用 VLM 先验 ↔ 连续精度与序列长度</div></article>
