@@ -26,11 +26,12 @@
     },
     {
       label: "VLA",
-      pages: ["vla-interview.html", "wam.html", "pi-series.html", "wall-oss.html", "at-vla.html"],
+      pages: ["vla-interview.html", "wam.html", "pi-series.html", "qwen-robotmanip.html", "wall-oss.html", "at-vla.html"],
       links: [
       ["vla-interview.html", "VLA 总览", "架构、智元面经、评测与部署"],
         ["wam.html", "WAM", "未来世界建模、LaWAM 与 VLA 对比"],
         ["pi-series.html", "π 系列", "Flow Action Expert 演进"],
+        ["qwen-robotmanip.html", "Qwen-RobotManip", "Alignment、跨本体与 38k 小时数据"],
         ["wall-oss.html", "WALL", "Gradient Bridge 与跨本体"],
         ["at-vla.html", "AT-VLA", "触觉门控与快慢双流"],
       ],
@@ -116,9 +117,9 @@
     ],
     "vla-interview.html": [
       ["wam.html", "预测式策略", "比较直接 observation-to-action 与未来世界建模。"],
+      ["qwen-robotmanip.html", "跨本体基础模型", "深入统一动作空间、相机系 EEF 与 OOD scaling。"],
       ["wall-oss.html", "训练机制", "理解语义模型与连续动作的梯度桥。"],
       ["at-vla.html", "触觉 VLA", "观察高频触觉如何进入慢速 VLA。"],
-      ["index.html#ditflow", "代码落地", "在 Main 中对照一个完整 LeRobot 生成策略。"],
     ],
     "wam.html": [
       ["vla-interview.html", "对照基线", "回到 VLA 的语义主干、融合与 Action Expert。"],
@@ -146,15 +147,21 @@
     ],
     "wall-oss.html": [
       ["pi-series.html", "路线对照", "比较 π 系列与 WALL 的动作学习设计。"],
+      ["qwen-robotmanip.html", "几何对齐", "比较梯度桥与相机系跨本体对齐两条 scaling 路线。"],
       ["dit.html", "连续生成", "补全条件 Transformer 与 Flow velocity。"],
       ["vla-interview.html", "系统定位", "把模型机制放回 VLA 全景。"],
-      ["index.html#ditflow", "最小实现", "用小型策略看清 Flow 的训练和采样。"],
     ],
     "pi-series.html": [
       ["vla-interview.html", "总体框架", "先确定 VLM、融合和动作空间的位置。"],
+      ["qwen-robotmanip.html", "同类路线", "对比 Flow Expert、异构数据与开放世界泛化。"],
       ["dit.html", "Action Expert", "理解 Transformer 如何参数化条件速度场。"],
       ["wall-oss.html", "同类路线", "比较离散语义与连续控制如何协同。"],
-      ["rtc.html", "实时执行", "把 action chunk 生成接入在线闭环。"],
+    ],
+    "qwen-robotmanip.html": [
+      ["vla-interview.html", "VLA 全景", "把表示、数据、训练和真机部署放回通用 VLA 框架。"],
+      ["pi-series.html", "Flow VLA 对照", "比较 π 系列的 Action Expert、knowledge insulation 与开放世界路线。"],
+      ["wall-oss.html", "Scaling 对照", "比较动作梯度桥与 representation/motion/behavior alignment。"],
+      ["lerobot-data.html", "数据落地", "把 canonical schema、时间对齐和质量检查落到 episode。"],
     ],
     "attention.html": [
       ["transformer.html", "下一层", "把 QKV 拼成完整 Encoder–Decoder。"],

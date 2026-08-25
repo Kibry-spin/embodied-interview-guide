@@ -1,0 +1,399 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Qwen-RobotManip 深度解读：Alignment before Scale、Qwen3.5-4B + Flow DiT、80D 跨本体动作空间、相机坐标系末端动作、Human-to-Robot 数据合成、训练配方、OOD 实验、消融与面试问答。">
+  <meta name="theme-color" content="#0f1715">
+  <title>Qwen-RobotManip 深度解读｜跨本体 VLA 面试专题</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="scroll-progress"><span id="scroll-progress-bar"></span></div>
+  <header class="topbar">
+    <a class="brand" href="index.html"><span class="brand-mark">Q</span><span class="brand-copy"><strong>Qwen-RobotManip</strong><small>Alignment · Scale · Generalization</small></span></a>
+    <nav class="topnav"><a href="index.html">总览</a><a href="vla-interview.html">VLA</a><a href="pi-series.html">π 系列</a><a href="wall-oss.html">WALL</a></nav>
+    <div class="top-actions"><button class="top-button" id="focus-toggle" type="button">专注阅读</button><a class="top-button strong" href="#pitch">先背结论 ↓</a></div>
+  </header>
+
+  <div class="page-shell">
+    <aside class="sidebar">
+      <p class="eyebrow">QWEN ROBOTMANIP PATH</p>
+      <ol class="side-nav">
+        <li><a href="#overview"><span>01</span>一张图看懂</a></li>
+        <li><a href="#pitch"><span>02</span>90 秒回答</a></li>
+        <li><a href="#thesis"><span>03</span>Alignment 主线</a></li>
+        <li><a href="#architecture"><span>04</span>模型架构</a></li>
+        <li><a href="#action-space"><span>05</span>80D 动作空间</a></li>
+        <li><a href="#eef"><span>06</span>相机系 EEF</a></li>
+        <li><a href="#context"><span>07</span>行为对齐</a></li>
+        <li><a href="#corpus"><span>08</span>数据规模</a></li>
+        <li><a href="#human2robot"><span>09</span>Human2Robot</a></li>
+        <li><a href="#curation"><span>10</span>数据清洗</a></li>
+        <li><a href="#vl-data"><span>11</span>VL 协同训练</a></li>
+        <li><a href="#training"><span>12</span>训练目标</a></li>
+        <li><a href="#runtime"><span>13</span>后训练与部署</a></li>
+        <li><a href="#evidence"><span>14</span>实验结论</a></li>
+        <li><a href="#ablation"><span>15</span>消融证据</a></li>
+        <li><a href="#compare"><span>16</span>横向对比</a></li>
+        <li><a href="#engineering"><span>17</span>工程与触觉拓展</a></li>
+        <li><a href="#interview"><span>18</span>面试追问</a></li>
+        <li><a href="#sources"><span>19</span>官方资料</a></li>
+      </ol>
+      <div class="sidebar-card"><strong>本页过关标准</strong><p>能用“表示—运动—行为”三层解释 alignment；能写出 Flow 目标与有效维度 mask；能说明为什么相机坐标系动作有利于跨本体，也能指出它对标定的依赖；不会把官方报告、作者推测和已开源能力混为一谈。</p></div>
+    </aside>
+
+    <main>
+      <section class="hero compact qrm-hero reveal visible" id="overview">
+        <div>
+          <p class="kicker">Qwen Team · arXiv:2606.17846v2 · Technical Report</p>
+          <h1>Qwen-RobotManip<br><em>先对齐，<br>再谈规模</em></h1>
+          <p class="hero-lead">论文的核心不是“又一个 Qwen + Action Head”，而是建立一套可吞入跨机器人、跨坐标系、跨采集方式数据的统一契约，让增加数据真正转化为 OOD 泛化。</p>
+          <div class="hero-actions"><a class="primary-button" href="#pitch">90 秒抓住主线 ↓</a><a class="ghost-button" href="#architecture">进入架构 ↗</a></div>
+          <div class="hero-stats"><div><strong>4B</strong><span>Qwen3.5-VL 骨干</span></div><div><strong>≈38.1k h</strong><span>操作预训练语料</span></div><div><strong>24,808 h</strong><span>Human2Robot 合成</span></div><div><strong>15</strong><span>合成机器人形态</span></div></div>
+        </div>
+        <div class="hero-board qrm-hero-board">
+          <div class="terminal-head"><span class="terminal-dots"><i></i><i></i><i></i></span><span>alignment.unlocks.scale</span></div>
+          <div class="qrm-alignment-map">
+            <article><span>REPRESENTATION</span><strong>统一 80D Schema</strong><small>槽位语义 + 有效维度 Mask</small></article>
+            <b>+</b>
+            <article><span>MOTION</span><strong>Camera-frame ΔEEF</strong><small>CaPE + 相机内外参</small></article>
+            <b>+</b>
+            <article><span>BEHAVIOR</span><strong>Prompt + Context</strong><small>本体元信息 + 执行历史</small></article>
+          </div>
+          <div class="qrm-scale-arrow"><span>异构开源数据</span><b>ALIGN</b><span>可学习的共同结构</span><b>SCALE</b><span>OOD 泛化</span></div>
+          <div class="formula">heterogeneous data → coherent action semantics → transferable policy</div>
+        </div>
+      </section>
+
+      <section class="section reveal" id="pitch">
+        <div class="section-heading"><p class="section-index">01 · ELEVATOR PITCH</p><h2>面试先讲这一分半</h2></div>
+        <div class="interview-card"><strong>90 秒回答</strong><p>Qwen-RobotManip 是 Qwen 团队基于 Qwen3.5-4B 构建的通用 VLA 技术报告。架构上，它用 VLM 处理多视角图像、语言、结构化本体提示和执行历史，再让 10 层 Flow-Matching DiT Action Expert 通过交叉注意力读取 VLM 最后一层特征，以连续 action chunk 控制机器人。它最重要的贡献不是单个网络模块，而是“alignment before scale”：第一，用 80 维固定语义槽位和 mask 对齐不同机器人的 state/action；第二，把末端增量动作统一表达在参考相机坐标系中，并用 CaPE 注入相机几何；第三，用本体 prompt 和历史 observation-state-action chunk 对齐行为速度与运动风格。数据侧把约 1,933 小时人类第一视角视频重定向、去手、渲染为 15 类机器人，扩展为 24,808 小时合成数据，最终构成约 38,100 小时操作语料。论文强调用 OOD 而非仅 IID benchmark 衡量基础模型价值，并在 LIBERO-Plus、RoboTwin-Clean2Rand、RoboTwin-IF、RoboCasa365、EBench 和跨本体测试中展示优势。它的边界也很明确：当前是 arXiv 技术报告，官方仓库明确表示暂无发布权重计划；合成数据有重定向和修补伪影，真实世界 OOD 覆盖仍有限，固定 chunk 与推理延迟也限制亚秒级反应任务。</p></div>
+        <div class="memory-line"><strong>一句话</strong><p>Qwen-RobotManip 证明的不是“数据越多越好”，而是<strong>动作语义对齐后，跨本体数据量才会呈现稳定的 OOD scaling law</strong>。</p></div>
+      </section>
+
+      <section class="section reveal" id="thesis">
+        <div class="section-heading split-heading"><div><p class="section-index">02 · CORE THESIS</p><h2>Alignment 为什么是 Scale 的前提</h2></div><p>同样的物理动作若在不同数据集里落成不同数字，增加样本会制造冲突，而不是积累知识。</p></div>
+        <div class="table-scroll"><table class="shape-table"><thead><tr><th>对齐维度</th><th>原始异构性</th><th>论文方案</th><th>希望获得的共享结构</th></tr></thead><tbody>
+          <tr><td><strong>表示对齐</strong><small>Representation</small></td><td>单臂/双臂/灵巧手/底盘的维度和字段不同</td><td>80D canonical vector；固定语义槽位；缺失维度置零并 mask loss</td><td>“第 j 维是什么”跨数据源不再变化</td></tr>
+          <tr><td><strong>运动对齐</strong><small>Motion</small></td><td>动作可能在 base、world、EEF local 或不同 camera frame 中表达</td><td>camera-frame delta EEF + CaPE + EEF type embedding</td><td>图像中相似的位移，对应数值上相近的动作</td></tr>
+          <tr><td><strong>行为对齐</strong><small>Behavior</small></td><td>不同控制频率、速度、轨迹风格和本体动态</td><td>结构化 embodiment prompt + in-context execution history</td><td>模型知道“谁在动、以多快频率动、刚才怎样动”</td></tr>
+          <tr><td><strong>数据对齐</strong><small>Curation</small></td><td>时间滞后、符号反转、TCP 错位、视频/状态不一致</td><td>五阶段数值检查 + 三类跨模态一致性检查</td><td>同一个训练 batch 中监督信号可信、方向一致</td></tr>
+        </tbody></table></div>
+        <div class="compare-grid" style="margin-top:16px">
+          <article class="compare-card"><h3>只做 padding 为什么不够</h3><p>把不同机器人字段拼接后补零，只解决张量形状，不解决语义冲突。相同列可能代表不同关节，不同坐标系的相同位移也不再数值接近。</p></article>
+          <article class="compare-card good"><h3>对齐后为何能规模化</h3><p>模型不必先用容量辨认并“反编译”每个数据源的坐标约定，可以直接统计共享的抓取、移动、放置和双臂协调规律。</p></article>
+        </div>
+        <div class="callout warning"><strong>不要把 alignment 说成 normalization</strong><p>归一化只调整数值尺度；alignment 还包含字段语义、坐标系、姿态约定、时间尺度、相机几何和行为上下文。标准化到 [-1,1] 不能修复轴方向错、TCP 偏置或 state-action 滞后。</p></div>
+      </section>
+
+      <section class="section reveal" id="architecture">
+        <div class="section-heading split-heading"><div><p class="section-index">03 · ARCHITECTURE</p><h2>Qwen3.5-4B 与 Flow DiT 怎样连接</h2></div><p>它是解耦式 VLM + Action Expert，但训练时 Flow 梯度仍回传到 VLM，并不是冻结语义骨干。</p></div>
+        <div class="architecture-stack">
+          <article class="architecture-layer"><span>INPUT</span><div><strong>多视角图像 + 指令 + 结构化 Prompt + 历史 Context</strong><p>视觉 token、文本 token 与历史状态/动作 token 进入 Qwen3.5；当前本体状态另走 Action Expert 的两层 MLP。</p></div><code>o, language, C, s</code></article>
+          <article class="architecture-layer"><span>VLM BACKBONE</span><div><strong>Qwen3.5-4B 原生多模态早期融合</strong><p>动态分辨率视觉合并后与文本交错进入同一 Transformer；最后一层隐状态宽度 D<sub>vlm</sub>=2560。</p></div><code>[B,L,2560]</code></article>
+          <article class="architecture-layer"><span>ACTION TOKENS</span><div><strong>当前 state token + 带噪 action chunk</strong><p>当前状态经两层 MLP 后前置到动作序列；x<sub>t</sub>、flow time、相机和末端类型共同条件化 DiT。</p></div><code>x_t ∈ R[B,T,D]</code></article>
+          <article class="architecture-layer"><span>ACTION EXPERT</span><div><strong>10 × Transformer Block，hidden 768，12 heads</strong><p>每层先对 state/action 自注意力，再交叉注意力读取 VLM hidden，最后进入 SwiGLU FFN。</p></div><code>D_act=768</code></article>
+          <article class="architecture-layer"><span>ALTERNATING CROSS-ATTN</span><div><strong>偶数层看视觉，奇数层看语言</strong><p>将空间 grounding 与指令 grounding 分阶段注入动作生成，而不是把最后一个 language hidden state 当作唯一条件。</p></div><code>vision ↔ language</code></article>
+          <article class="architecture-layer"><span>OUTPUT</span><div><strong>连续速度场 → 4 步 Euler → action chunk</strong><p>训练预测 a−ε；推理从高斯噪声出发，沿条件向量场积分到动作。</p></div><code>vθ(x_t,t|o,s)</code></article>
+        </div>
+        <div class="table-scroll" style="margin-top:16px"><table class="shape-table"><thead><tr><th>常见说法</th><th>是否准确</th><th>正确理解</th></tr></thead><tbody>
+          <tr><td>“VLM 只取最后一个 token 接动作头”</td><td>不准确</td><td>Action Expert 对 VLM 最后一层的视觉/语言 token 做交叉注意力。</td></tr>
+          <tr><td>“VLM 和 Action Expert 完全独立训练”</td><td>不准确</td><td>结构解耦，但 FM loss 同时更新 VLM 与 Action Expert；另有 VLM next-token loss 维持语义能力。</td></tr>
+          <tr><td>“DiT 就是做图像扩散”</td><td>不准确</td><td>这里 Transformer 的 token 是状态和带噪动作，生成对象是连续 action chunk。</td></tr>
+          <tr><td>“4 步 Euler 等于控制频率”</td><td>错误</td><td>4 是每次 action chunk 的 ODE 积分步数；实际控制频率还由模型耗时、网络、chunk 长度与执行策略决定。</td></tr>
+        </tbody></table></div>
+      </section>
+
+      <section class="section reveal" id="action-space">
+        <div class="section-heading"><p class="section-index">04 · CANONICAL REPRESENTATION</p><h2>80D 不是 80 个真实自由度</h2><p>它是一个固定语义模板：两侧手臂各 29 维，另留 22 维给底盘等扩展；每个本体只激活自己拥有的槽位。</p></div>
+        <div class="qrm-slot-map">
+          <article><span>LEFT ARM · 29D</span><strong>7 joint + 9 EEF + 1 gripper + 12 hand</strong></article>
+          <article><span>RIGHT ARM · 29D</span><strong>7 joint + 9 EEF + 1 gripper + 12 hand</strong></article>
+          <article><span>RESERVED · 22D</span><strong>mobile base / future extension</strong></article>
+        </div>
+        <div class="table-scroll" style="margin-top:16px"><table class="shape-table"><thead><tr><th>语义组</th><th>State 表示</th><th>Action 表示</th><th>为什么这样设计</th></tr></thead><tbody>
+          <tr><td>Arm joints · 7D/arm</td><td>绝对关节位置</td><td>绝对关节目标</td><td>保留关节控制数据；但跨本体迁移能力弱于任务空间动作。</td></tr>
+          <tr><td>EEF position · 3D/arm</td><td>绝对笛卡尔位置</td><td>相对当前状态的位移</td><td>相对量降低工作空间偏移，并进一步转到相机坐标系。</td></tr>
+          <tr><td>EEF orientation</td><td>6D continuous rotation</td><td>3D rotation vector delta</td><td>状态表示连续稳定；动作只表达增量旋转。</td></tr>
+          <tr><td>Gripper · 1D/arm</td><td>夹爪关节状态</td><td>夹爪目标</td><td>统一平行夹爪语义。</td></tr>
+          <tr><td>Dexterous hand · 12D/arm</td><td>有效手指关节</td><td>有效手指动作</td><td>为多指手留出槽位，但并不等于支持任意 20+ DoF 手。</td></tr>
+          <tr><td>Reserved · 22D</td><td colspan="2">按数据源填充额外自由度</td><td>为移动底盘等本体扩展保留接口。</td></tr>
+        </tbody></table></div>
+        <div class="formula large">L<sub>FM</sub> = Σ m<sub>t,j</sub> · ‖v̂<sub>t,j</sub> − v<sub>t,j</sub>‖² / Σ m<sub>t,j</sub></div>
+        <div class="card-grid three" style="margin-top:16px">
+          <article class="info-card"><span>SLOT MASK</span><h3>本体没有的维度</h3><p>例如单臂样本的另一只手臂槽位置零，且不进入 loss；置零本身不是监督。</p></article>
+          <article class="info-card"><span>STEP MASK</span><h3>异常或越界时间步</h3><p>某一步无效后，未来步也全部 mask，避免 action chunk 在因果上出现“中间缺一帧但后面继续有效”。</p></article>
+          <article class="info-card"><span>HAND MASK</span><h3>人手离开视野</h3><p>从某只手不可见起，将该 arm slot 整体 mask，避免用遮挡后的伪轨迹监督。</p></article>
+        </div>
+        <div class="callout"><strong>为什么按样本除以有效元素数</strong><p>双臂或高自由度本体激活的维度更多。若直接对 batch 所有元素求和，它们会自然获得更大梯度权重；论文先对每个样本按有效项平均，再对 batch 平均，让不同本体贡献更均衡。</p></div>
+      </section>
+
+      <section class="section reveal" id="eef">
+        <div class="section-heading split-heading"><div><p class="section-index">05 · UNIFIED EEF MOTION</p><h2>为什么动作要放进相机坐标系</h2></div><p>固定槽位解决“放在哪一列”，camera-frame delta 进一步解决“同一运动为何在不同数据里数值不同”。</p></div>
+        <div class="compare-grid">
+          <article class="compare-card"><h3>Base / Joint Space</h3><ul><li>与机器人形态、安装方式和零位强绑定</li><li>跨本体时同一物理技能对应完全不同数字</li><li>视觉 token 仍需学习从图像到每台机器人的专用坐标变换</li></ul></article>
+          <article class="compare-card good"><h3>Camera-frame ΔEEF</h3><ul><li>把末端位移和旋转增量表达在参考相机坐标中</li><li>图像里“向右靠近杯子”的动作在数值上也更接近</li><li>天然为不同机器人提供共享的任务空间接口</li></ul></article>
+        </div>
+        <div class="formula large" style="margin-top:16px">Δt<sup>c</sup> = R<sup>c</sup><sub>e</sub> · Δt<sup>e</sup>　　ΔR<sup>c</sup> = R<sup>c</sup><sub>e</sub> · ΔR<sup>e</sup> · R<sup>e</sup><sub>c</sub></div>
+        <div class="step-timeline" style="margin-top:16px">
+          <div class="step-row"><span>01</span><strong>选择参考相机</strong><p>单臂训练时可随机选外部或腕部相机；双臂可共享头部/第三视角，也可左右臂分别用腕部相机。</p></div>
+          <div class="step-row"><span>02</span><strong>把 EEF 增量投影到相机系</strong><p>平移由 camera-to-EEF 旋转变换；旋转用共轭变换表达在相机坐标系。</p></div>
+          <div class="step-row"><span>03</span><strong>用 CaPE 注入相机几何</strong><p>每个 64D attention head 中 32D 用 Camera Positional Encoding，另 32D 用时间 RoPE；图像 token 用自己的相机外参，state/action token 用参考相机外参。</p></div>
+          <div class="step-row"><span>04</span><strong>补充内参与本体条件</strong><p>归一化 patch 坐标经线性投影加入图像 token；EEF type embedding 区分单臂、双臂左右、头部与底盘。</p></div>
+          <div class="step-row"><span>05</span><strong>无标定时回退</strong><p>辅助二值 flag 表示是否具备相机标定；无标定样本切换到 robot-base relative action，而不是伪造 camera-frame 动作。</p></div>
+        </div>
+        <div class="callout warning"><strong>它不是免费获得跨本体</strong><p>camera-frame EEF 强依赖内外参、时间同步和 TCP 定义。外参偏 2 cm、轴方向颠倒、腕部相机与动作时间错位，都会把“视觉—动作对齐”变成系统性错监督。论文也明确采用对标定误差和长尾分布更稳的分解式公式，而不是更紧凑但平移与旋转耦合的替代式。</p></div>
+        <div class="memory-line"><strong>结合你的经历</strong><p>你将手部关键点统一到相机坐标系的工作，与这里同属“先把动作/关键点放入视觉可解释坐标，再做学习”。面试时应进一步说明手眼外参、时间戳、变换链方向和可视化投影如何验证。</p></div>
+      </section>
+
+      <section class="section reveal" id="context">
+        <div class="section-heading"><p class="section-index">06 · BEHAVIOR ALIGNMENT</p><h2>静态 Prompt 说明“是谁”，历史 Context 说明“实际怎样动”</h2></div>
+        <div class="table-scroll"><table class="shape-table"><thead><tr><th>条件</th><th>包含信息</th><th>解决的问题</th><th>局限</th></tr></thead><tbody>
+          <tr><td><strong>Structured Embodiment Prompt</strong></td><td>平台、任务指令、episode 长度档位、FPS、相机观察方向</td><td>告诉模型本体类别和时间尺度；训练时 15% 随机丢弃部分字段以适应缺失</td><td>只能表达静态元信息，不能观察真实运动响应</td></tr>
+          <tr><td><strong>In-Context Policy Adaptation</strong></td><td>最近 H 个历史 chunk：图像 o<sub>h</sub>、状态 s<sub>h</sub>、已执行 K 步动作 a<sub>h</sub></td><td>从执行结果中识别速度、运动学和抓取风格，无需更新参数</td><td>上下文更复杂，需要更高去噪预算；起始零 padding 会导致迟疑</td></tr>
+        </tbody></table></div>
+        <div class="architecture-stack" style="margin-top:16px">
+          <article class="architecture-layer"><span>HISTORICAL IMAGES</span><div><strong>与当前图像一起进入 VLM</strong><p>语言中附加 image-count 标注，让模型区分不同时间的视觉 token。</p></div><code>o_0 … o_H, o_t</code></article>
+          <article class="architecture-layer"><span>STATE / ACTION HISTORY</span><div><strong>MLP → VLM hidden space</strong><p>加入 chunk temporal embedding 和 action slot embedding，再按时间顺序序列化。</p></div><code>H(1+K') × 2560</code></article>
+          <article class="architecture-layer"><span>UNIFIED INJECTION</span><div><strong>历史 token 进入 VLM，而非只进 DiT</strong><p>VLM 可联合推理任务、图像和行为历史；融合后的 last hidden 再供 Action Expert cross-attend。</p></div><code>C → Qwen → DiT</code></article>
+          <article class="architecture-layer"><span>STOCHASTIC CONTEXT</span><div><strong>训练时随机抽 episode 位置</strong><p>若总给最近 chunk，模型会复制上一段动作；随机上下文迫使它学习整段 episode 的行为特征。</p></div><code>anti-copy shortcut</code></article>
+        </div>
+        <div class="callout warning"><strong>Context 版不总是更强</strong><p>消融中 4 次去噪时引入 context 会产生抖动；提高到 10 次才释放收益，20 次几乎不再提升。主实验里 Context 版在 LIBERO-Plus、RoboTwin-C2R 更强，但在 RoboCasa365、EBench 反而略弱。因此它是精度—延迟—稳定性权衡，不是无条件升级。</p></div>
+      </section>
+
+      <section class="section reveal" id="corpus">
+        <div class="section-heading split-heading"><div><p class="section-index">07 · DATA CORPUS</p><h2>38,100 小时是怎样组成的</h2></div><p>最大部分不是实机，而是从人类第一视角演示扩展出的跨机器人合成数据。</p></div>
+        <div class="metric-grid">
+          <article><span>ROBOT · SINGLE ARM</span><strong>3,808 h</strong><p>多来源单臂真实/仿真轨迹。</p></article>
+          <article><span>ROBOT · DUAL ARM</span><strong>6,744 h</strong><p>双臂操作是后续协调能力的重要来源。</p></article>
+          <article><span>MOBILE / HUMANOID</span><strong>868 h</strong><p>移动操作与人形数据。</p></article>
+          <article><span>RAW HUMAN</span><strong>1,933 h</strong><p>EgoDex、VITRA、EgoVerse 等。</p></article>
+          <article><span>HUMAN → ROBOT</span><strong>24,808 h</strong><p>同一人类演示渲染到 15 种双臂本体。</p></article>
+          <article><span>TOTAL</span><strong>≈38,100 h</strong><p>论文口径的操作预训练语料。</p></article>
+        </div>
+        <div class="table-scroll" style="margin-top:16px"><table class="shape-table"><thead><tr><th>公开机器人数据</th><th>论文采用量/特点</th><th>它补充什么</th></tr></thead><tbody>
+          <tr><td>Open X-Embodiment 子集</td><td>约 600 h</td><td>跨实验室、跨本体动作多样性。</td></tr>
+          <tr><td>AgiBotWorld-Beta</td><td>约 2,400 h，约 200 个任务</td><td>大规模通用操作。</td></tr>
+          <tr><td>RoboMIND / RoboMIND2</td><td>约 1,400 h</td><td>多本体、多任务真实数据；也暴露明显数据质量问题。</td></tr>
+          <tr><td>Galaxea</td><td>约 500 h</td><td>移动/双臂操作形态。</td></tr>
+          <tr><td>RoboCOIN</td><td>约 430 h</td><td>多场景真实操作。</td></tr>
+          <tr><td>DROID</td><td>95k trajectories，约 500 h</td><td>in-the-wild 单臂真实世界多样性。</td></tr>
+          <tr><td>RH20T</td><td>约 1,100 h，140+ tasks，42 skill categories</td><td>视觉、力/力矩、音频与 proprio 多模态数据。</td></tr>
+          <tr><td>RDT</td><td>约 29 h ALOHA</td><td>双臂精细操作。</td></tr>
+          <tr><td>InternData-A1</td><td>约 3,600 h 仿真</td><td>大规模仿真行为覆盖。</td></tr>
+        </tbody></table></div>
+        <div class="callout warning"><strong>两个“开放数据”口径不要混淆</strong><p>论文称约 38,100 小时<strong>操作语料</strong>来自开源机器人数据和人类视频，未做专有机器人数据采集；但并不代表整个训练只含开源样本。与动作流并行的约 2,800 万 VL 样本混合包含公开、合成和部分 proprietary VL data。面试必须把 manipulation corpus 与 VL co-training mixture 分开说。</p></div>
+      </section>
+
+      <section class="section reveal" id="human2robot">
+        <div class="section-heading"><p class="section-index">08 · HUMAN-TO-ROBOT</p><h2>1,933 小时人类视频怎样扩成 24,808 小时机器人数据</h2><p>本质是把“手的轨迹”和“画面中的手”分别对齐到机器人动作与机器人外观。</p></div>
+        <div class="fast-pipeline">
+          <article><span>01 · HUMAN POSE</span><strong>统一人手表示</strong><p>将不同人类数据源统一到 MANO 与 21 个手部关键点。</p></article><b>→</b>
+          <article><span>02 · RETARGET</span><strong>手 → EEF/Gripper</strong><p>由拇指和虚拟手指构造夹爪中心、宽度与姿态。</p></article><b>→</b>
+          <article><span>03 · REMOVE HAND</span><strong>SAM3 + ProPainter</strong><p>分割并修补人手/手臂，得到无手场景。</p></article><b>→</b>
+          <article><span>04 · RENDER ROBOT</span><strong>MuJoCo IK + 渲染</strong><p>为每种本体搜索可达基座位置并生成机器人图像。</p></article><b>→</b>
+          <article><span>05 · COMPOSITE</span><strong>Depth-aware 合成</strong><p>用 Depth Anything v3 估计场景深度，处理遮挡关系。</p></article>
+        </div>
+        <div class="card-grid three" style="margin-top:16px">
+          <article class="info-card"><span>VIRTUAL FINGER</span><h3>0.7 食指 + 0.3 中指</h3><p>用虚拟手指与拇指构造平行夹爪的两侧接触语义；夹爪中心取两者中点，宽度取距离。</p></article>
+          <article class="info-card"><span>ORIENTATION</span><h3>抓取轴 + 掌面法向 + 接近轴</h3><p>从手部关键点建立右手坐标系，并处理左右手符号。</p></article>
+          <article class="info-card"><span>SMOOTHING</span><h3>位置/宽度与旋转分开</h3><p>位置和宽度用 Savitzky–Golay；姿态用 Gaussian-weighted SLERP，避免直接平均旋转矩阵。</p></article>
+          <article class="info-card"><span>BASE SEARCH</span><h3>为每种本体搜索安装位姿</h3><p>在关键帧上最大化 IK 可行率，不把不可达的人手轨迹硬塞给机器人。</p></article>
+          <article class="info-card"><span>15 MORPHOLOGIES</span><h3>同一人类演示多本体扩展</h3><p>Panda、UR5e、ARX-L5、xArm7、Sawyer、Kinova、IIWA、Jaco、FR3、UR10e、ViperX、WidowX、Piper、YAM、AgileX ALOHA。</p></article>
+          <article class="info-card"><span>SPEED ALIGNMENT</span><h3>按来源降采样</h3><p>EgoDex 60%、EgoVerse 45%、VITRA 25%，使人手快速动作更接近机器人可执行时间尺度。</p></article>
+        </div>
+        <div class="table-scroll" style="margin-top:16px"><table class="shape-table"><thead><tr><th>收益</th><th>为什么有效</th><th>潜在误差</th><th>验证方式</th></tr></thead><tbody>
+          <tr><td>降低机器人采集成本</td><td>一段人类视频可重用到多种本体</td><td>人手技能与夹爪 affordance 不完全等价</td><td>对 retarget 后轨迹做 IK、碰撞和任务成功验证</td></tr>
+          <tr><td>增加视角/背景多样性</td><td>第一视角视频来自大量自然场景</td><td>inpainting 与渲染会留下边缘、光照和遮挡伪影</td><td>合成/真实分组评测，检查模型是否依赖伪影</td></tr>
+          <tr><td>补充双臂协调</td><td>人类天然使用双手完成长序列</td><td>左右手同步不代表机器人双臂动力学可行</td><td>双臂安全距离、共同可达性和时序一致性检查</td></tr>
+        </tbody></table></div>
+      </section>
+
+      <section class="section reveal" id="curation">
+        <div class="section-heading split-heading"><div><p class="section-index">09 · DATA CURATION</p><h2>真正决定能否预训练的数据工程</h2></div><p>论文不是“格式转完就训练”，而是先在数值、运动学、语言和视频之间做多级一致性检查。</p></div>
+        <div class="architecture-stack">
+          <article class="architecture-layer"><span>STAGE 1</span><div><strong>Sudden Change Detection</strong><p>分解平滑趋势和残差，联合检测 acceleration 与 jerk；删除异常帧/episode，仿真碰撞 episode 直接丢弃。</p></div><code>residual · a · jerk</code></article>
+          <article class="architecture-layer"><span>STAGE 2</span><div><strong>State–Action Trend Alignment</strong><p>用 cross-correlation 估计延迟，再比较对齐后导数方向一致率；delta action 先积分。论文称 RoboMIND 某类 UR 数据约 81% 未通过并被排除。</p></div><code>lag + directional agreement</code></article>
+          <article class="architecture-layer"><span>STAGE 3</span><div><strong>Extreme Value Filtering</strong><p>按分位数建立范围，保留夹爪开/闭的双峰分布；用 q01/q99 归一化到 [-1,1]。</p></div><code>robust quantile</code></article>
+          <article class="architecture-layer"><span>STAGE 4</span><div><strong>Joint–EEF FK Consistency</strong><p>用 Pinocchio + URDF 做 FK，修正 TCP offset、关节正负号和肩部/世界坐标变换。</p></div><code>FK(q) ≈ T_eef</code></article>
+          <article class="architecture-layer"><span>STAGE 5</span><div><strong>Base Frame & Orientation Alignment</strong><p>建立每数据集的旋转修正，统一机器人 base 方向，例如 +x 向前；对齐末端姿态约定。</p></div><code>canonical axes</code></article>
+        </div>
+        <div class="table-scroll" style="margin-top:16px"><table class="shape-table"><thead><tr><th>跨模态检查</th><th>做法</th><th>能发现的问题</th></tr></thead><tbody>
+          <tr><td><strong>Instruction Consistency</strong></td><td>长 episode 分段；VLM 结构化判断；多模型投票</td><td>指令与实际行为不符、子任务边界错、描述过于笼统</td></tr>
+          <tr><td><strong>Video–State Consistency</strong></td><td>用 URDF/joint state 投影机器人 mask，与 SAM3 实际分割比较重叠</td><td>外参错、时间戳错、关节符号错、视频和状态串 episode</td></tr>
+          <tr><td><strong>Video Quality</strong></td><td>过滤黑帧、损坏、模糊和长静止；保留夹爪闭合等关键帧</td><td>无信息视频、解码错误与采集故障</td></tr>
+        </tbody></table></div>
+        <div class="callout"><strong>与你的 LeRobot/遥操作项目最相关的复习点</strong><p>训练前要能回答：episode 级时间戳如何定义、相机与动作谁是主时钟、Tracker/手套/机器人控制频率如何重采样、state 与 action 是同时刻还是 action lead、TCP 和相机外参来自哪里、怎样用轨迹投影和回放确认坐标链正确。Qwen-RobotManip 的数据流程可以直接作为你的质量检查清单。</p></div>
+      </section>
+
+      <section class="section reveal" id="vl-data">
+        <div class="section-heading"><p class="section-index">10 · VL CO-TRAINING</p><h2>为什么训练动作时还要保留 VL 数据</h2><p>只做 action SFT 容易让 VLM 退化为视觉捷径：看见固定场景就执行默认动作，语言逐渐失去控制力。</p></div>
+        <div class="card-grid three">
+          <article class="info-card"><span>GENERAL VL</span><h3>保留基础感知与语言</h3><p>通用视觉理解、空间推理、OCR/文档、专家多模态、文本指令和多语言数据。</p></article>
+          <article class="info-card"><span>ECOT</span><h3>具身思维链监督</h3><p>输出场景描述、任务进度评估与下一原子动作；生成标注时可用未来轨迹辅助，但训练输入只保留当前图像与指令。</p></article>
+          <article class="info-card"><span>EGOCENTRIC</span><h3>短视频动作理解</h3><p>从 1.5–3 秒片段抽 4 帧，描述手臂运动、手物交互和物体状态变化。</p></article>
+          <article class="info-card"><span>2D TRAJECTORY</span><h3>图像平面运动监督</h3><p>把机器人 EEF 和人手轨迹投影到图像，桥接空间定位与运动规划。</p></article>
+          <article class="info-card"><span>28M</span><h3>约 2,800 万 VL 样本</h3><p>与 VLA 采用独立 batch 双流训练，而不是强行把每条 action trajectory 配成文本 QA。</p></article>
+          <article class="info-card"><span>9 : 1</span><h3>Robot : VL batch</h3><p>VL loss 权重 λ=0.1，起稳定与防遗忘作用，不覆盖动作学习主目标。</p></article>
+        </div>
+        <div class="callout warning"><strong>Privileged information 的边界</strong><p>ECoT 标注阶段会用历史记忆、未来 6 帧预览和粗进度等额外信息提高标签质量；这些信号不作为训练输入。否则模型部署时拿不到同样信息，会产生 train–test mismatch。正确说法是“特权信息用于 teacher annotation，不用于 student policy 输入”。</p></div>
+      </section>
+
+      <section class="section reveal" id="training">
+        <div class="section-heading"><p class="section-index">11 · TRAINING OBJECTIVE</p><h2>Flow Matching、VLM Loss 与训练效率</h2></div>
+        <div class="formula large">t ~ Beta(1, 1.5),　ε ~ N(0,I),　x<sub>t</sub> = (1−t)ε + ta</div>
+        <div class="formula large" style="margin-top:12px">v* = a − ε,　L<sub>FM</sub> = ‖f<sub>θ</sub>(x<sub>t</sub>,t,s,o) − (a−ε)‖²</div>
+        <div class="step-timeline" style="margin-top:16px">
+          <div class="step-row"><span>01</span><strong>真实动作 a 与噪声 ε 同形状</strong><p>action chunk 为 [B,T,D]；单个 t 为 [B]，实现时通常 reshape 成 [B,1,1] 广播到时间和动作维。</p></div>
+          <div class="step-row"><span>02</span><strong>t=0 是噪声，t=1 是数据</strong><p>与一些 diffusion 代码的时间方向相反；推理从 ε 沿模型速度积分到 a。</p></div>
+          <div class="step-row"><span>03</span><strong>FM 梯度更新完整 VLA</strong><p>动作误差不仅训练小 DiT，也通过 cross-attention 条件链更新 Qwen backbone。</p></div>
+          <div class="step-row"><span>04</span><strong>VLM 做 next-token prediction</strong><p>L = L<sub>FM</sub> + 0.1 L<sub>VLM</sub>；backbone 与 action expert 使用不同学习率以适配初始化差异。</p></div>
+          <div class="step-row"><span>05</span><strong>K<sub>repeat</sub>=8 复用 VLM 特征</strong><p>同一 action chunk 重采 8 组 noise/t，Action Expert 训练 8 次，但 VLM 只 forward 一次，摊薄大骨干开销。</p></div>
+        </div>
+        <div class="table-scroll" style="margin-top:16px"><table class="shape-table"><thead><tr><th>阶段</th><th>数据</th><th>目标</th><th>关键设置</th></tr></thead><tbody>
+          <tr><td><strong>Pre-training</strong></td><td>异构 VLA + VL 双流</td><td>masked FM + VLM CE</td><td>robot:VL=9:1；λ<sub>VLM</sub>=0.1；完整清洗；Krepeat=8</td></tr>
+          <tr><td><strong>标准 Domain SFT</strong></td><td>目标 benchmark/机器人全部示范</td><td>仅 FM</td><td>一域一个 generalist model；保留所有有效示范；color jitter；训练规模更小</td></tr>
+          <tr><td><strong>Mixed Post-training</strong></td><td>目标域 + 邻近预训练 VLA + VL</td><td>FM + 可选 VL</td><td>减轻 VLA-to-VA：域内视觉捷径压过语言条件</td></tr>
+        </tbody></table></div>
+        <div class="callout"><strong>为什么相同 VLM forward 重复 8 个 noise 合理</strong><p>视觉、语言和当前状态条件相同，但 Flow 训练需要覆盖不同 t 与噪声。若每个 noise 都重算 4B VLM，计算严重浪费；缓存条件特征并重复 Action Expert 是典型的计算分层优化。</p></div>
+      </section>
+
+      <section class="section reveal" id="runtime">
+        <div class="section-heading split-heading"><div><p class="section-index">12 · POST-TRAIN & DEPLOYMENT</p><h2>从基础模型到真机动作队列</h2></div><p>论文用远端服务器经 WiFi 推理，并用 RTC 在执行当前 chunk 时异步准备下一 chunk。</p></div>
+        <div class="ditflow-spine">
+          <article><span>OBSERVE</span><strong>多视角 + state</strong><small>timestamped</small></article><b>→</b>
+          <article><span>REMOTE VLM</span><strong>Qwen context</strong><small>network latency</small></article><b>→</b>
+          <article class="accent"><span>FLOW DIT</span><strong>4 Euler steps</strong><small>action chunk</small></article><b>→</b>
+          <article><span>RTC QUEUE</span><strong>异步衔接</strong><small>hide RTT</small></article><b>→</b>
+          <article><span>ROBOT</span><strong>执行与反馈</strong><small>replan</small></article>
+        </div>
+        <div class="card-grid three" style="margin-top:16px">
+          <article class="info-card"><span>WHY CHUNK</span><h3>摊薄大模型延迟</h3><p>一次生成未来多步，不必每个控制周期调用 4B VLM；代价是执行越多步，反馈越不及时。</p></article>
+          <article class="info-card"><span>WHY RTC</span><h3>隐藏推理与网络往返</h3><p>当前 chunk 执行时异步生成下一 chunk，降低“执行完再等模型”的顿挫。</p></article>
+          <article class="info-card"><span>SAFETY</span><h3>论文未替代底层控制</h3><p>实际部署仍需反归一化、坐标变换、IK/控制接口、限速限位、碰撞与急停。</p></article>
+        </div>
+        <div class="callout warning"><strong>开源状态（截至资料核对日）</strong><p>官方 GitHub 目前主要提供报告、说明和 Demo，README 明确写明<strong>暂无发布 Qwen-RobotManip / Qwen-RobotNav 模型权重的计划</strong>。因此它目前可用于论文学习与架构参考，不应说“已经可以下载权重直接复现”。</p></div>
+      </section>
+
+      <section class="section reveal" id="evidence">
+        <div class="section-heading split-heading"><div><p class="section-index">13 · EXPERIMENTS</p><h2>为什么论文把 OOD 当作 North Star</h2></div><p>IID benchmark 可能只测“目标域 SFT 后是否记住固定场景”，无法区分预训练是否真的学到可迁移结构。</p></div>
+        <div class="compare-grid">
+          <article class="compare-card"><h3>IID 会掩盖预训练价值</h3><p>在 LIBERO/RoboTwin 同分布测试中，从头训练的模型可以追平甚至超过预训练 VLA。StarVLA 在 RoboTwin Easy 达 85.7%，但进入 Clean2Rand OOD Hard 后跌到 10.6%。</p></article>
+          <article class="compare-card good"><h3>OOD 才暴露可迁移先验</h3><p>把背景、光照、视角、机器人初态、杂物、语言模板或本体换掉后，依靠场景记忆的策略快速崩溃，跨域预训练的价值才可见。</p></article>
+        </div>
+        <div class="table-scroll" style="margin-top:16px"><table class="shape-table"><thead><tr><th>评测</th><th>Qwen-RobotManip</th><th>Context 版</th><th>最重要的解读</th></tr></thead><tbody>
+          <tr><td>LIBERO-Plus Overall</td><td>89.0%</td><td><strong>91.4%</strong></td><td>七类扰动中整体领先；context 对 robot 初态尤有效。</td></tr>
+          <tr><td>RoboTwin-Clean2Rand Hard · joint</td><td>62.6%</td><td><strong>69.4%</strong></td><td>从 Clean 训练迁移到多扰动；π<sub>0.5</sub> 为 47.9%。</td></tr>
+          <tr><td>RoboCasa365 Total</td><td><strong>35.9%</strong></td><td>33.8%</td><td>Composite-Unseen 14.9%，高于 RLDX-1 的 5.4%；但绝对值仍显示长时域很难。</td></tr>
+          <tr><td>EBench Overall SR / Score</td><td><strong>45.6 / 60</strong></td><td>43.6 / 59</td><td>Tabletop、移动 PnP、Long Horizon 都领先；context 并非总增益。</td></tr>
+          <tr><td>RoboTwin-IF Average</td><td><strong>72.2%</strong></td><td>72.0%</td><td>同/相似场景换指令，减少视觉捷径；π<sub>0.5</sub> 为 49.6%。</td></tr>
+          <tr><td>RoboTwin-XE · EEF average</td><td>23.9%</td><td>—</td><td>仅 AgileX 训练，零样本迁移 ARX/UR5/Franka；绝对成功率仍有限。</td></tr>
+          <tr><td>RoboChallenge Table30 Generalist</td><td><strong>45% SR / 59.83 process</strong></td><td>—</td><td>30 任务、4 平台；比 DM0_generalist 高 8 个成功率百分点。</td></tr>
+        </tbody></table></div>
+        <div class="table-scroll" style="margin-top:16px"><table class="shape-table"><thead><tr><th>真实世界实验</th><th>Qwen-RobotManip</th><th>π<sub>0.5</sub></th><th>需要保留的边界</th></tr></thead><tbody>
+          <tr><td>CobotMagic ALOHA · 7 个 ID 任务</td><td><strong>88.6%</strong></td><td>42.9%</td><td>每任务仅 5 次；精密插入仍只有 2/5。</td></tr>
+          <tr><td>CobotMagic ALOHA · 4 个 OOD 任务</td><td><strong>87.5%</strong></td><td>37.5%</td><td>每任务 10 次；包含杂乱、未见物体、空间语言和强光变化。</td></tr>
+          <tr><td>ARX few-shot · 5 任务</td><td>4/5 任务优于 baseline</td><td>次优</td><td>共 130 条遥操作示范；Insert Screw 全部模型 0/10 完整成功。</td></tr>
+          <tr><td>跨本体技能迁移到 ARX</td><td><strong>55.0%</strong></td><td>—</td><td>相关技能来自 CobotMagic，目标 ARX 任务无示范；不是完全无数据的新机器人。</td></tr>
+        </tbody></table></div>
+        <div class="callout warning"><strong>“Emergent retry”应谨慎表达</strong><p>作者在多种任务中观察到掉落或失败后自动重试，并推测来自含纠错行为的多样预训练数据；但报告承认难用单一指标量化。可以说“观察到反应式重试行为”，不要说“已系统证明模型具备通用错误恢复”。</p></div>
+      </section>
+
+      <section class="section reveal" id="ablation">
+        <div class="section-heading"><p class="section-index">14 · ABLATION</p><h2>哪些结论真正由消融支持</h2></div>
+        <div class="table-scroll"><table class="shape-table"><thead><tr><th>问题</th><th>关键数据</th><th>论文支持的结论</th></tr></thead><tbody>
+          <tr><td><strong>统一动作空间是否让数据可缩放</strong></td><td>1%→100% 跨本体子集；统一表示的 OOD MSE 近似 log-linear 下降；无 UnifiedSpace 曲线不稳定</td><td>padding 不是对齐；camera-frame EEF 让新增跨本体数据更稳定地转成 OOD 收益。</td></tr>
+          <tr><td><strong>OOD 与 IID 哪个能看见 scaling</strong></td><td>RoboTwin-C2R Hard 随数据扩大持续上升，Easy 设置没有清晰趋势</td><td>IID 成绩不能作为基础模型预训练质量的唯一依据。</td></tr>
+          <tr><td><strong>结构化 Prompt 是否有用</strong></td><td>RoboTwin C2R avg：naive 62.7；language prompt 63.4；structured 65.9</td><td>平台名 alone 帮助有限；FPS/时间信息是有意义的行为条件。</td></tr>
+          <tr><td><strong>Context 为何需要更多采样</strong></td><td>Context 4 steps 63.3；10 steps 70.9；20 steps 71.0</td><td>历史条件增加分布复杂度，低去噪预算会抖动；10 步已接近饱和。</td></tr>
+          <tr><td><strong>Human2Robot 是否优于原始人类视频</strong></td><td>C2R Hard：robot-only 54.7；+ego 55.0；+H2R 58.7。LIBERO-Plus：87.1→89.0</td><td>原始 ego 提供视觉多样性；重定向与视觉合成进一步提供动作对齐。</td></tr>
+          <tr><td><strong>VL 预训练是否重要</strong></td><td>去掉 VL：C2R Hard 62.6→54.4，RoboTwin-IF 71.6→64.6</td><td>越 OOD、越语言相关的任务，防止 VLM 遗忘越重要。</td></tr>
+          <tr><td><strong>Action Expert 怎样读取 VLM</strong></td><td>LIBERO-Plus：layer-wise self 86.4；last self 87.0；last cross 87.5</td><td>最后层 cross-attention 效果最好且开销更低，因此用于主模型。</td></tr>
+          <tr><td><strong>Mixed post-training 的前提</strong></td><td>RoboTwin-IF：无 UnifiedEEF baseline 35.0；无 UnifiedEEF 再混合训练崩到 0；完整对齐 + 混合达 75.8</td><td>异域 VLA 数据只有在动作语义对齐后才可能互补，否则会表示冲突。</td></tr>
+        </tbody></table></div>
+        <div class="callout warning"><strong>不要跨表直接比较所有数字</strong><p>部分消融使用较早 checkpoint、缩小数据子集、不同去噪步数或控制模式；它们用于比较同一组内变量，不应与主结果表做绝对横向排名。</p></div>
+      </section>
+
+      <section class="section reveal" id="compare">
+        <div class="section-heading split-heading"><div><p class="section-index">15 · MODEL LANDSCAPE</p><h2>与 π、WALL、OpenVLA、GR00T 怎么区分</h2></div><p>面试重点不是背排行榜，而是说清 VLM—Action Head 接口、动作表示和数据对齐主张。</p></div>
+        <div class="table-scroll"><table class="shape-table"><thead><tr><th>模型路线</th><th>动作生成</th><th>语义—动作接口</th><th>最突出的关注点</th><th>和 Qwen-RobotManip 的差异</th></tr></thead><tbody>
+          <tr><td><strong>Qwen-RobotManip</strong></td><td>Flow DiT 连续 action chunk</td><td>Action Expert 交替 cross-attend VLM 最后层视觉/语言 token</td><td>80D schema、camera-frame EEF、H2R 合成、OOD scaling</td><td>—</td></tr>
+          <tr><td><strong>π<sub>0</sub> / π<sub>0.5</sub></strong></td><td>Flow Matching Action Expert</td><td>VLM expert 与 action expert token 交互</td><td>通用 VLA、异构数据、开放世界泛化与 knowledge insulation</td><td>Qwen 更系统强调 camera-frame 几何对齐、Human2Robot 与 execution context。</td></tr>
+          <tr><td><strong>WALL-OSS-0.5</strong></td><td>连续 Flow；离散动作仅作训练桥</td><td>MoT + gradient bridge，离散 action CE 强化 action-aware VLM</td><td>让动作梯度有效塑造 VLM，兼顾连续执行精度</td><td>Qwen 不以离散 action token 桥为主线，而以跨本体表示/运动/行为对齐为主线。</td></tr>
+          <tr><td><strong>OpenVLA</strong></td><td>动作离散为 token，自回归生成</td><td>动作沿用语言 token 预测范式</td><td>开放权重、易于 LoRA/SFT 与工程复现</td><td>Qwen 使用连续 Flow 并做多层跨本体对齐，但当前无权重发布计划。</td></tr>
+          <tr><td><strong>GR00T N 系列</strong></td><td>连续动作专家/生成策略</td><td>语义与动作系统解耦并适配多本体</td><td>通用人形/机器人基础模型与数据生态</td><td>Qwen 报告提供更细的 camera-frame EEF、CaPE 和 H2R 数据工程消融。</td></tr>
+        </tbody></table></div>
+        <div class="memory-line"><strong>共同点</strong><p>这些现代 VLA 大多不再满足于“取最后 hidden 接一个 MLP”。它们都在设计强语义模型与高频连续控制之间的专门接口，只是重点分别落在 expert 交互、knowledge insulation、梯度桥、几何对齐或数据生态。</p></div>
+      </section>
+
+      <section class="section reveal" id="engineering">
+        <div class="section-heading split-heading"><div><p class="section-index">16 · ENGINEERING & YOUR RESUME</p><h2>怎样把论文转成你的项目能力</h2></div><p>你不需要声称复现 38k 小时预训练；更有说服力的是指出接入触觉和新本体时必须落地的接口。</p></div>
+        <div class="resume-map">
+          <article><span>QTAC · FLOW MATCHING</span><strong>你能讲清连续 Action Expert</strong><p>从 x<sub>t</sub>=(1−t)ε+ta、velocity target、时间广播、mask loss 一直讲到 Euler 采样、action chunk 与重规划。</p><em>追问：QTac 的数量概率分布怎样作为 cross-attention condition，而不是直接塞进 80D action？</em></article>
+          <article><span>OMMO + TACTILE GLOVE</span><strong>你做过坐标系统一</strong><p>手部关键点进入相机系与 camera-frame EEF 同一主线：先明确 frame tree、外参方向、时间戳和可视化投影，再讨论跨本体学习。</p><em>追问：相机移动后外参怎样更新？参考相机切换时历史 action 如何转换？</em></article>
+          <article><span>LEROBOT DATA</span><strong>你能搭数据契约和质检</strong><p>feature schema、episode、时间戳、FPS、state/action 语义、归一化统计量、video–state 回放与 invalid mask，都是 alignment 的工程载体。</p><em>追问：不同机器人 action 维度如何 batch，为什么 zero padding 必须配套 mask？</em></article>
+          <article><span>TELEOP PLATFORM</span><strong>你能验证 state–action lag</strong><p>Tracker/Manus/Avatar 到 Franka/Sharpa 的链路应做 cross-correlation、方向一致率、FK 和视频投影检查，不只看“能动”。</p><em>追问：UMI/Ego 的手部速度与真机控制速度不一致，怎样重采样又不破坏接触事件？</em></article>
+          <article><span>G3 TACTILE FLOW</span><strong>你能拆解部署链路</strong><p>传感器采集、预处理、模型条件、动作后处理、控制接口与实测轨迹分别打时间戳；AT-VLA 只作为参考模型验证触觉链路。</p><em>追问：推理延迟、网络延迟和控制器跟踪误差如何分开定位？</em></article>
+        </div>
+        <div class="section-heading" style="margin-top:64px"><p class="section-index">TACTILE EXTENSION</p><h2>若给 Qwen-RobotManip 加触觉，应该改哪里</h2></div>
+        <div class="table-scroll"><table class="shape-table"><thead><tr><th>层级</th><th>推荐方案</th><th>不推荐方案</th><th>关键实验</th></tr></thead><tbody>
+          <tr><td><strong>数据 Schema</strong></td><td>触觉作为 observation feature，保留传感器类型、位置、频率、标定和 validity mask</td><td>把触觉值硬塞进 reserved action slots</td><td>同步误差、漂移、缺帧、接触前后分布与跨传感器归一化</td></tr>
+          <tr><td><strong>Encoder</strong></td><td>视触觉图像用轻量 ViT/CNN token；FSR/力阵列用短时序 encoder</td><td>只取单帧均值，丢掉滑移和接触变化</td><td>冻结视觉条件，对触觉 encoder 做接触/滑移/数量辅助任务</td></tr>
+          <tr><td><strong>Fusion</strong></td><td>作为独立 tactile tokens 供 Action Expert cross-attend，或与 VLM context 统一融合</td><td>无条件早期拼接导致高频触觉淹没语义</td><td>无触觉、raw tactile、显式触觉表征、完整模型四组消融</td></tr>
+          <tr><td><strong>Runtime</strong></td><td>高频触觉事件可触发提前 replan / RTC 更新，保留模态 dropout 回退</td><td>固定执行整个 chunk，无视中途滑移</td><td>接触发生到动作纠正的闭环延迟、恢复率、力峰值与成功率</td></tr>
+          <tr><td><strong>Generalization</strong></td><td>按物体、传感器、安装位置与本体做 OOD split</td><td>训练/测试共享同一物体与固定接触位置</td><td>未见物体、未见传感器、视觉遮挡、触觉缺失与跨本体迁移</td></tr>
+        </tbody></table></div>
+        <div class="callout"><strong>推荐面试定位</strong><p>“Qwen-RobotManip 给我的最大启发是，触觉也不能只当多一个 tensor。要先对齐传感器位置、接触语义、频率和有效性，再决定把它作为 VLM context、Action Expert condition，还是 CountNet 这类显式中间表示。否则扩大触觉数据同样会放大冲突。”</p></div>
+      </section>
+
+      <section class="section reveal" id="interview">
+        <div class="section-heading"><p class="section-index">17 · INTERVIEW KIT</p><h2>从论文结论追到工程细节</h2></div>
+        <div class="qa-grid">
+          <div class="interview-card"><strong>Q1：为什么 80D zero-padding 还不够？</strong><p>padding 只统一形状，不统一每列语义和坐标系。Qwen-RobotManip 还要固定 joint/EEF/gripper/hand 槽位，并把 EEF delta 统一到相机系；缺失维度必须 mask loss。</p></div>
+          <div class="interview-card"><strong>Q2：camera-frame EEF 为什么利于跨本体？</strong><p>机器人关节拓扑不同，但相机中“末端向目标右前方移动”的视觉语义相近。把动作投到相机坐标系，使视觉相似动作数值也接近，从而共享任务空间技能。</p></div>
+          <div class="interview-card"><strong>Q3：它对标定误差敏感吗？</strong><p>敏感。camera-frame delta 和 CaPE 都依赖内外参，TCP、时钟或相机姿态错会系统性污染监督。工程上要做 FK、投影 mask、轨迹叠加和在线漂移检查。</p></div>
+          <div class="interview-card"><strong>Q4：相机移动或腕部相机怎样处理？</strong><p>每帧需要对应相机相对机器人/世界的有效位姿，state/action token 用选定参考相机的外参。若外参不可用，论文用辅助 flag 切换到 robot-base relative mode。</p></div>
+          <div class="interview-card"><strong>Q5：为什么 VLM 与 Action Expert 解耦？</strong><p>4B VLM 擅长低频语义与空间理解，768D DiT 擅长连续动作去噪。解耦能分工并控制计算，但通过 cross-attention 和 FM 梯度保持端到端协同。</p></div>
+          <div class="interview-card"><strong>Q6：偶数层看视觉、奇数层看语言有什么作用？</strong><p>让动作 expert 反复分别校正空间 grounding 与指令约束，避免两类 token 在一次混合 cross-attention 中互相竞争。其优势主要由架构消融的最后层 cross-attention结果支持，交替策略本身仍可进一步验证。</p></div>
+          <div class="interview-card"><strong>Q7：为何 Flow 用 Beta(1,1.5) 采 t？</strong><p>它改变训练时不同噪声等级的采样密度；目标仍是 a−ε。面试应先写清 t=0 噪声、t=1 数据，再讨论采样分布，而不是把它说成 DDPM noise schedule。</p></div>
+          <div class="interview-card"><strong>Q8：Krepeat=8 会不会等于数据扩增 8 倍？</strong><p>不是新增示范，只是对同一条件/action 重采 8 组噪声与时间点，提升向量场覆盖并摊薄 VLM forward 成本。</p></div>
+          <div class="interview-card"><strong>Q9：为什么总提供最近 context 会失败？</strong><p>模型可以复制最近动作 chunk 降低训练 loss，却没有学习本体动力学。随机抽取 episode 内较远 context，迫使模型提取速度和交互风格。</p></div>
+          <div class="interview-card"><strong>Q10：Context 版为什么 4 步去噪会抖？</strong><p>历史条件使条件动作分布更复杂，低采样预算不足以稳定解码；消融中 10 步明显改善，20 步接近饱和，说明必须一起考虑延迟。</p></div>
+          <div class="interview-card"><strong>Q11：Human2Robot 为什么不是普通数据增强？</strong><p>它同时改动作标签和视觉本体：手轨迹重定向成机器人 action，原视频去手后渲染机器人，再用深度合成遮挡。它是跨 embodiment 数据生成，不只是颜色抖动。</p></div>
+          <div class="interview-card"><strong>Q12：为何原始 ego 不如 H2R？</strong><p>原始 ego 主要提供视觉多样性，但动作和外观仍是人；H2R 把视觉和 action 都转成机器人域，消融在 C2R Hard 与 LIBERO-Plus 上进一步提升。</p></div>
+          <div class="interview-card"><strong>Q13：为何 IID 排名不是基础模型价值？</strong><p>目标域训练和测试共享场景规律时，从头模型也能记忆。只有相机、物体、语言、机器人初态或本体发生分布偏移，预训练的共享结构才会显现。</p></div>
+          <div class="interview-card"><strong>Q14：如何利用失败数据解释 retry？</strong><p>保留“失败尝试—观测反馈—纠正动作—最终成功”的连续 episode，比只保留完美示范更可能教会 recovery；但要区分可恢复失败、危险失败与传感器/控制故障，并配质量标签。</p></div>
+          <div class="interview-card"><strong>Q15：新机器人迁移第一步是什么？</strong><p>不是直接 fine-tune。先定义 frame tree、state/action slot mapping、控制模式、TCP、相机内外参、频率和 mask；用可视化与 FK 验证数据契约，再收少量目标域示范。</p></div>
+          <div class="interview-card"><strong>Q16：这篇工作最大的未解决问题？</strong><p>合成数据质量上限、真实 OOD 覆盖不足、固定 action chunk 与推理延迟不适合亚秒级反应；官方又未开放权重，因此独立可复现性和外部验证仍有限。</p></div>
+        </div>
+      </section>
+
+      <section class="section reveal">
+        <div class="section-heading"><p class="section-index">18 · ACTIVE RECALL</p><h2>不看答案做一次检查</h2></div>
+        <div class="quiz-list">
+          <div class="quiz-item" data-answer="2"><strong>1. Qwen-RobotManip 的 80D 表示主要解决什么？</strong><div class="quiz-options"><button>把所有机器人强制成 80 自由度</button><button>仅把动作归一化到 [-1,1]</button><button>建立跨本体固定语义槽位并用 mask 处理缺失维度</button><button>把动作离散成 80 个 token</button></div><p class="quiz-note">答案：固定语义模板 + mask；不是实际 80 DoF。</p></div>
+          <div class="quiz-item" data-answer="1"><strong>2. camera-frame delta EEF 最关键的收益是什么？</strong><div class="quiz-options"><button>完全不需要标定</button><button>让视觉相似运动在动作数值上更接近</button><button>消除所有 IK 失败</button><button>把动作变成语言 token</button></div><p class="quiz-note">答案：建立视觉—动作几何对齐，但仍依赖标定。</p></div>
+          <div class="quiz-item" data-answer="3"><strong>3. 约 38,100 小时中最大组成是什么？</strong><div class="quiz-options"><button>DROID</button><button>Open X-Embodiment</button><button>企业自采机器人数据</button><button>Human-to-Robot 合成数据</button></div><p class="quiz-note">答案：24,808 小时 Human2Robot 合成数据。</p></div>
+          <div class="quiz-item" data-answer="0"><strong>4. Krepeat=8 的正确理解是？</strong><div class="quiz-options"><button>同一 VLM 条件复用，重采 8 组 noise/t 训练 Action Expert</button><button>一个 action 连续执行 8 次</button><button>把数据集复制 8 份</button><button>推理固定做 8 步 Euler</button></div><p class="quiz-note">答案：复用昂贵的 VLM forward；主模型推理默认 4 步 Euler。</p></div>
+          <div class="quiz-item" data-answer="2"><strong>5. 下列对开源状态的说法哪项准确？</strong><div class="quiz-options"><button>已提供完整训练代码和权重</button><button>只有权重，没有报告</button><button>官方仓库有报告与 Demo，但明确暂无发布权重计划</button><button>只能通过 LeRobot 下载</button></div><p class="quiz-note">答案：当前不能把它当作可直接下载权重复现的模型。</p></div>
+        </div>
+      </section>
+
+      <section class="section reveal" id="sources">
+        <div class="section-heading"><p class="section-index">19 · PRIMARY SOURCES</p><h2>论文事实从这里核对</h2></div>
+        <div class="source-grid">
+          <a class="source-card" href="https://arxiv.org/abs/2606.17846" target="_blank" rel="noreferrer"><span>ARXIV</span><strong>论文摘要与版本</strong><p>arXiv:2606.17846v2，2026-06-17；技术报告状态。</p></a>
+          <a class="source-card" href="https://arxiv.org/html/2606.17846" target="_blank" rel="noreferrer"><span>FULL REPORT</span><strong>论文 HTML 全文</strong><p>数据、架构、训练、实验、消融与局限的主要依据。</p></a>
+          <a class="source-card" href="https://github.com/QwenLM/Qwen-RobotManip" target="_blank" rel="noreferrer"><span>OFFICIAL GITHUB</span><strong>官方仓库</strong><p>官方说明、Demo、评测摘要与当前权重发布状态。</p></a>
+          <a class="source-card" href="https://qwen.ai/blog?id=qwen-robotmanip" target="_blank" rel="noreferrer"><span>OFFICIAL BLOG</span><strong>Qwen 项目介绍</strong><p>面向公众的项目概览与演示入口。</p></a>
+        </div>
+        <div class="callout warning"><strong>资料边界</strong><p>本页所有具体数字优先取论文 v2 与官方仓库。Qwen-RobotManip 当前是 arXiv 技术报告，不写成“已被某顶会录用”；论文未公开的训练硬件、完整超参数、控制频率、chunk 长度和内部数据细节，不根据经验臆测。对比模型部分用于理解路线，不代替各模型原论文。</p></div>
+      </section>
+
+      <footer class="footer"><span>Qwen-RobotManip · Alignment Unlocks Scale · 资料核对 2026-08</span><nav class="footer-links"><a href="wall-oss.html">← WALL</a><a href="vla-interview.html">VLA 总览 →</a><a href="index.html">返回总览</a></nav></footer>
+    </main>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>
