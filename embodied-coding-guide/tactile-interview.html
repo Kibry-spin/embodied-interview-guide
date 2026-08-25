@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="机器人触觉面试专题：触觉传感器分类、换能原理、优缺点、代表型号、选型、标定、数据处理、策略融合，以及 PP-Tac、FSR 指套、QTac 和 Fluid Reality 项目梳理。">
+  <meta name="description" content="机器人触觉面试专题：触觉传感器分类、标定与数据流、策略融合、近年顶会操作论文，以及 PP-Tac、FSR 指套、QTac 和 AT-VLA 项目梳理。">
   <meta name="theme-color" content="#0f1715">
   <title>机器人触觉传感与反馈｜具身岗面试专题</title>
   <link rel="stylesheet" href="styles.css">
@@ -30,8 +30,10 @@
         <li><a href="#selection"><span>08</span>任务选型</a></li>
         <li><a href="#pipeline"><span>09</span>标定与数据流</a></li>
         <li><a href="#policy"><span>10</span>进入策略模型</a></li>
-        <li><a href="#resume"><span>11</span>个人经历映射</a></li>
-        <li><a href="#interview"><span>12</span>面试追问</a></li>
+        <li><a href="#frontier"><span>11</span>前沿论文地图</a></li>
+        <li><a href="#resume"><span>12</span>个人经历映射</a></li>
+        <li><a href="#interview"><span>13</span>面试追问</a></li>
+        <li><a href="#sources"><span>14</span>原始资料</a></li>
       </ol>
       <div class="sidebar-card"><strong>本页过关标准</strong><p>能按换能原理说出 8 类传感器；能根据静态力、滑移、形状、覆盖面积和工程成本做选型；能把自己的硬件复现、数采和 QTac 算法经历串成闭环。</p></div>
     </aside>
@@ -43,7 +45,7 @@
           <h1>机器人触觉<br><em>从接触到策略</em></h1>
           <p class="hero-lead">触觉系统不是“加一个压力传感器”。它包含机械接触层、换能器、采集与标定、时序对齐、感知表征、策略融合，以及可选的触觉反馈执行器。</p>
           <div class="hero-actions"><a class="primary-button" href="#taxonomy">先看分类总表 ↓</a><a class="ghost-button" href="#resume">结合我的项目 ↗</a></div>
-          <div class="hero-stats"><div><strong>8</strong><span>换能家族</span></div><div><strong>10</strong><span>选型指标</span></div><div><strong>7</strong><span>经历映射</span></div></div>
+          <div class="hero-stats"><div><strong>8</strong><span>换能家族</span></div><div><strong>14</strong><span>论文脉络</span></div><div><strong>7</strong><span>经历映射</span></div></div>
         </div>
         <div class="hero-board tactile-hero-board">
           <div class="terminal-head"><span class="terminal-dots"><i></i><i></i><i></i></span><span>tactile_system.pipeline</span></div>
@@ -256,8 +258,162 @@
         <div class="interview-card" style="margin-top:14px"><strong>触觉与视觉的互补</strong><p>视觉擅长接触前的全局场景、目标定位和语义，触觉擅长接触后的局部状态、遮挡区域、法向/剪切变化和动作结果。二者不是互相替代：典型闭环是视觉引导接触，触觉确认结果并修正动作，再由新视觉观察验证环境变化。</p></div>
       </section>
 
+      <section class="section reveal" id="frontier">
+        <div class="section-heading split-heading"><div><p class="section-index">11 · FRONTIER PAPERS</p><h2>近年触觉操作论文地图</h2></div><p>围绕你的简历，重点看“触觉怎样形成任务状态、怎样进入动作生成、怎样提高接触阶段闭环频率”，而不是只记传感器名称。</p></div>
+
+        <div class="interview-card"><strong>先记住近三年的五条演进主线</strong><p>触觉操作正在从<strong>单任务手工特征</strong>走向 Sparsh、UniTouch、T3 一类预训练表征；从<strong>固定单传感器</strong>走向跨设备、跨皮肤和跨本体迁移；从<strong>直接拼接触觉</strong>走向 3D 对齐、门控、MoE 与任务瓶颈；从<strong>低频 action chunk</strong>走向慢规划—快触觉反应；从<strong>接触分类</strong>走向数量估计、姿态跟踪、滑移/力控制、物理属性推理与 VLA 闭环。你的 QTac、PP-Tac 复现、触觉手套数采和 G3 推理流，分别对应其中的任务瓶颈、视触觉硬件、人类触觉数据与高频反馈四条线。</p></div>
+
+        <div class="card-grid three" style="margin-top:16px">
+          <article class="info-card"><span>REPRESENTATION</span><h3>先学通用触觉表征</h3><p>Sparsh、UniTouch、T3 解决标签稀缺、传感器异构和跨任务迁移。核心问题是：怎样把“某款传感器的像素”变成可复用的接触特征。</p></article>
+          <article class="info-card"><span>POLICY</span><h3>再研究触觉怎样控制动作</h3><p>3D-ViTac、RDP、ForceVLA 分别代表空间对齐、快慢闭环和 VLA 解码融合。关键不在“有没有触觉”，而在何时、何处、以什么频率使用。</p></article>
+          <article class="info-card"><span>SYSTEM</span><h3>最后看数据与硬件闭环</h3><p>MimicTouch、DOGlove、PP-Tac 表明高质量示范、可维护传感硬件和反馈给操作者的触感，都会直接决定策略上限。</p></article>
+        </div>
+
+        <div class="section-heading" style="margin-top:70px"><p class="section-index">A · TACTILE FOUNDATION MODELS</p><h2>路线一：从专用编码器到通用触觉表征</h2><p>这组论文最适合回答“换一款触觉传感器，原模型为什么会失效”“高维触觉是否必须从头训练”。</p></div>
+        <div class="card-grid three">
+          <article class="info-card">
+            <span>CVPR 2024 · MULTIMODAL ALIGNMENT</span><h3>UniTouch</h3>
+            <p><strong>问题：</strong>不同视触觉传感器外观差异大，且触觉数据难与语言、声音和自然图像建立统一语义。</p>
+            <p><strong>方法：</strong>将触觉嵌入对齐到已有跨模态能力的图像嵌入，并引入可学习的 sensor-specific token 吸收不同传感器域差异。</p>
+            <p><strong>结论：</strong>统一表示可支持零样本触觉理解、跨模态检索、抓取预测和触觉问答。它强调“先对齐表征，再做任务”。</p>
+            <p><strong>与你的连接：</strong>为 PP-Tac/R-Tac、商用触觉手套与其他视触觉设备之间的表征迁移提供思路。</p>
+            <a class="ghost-button" href="https://openaccess.thecvf.com/content/CVPR2024/html/Yang_Binding_Touch_to_Everything_Learning_Unified_Multimodal_Tactile_Representations_CVPR_2024_paper.html" target="_blank" rel="noreferrer">CVPR 论文页 ↗</a>
+          </article>
+          <article class="info-card">
+            <span>CoRL 2024 · SELF-SUPERVISED</span><h3>Sparsh</h3>
+            <p><strong>问题：</strong>力、滑移等真值标注昂贵，针对每个传感器和任务单独训练模型难以扩展。</p>
+            <p><strong>方法：</strong>在 46 万余张视触觉图像上使用遮挡建模和自蒸馏，形成 DINO/I-JEPA 等通用触觉编码器，并用 TacBench 统一评估六类任务。</p>
+            <p><strong>结论：</strong>论文报告自监督预训练在 TacBench 上平均显著优于从头训练，说明高维触觉也能走 foundation encoder 路线。</p>
+            <p><strong>与你的连接：</strong>AT-VLA 也比较了 Sparsh 特征；面试时可讨论“原始图像、marker、6D force”三种输入的速度—信息权衡。</p>
+            <a class="ghost-button" href="https://proceedings.mlr.press/v270/higuera25a.html" target="_blank" rel="noreferrer">CoRL 论文页 ↗</a>
+          </article>
+          <article class="info-card">
+            <span>CoRL 2024 · CROSS-SENSOR</span><h3>T3 / FoTa</h3>
+            <p><strong>问题：</strong>视触觉传感器的光路、凝胶、视角和外形各不相同，单一编码器容易绑定设备域。</p>
+            <p><strong>方法：</strong>传感器专用 encoder + 共享 Transformer trunk + 任务专用 decoder；FoTa 汇总 13 种传感器、11 类任务、300 万余数据点。</p>
+            <p><strong>结论：</strong>部分 sensor-task 组合可以零样本迁移，少量目标域数据还能继续微调；在亚毫米多针插入中也验证了长时操作价值。</p>
+            <p><strong>与你的连接：</strong>直接对应“换触觉硬件是否重训 CountNet”的问题：保留共享表征，重做轻量适配层是更可扩展的方向。</p>
+            <a class="ghost-button" href="https://proceedings.mlr.press/v270/zhao25c.html" target="_blank" rel="noreferrer">CoRL 论文页 ↗</a>
+          </article>
+        </div>
+
+        <div class="section-heading" style="margin-top:70px"><p class="section-index">B · POLICY FUSION</p><h2>路线二：触觉怎样进入动作生成</h2><p>三篇论文分别对应空间融合、时间频率解耦和大模型解码融合，也是与你 QTac、DiTFlow、AT-VLA 经历最贴近的一组。</p></div>
+        <div class="card-grid three">
+          <article class="info-card">
+            <span>CoRL 2024 · 3D FUSION</span><h3>3D-ViTac</h3>
+            <p><strong>问题：</strong>二维视觉与分布式触觉来自不同坐标和覆盖区域，直接拼特征会丢失接触点的空间对应关系。</p>
+            <p><strong>方法：</strong>用低成本柔性密集触觉覆盖双手，将视觉和触觉映射到统一三维空间，再接入 diffusion policy 学习精细双臂操作。</p>
+            <p><strong>结论：</strong>在易碎物体安全交互和长时在手操作中，视触觉策略明显优于纯视觉；几何对齐本身就是有效的 inductive bias。</p>
+            <p><strong>与你的连接：</strong>可关联 OMMO 手部关键点统一到相机坐标系，以及 QTac 中视觉—触觉—本体条件的融合边界。</p>
+            <a class="ghost-button" href="https://proceedings.mlr.press/v270/huang25e.html" target="_blank" rel="noreferrer">CoRL 论文页 ↗</a>
+          </article>
+          <article class="info-card">
+            <span>RSS 2025 · SLOW–FAST POLICY</span><h3>Reactive Diffusion Policy</h3>
+            <p><strong>问题：</strong>diffusion action chunk 能建模多峰长动作，但整个 chunk 执行期间难以及时响应新接触和外力变化。</p>
+            <p><strong>方法：</strong>慢速 latent diffusion policy 生成潜在动作块；快速 asymmetric tokenizer decoder 持续读取最新触觉/力反馈，对块内下一步动作做闭环修正。</p>
+            <p><strong>结论：</strong>高层时序建模与高频触觉反应不必由同一网络、同一频率承担；传感频率应该成为架构设计的一部分。</p>
+            <p><strong>与你的连接：</strong>可与 AT-VLA 快慢双流、RTC 和 G3 触觉推理延迟一起回答，说明你理解“采到触觉”和“来得及用触觉”的区别。</p>
+            <a class="ghost-button" href="https://www.roboticsproceedings.org/rss21/p052.html" target="_blank" rel="noreferrer">RSS 论文页 ↗</a>
+          </article>
+          <article class="info-card">
+            <span>NeurIPS 2025 · FORCE-AWARE VLA</span><h3>ForceVLA</h3>
+            <p><strong>问题：</strong>通用 VLA 擅长语义和空间定位，但在遮挡、插入、擦拭等任务中缺少实时物理交互状态。</p>
+            <p><strong>方法：</strong>在基于 π₀ 的动作解码阶段加入 FVLMoE，以 6 轴力/力矩作为一等模态动态路由专家，并构建同步视觉—本体—力数据集。</p>
+            <p><strong>结论：</strong>官方论文报告相对强 π₀ 基线平均成功率提高 23.2%，插头插入最高达到 80%；说明力模态必须进入 action decoding，而非停留在语义描述。</p>
+            <p><strong>与你的连接：</strong>可与 QTac 的 CountNet 对比：ForceVLA保留 6D wrench，QTac提取任务充分的数量分布，两者代表“通用物理量”和“任务瓶颈”两种接口。</p>
+            <a class="ghost-button" href="https://papers.nips.cc/paper_files/paper/2025/hash/8633b46e12cc5f2ee1f05a6ca2c65b38-Abstract-Conference.html" target="_blank" rel="noreferrer">NeurIPS 论文页 ↗</a>
+          </article>
+        </div>
+
+        <div class="section-heading" style="margin-top:70px"><p class="section-index">C · CLOSED-LOOP MANIPULATION</p><h2>路线三：触觉从观测变成闭环控制依据</h2><p>这组工作不依赖大语言模型，反而更能看清触觉到底改变了哪个状态、约束或控制量。</p></div>
+        <div class="card-grid three">
+          <article class="info-card">
+            <span>RSS 2023 · TOUCH-ONLY RL</span><h3>Rotating without Seeing</h3>
+            <p><strong>问题：</strong>在手旋转中物体经常被手指遮挡，精确高分辨率指尖触觉又难以覆盖整只手。</p>
+            <p><strong>方法：</strong>在手掌、指节和指尖布置大面积密集二值接触阵列，在仿真中用触觉输入训练 RL 策略，再直接部署到真机。</p>
+            <p><strong>结论：</strong>低精度但高覆盖的 touch/no-touch 信号也能支持未见物体旋转，并通过简单信号减小 Sim2Real gap。</p>
+            <p><strong>与你的连接：</strong>对 Rapid-Hand 和 FSR 指套很有启发：传感器价值取决于任务所需覆盖与状态，不应只追求像素级精度。</p>
+            <a class="ghost-button" href="https://roboticsproceedings.org/rss19/p036.html" target="_blank" rel="noreferrer">RSS 论文页 ↗</a>
+          </article>
+          <article class="info-card">
+            <span>RSS 2025 · SLIP / FORCE</span><h3>PP-Tac</h3>
+            <p><strong>问题：</strong>薄、平、可变形纸张难以从桌面稳定挑起，视觉在接触后无法可靠判断施力和滑移。</p>
+            <p><strong>方法：</strong>四个半球 R-Tac 提供全向高分辨率反馈；在线力与滑移检测负责接触闭环，diffusion-based policy 生成滑动—捏取轨迹。</p>
+            <p><strong>结论：</strong>系统在不同材料、厚度和刚度纸状物体上报告 87.5% 总体成功率，展示“轨迹生成 + 高频事件反馈”的职责分工。</p>
+            <p><strong>与你的连接：</strong>这是你已复现的硬件来源。面试时应从圆形光机结构进一步讲到 force/slip 如何进入真实操作，而不只停在传感器制作。</p>
+            <a class="ghost-button" href="https://www.roboticsproceedings.org/rss21/p056.html" target="_blank" rel="noreferrer">RSS 论文页 ↗</a>
+          </article>
+          <article class="info-card">
+            <span>T-RO 2025 · PRIOR-FREE CONTROL</span><h3>Tac-Man</h3>
+            <p><strong>问题：</strong>门、抽屉等关节物体的运动学模型常不准确，未知机构和外部扰动会使预先规划失效。</p>
+            <p><strong>方法：</strong>不依赖显式物体先验，以 GelSight 类触觉图案维持稳定接触，根据接触变形实时调整末端运动。</p>
+            <p><strong>结论：</strong>触觉可以把“识别关节参数再控制”改写为“维持接触约束并在线推进”，对未知结构更稳健。</p>
+            <p><strong>与你的连接：</strong>与 QTac 都使用接触后状态驱动迭代动作，但 Tac-Man 保持接触几何，QTac 则纠正抓取数量。</p>
+            <a class="ghost-button" href="https://tacman-aom.github.io/" target="_blank" rel="noreferrer">项目与论文 ↗</a>
+          </article>
+        </div>
+
+        <div class="section-heading" style="margin-top:70px"><p class="section-index">D · DATA, LANGUAGE & HAPTICS</p><h2>路线四：触觉数据、物理推理与反馈采集</h2><p>这一组最适合和你的触觉手套无本体数采、遥操作以及 Fluid Reality 反馈装置建立联系。</p></div>
+        <div class="card-grid three">
+          <article class="info-card">
+            <span>CoRL 2024 · HUMAN DEMONSTRATION</span><h3>MimicTouch</h3>
+            <p><strong>问题：</strong>机器人遥操作常由视觉指导，但训练时又希望策略利用触觉，示范者的控制依据与记录模态之间存在 sensing gap。</p>
+            <p><strong>方法：</strong>直接采集人手指尖位姿、触觉图像与音频；先学自监督触觉表征，再用非参数模仿学习得到策略，最后以在线 residual RL 缩小人手—夹爪本体差异。</p>
+            <p><strong>结论：</strong>人类触觉示范能提高接触任务数据采集效率，但必须显式处理坐标、动作映射和 embodiment gap。</p>
+            <p><strong>与你的连接：</strong>与你的 OMMO + 触觉手套无本体方案高度相关，可用于解释为何坐标系统一、同步和 retargeting 比“多接一个传感器”更关键。</p>
+            <a class="ghost-button" href="https://proceedings.mlr.press/v270/yu25c.html" target="_blank" rel="noreferrer">CoRL 论文页 ↗</a>
+          </article>
+          <article class="info-card">
+            <span>RSS 2024 · TACTILE-LANGUAGE</span><h3>Octopi</h3>
+            <p><strong>问题：</strong>视觉和语言难以直接判断柔软度、粗糙度等必须通过接触获得的物理属性。</p>
+            <p><strong>方法：</strong>构建含 GelSight 触觉视频与物理属性推理标注的 PhysiCLeAR 数据集，用触觉表征先预测中间物理属性，再交给大视觉语言模型推理。</p>
+            <p><strong>结论：</strong>“先感知物理属性，再语言推理”比把原始触觉直接当成普通图像更可解释，也是 tactile-language/VLA 的早期桥梁。</p>
+            <p><strong>与你的连接：</strong>与 CountNet 的结构思想相似：都用任务相关中间变量隔离高维触觉，只是 QTac 的瓶颈是数量概率。</p>
+            <a class="ghost-button" href="https://roboticsproceedings.org/rss20/p066.html" target="_blank" rel="noreferrer">RSS 论文页 ↗</a>
+          </article>
+          <article class="info-card">
+            <span>RSS 2025 · HAPTIC TELEOP</span><h3>DOGlove</h3>
+            <p><strong>问题：</strong>灵巧手遥操作设备昂贵且缺少多模态反馈，操作者难以感知接触方向、力度和滑移。</p>
+            <p><strong>方法：</strong>低成本开源手套集成 21-DoF 动捕、5-DoF 多向力反馈与 5-DoF 指尖振动反馈，并将示范用于模仿学习。</p>
+            <p><strong>结论：</strong>高质量触觉数据不仅来自机器人端传感器，也取决于人端是否感受到动作后果；反馈会改变示范分布本身。</p>
+            <p><strong>与你的连接：</strong>可同时关联触觉手套调研、Sharpa/Manus 遥操作和 Fluid Reality：后者属于人端 haptic actuation，而不是机器人 sensing。</p>
+            <a class="ghost-button" href="https://www.roboticsproceedings.org/rss21/p104.html" target="_blank" rel="noreferrer">RSS 论文页 ↗</a>
+          </article>
+        </div>
+
+        <div class="section-heading" style="margin-top:70px"><p class="section-index">COMPARISON TABLE</p><h2>代表工作横向对比</h2><p>先看“触觉在系统里承担什么职责”，再比较网络名字。表中“局限”是基于论文设定做出的工程判断。</p></div>
+        <div class="table-scroll tactile-table"><table class="shape-table"><thead><tr><th>工作 / 录用</th><th>触觉输入</th><th>任务</th><th>触觉在模型中的位置</th><th>核心价值</th><th>主要局限</th><th>与你最相关</th></tr></thead><tbody>
+          <tr><td><strong>UniTouch</strong><br>CVPR 2024</td><td>多类视触觉图像</td><td>表征、检索、抓取预测、问答</td><td>与视觉预训练空间对齐 + sensor token</td><td>跨模态、跨传感器语义</td><td>并非完整高频控制策略</td><td>PP-Tac 与异构传感器迁移</td></tr>
+          <tr><td><strong>Sparsh</strong><br>CoRL 2024</td><td>视触觉图像</td><td>感知与规划 benchmark</td><td>自监督触觉 encoder</td><td>少标签、通用下游特征</td><td>部署延迟与目标传感器域仍需验证</td><td>AT-VLA 输入格式与预训练 encoder</td></tr>
+          <tr><td><strong>T3</strong><br>CoRL 2024</td><td>13 类传感器数据</td><td>11 类任务、精密插入</td><td>sensor encoder + shared trunk + task decoder</td><td>跨传感器、跨任务迁移</td><td>仍需目标传感器适配与统一数据协议</td><td>CountNet 跨硬件泛化</td></tr>
+          <tr><td><strong>3D-ViTac</strong><br>CoRL 2024</td><td>柔性密集 taxel + RGB</td><td>精细双臂操作</td><td>统一三维空间后接 diffusion policy</td><td>保留接触与视觉的空间对应</td><td>标定、3D 对齐和硬件布线成本高</td><td>坐标系统一、多模态 DiT/Flow</td></tr>
+          <tr><td><strong>RDP</strong><br>RSS 2025</td><td>marker/PCA 触觉或 6D force</td><td>接触密集操作</td><td>慢 latent diffusion + 快 tactile decoder</td><td>块内高频反应</td><td>双层训练和稳定性更复杂</td><td>AT-VLA、RTC、G3 推理频率</td></tr>
+          <tr><td><strong>ForceVLA</strong><br>NeurIPS 2025</td><td>6D force/torque</td><td>插入、擦拭等五类任务</td><td>动作解码阶段 force-aware MoE</td><td>把物理反馈纳入预训练 VLA</td><td>腕力是整体受力，不等于指尖接触分布</td><td>VLA 触觉/力融合与任务瓶颈对比</td></tr>
+          <tr><td><strong>Rotating without Seeing</strong><br>RSS 2023</td><td>全手二值触觉阵列</td><td>触觉-only 在手旋转</td><td>RL policy observation</td><td>高覆盖、低 Sim2Real gap</td><td>接触信号表达力有限，任务专用</td><td>Rapid-Hand、FSR 指套选型</td></tr>
+          <tr><td><strong>PP-Tac</strong><br>RSS 2025</td><td>四指半球视触觉</td><td>纸张挑取</td><td>force/slip 闭环 + diffusion 轨迹</td><td>全向指尖反馈处理薄柔性物体</td><td>硬件维护与任务策略仍较专用</td><td>已复现 R-Tac、滑移与精细抓取</td></tr>
+          <tr><td><strong>Tac-Man</strong><br>T-RO 2025</td><td>GelSight 类触觉图案</td><td>未知关节物体操作</td><td>接触约束反馈控制</td><td>不依赖精确运动学先验</td><td>需持续稳定接触，语义任务覆盖有限</td><td>触觉驱动迭代调整</td></tr>
+          <tr><td><strong>MimicTouch</strong><br>CoRL 2024</td><td>人手触觉图像、音频、位姿</td><td>插入与装配</td><td>SSL + 非参数 IL + residual RL</td><td>人类触觉示范和本体迁移</td><td>采集装置、retargeting 与在线 RL 链路较长</td><td>OMMO + 触觉手套无本体数采</td></tr>
+          <tr><td><strong>Octopi</strong><br>RSS 2024</td><td>GelSight 视频</td><td>物理属性与语言推理</td><td>属性瓶颈 + 大视觉语言模型</td><td>触觉进入语义推理</td><td>推理能力不等于实时动作能力</td><td>CountNet 可解释瓶颈、触觉 VLA</td></tr>
+          <tr><td><strong>DOGlove</strong><br>RSS 2025</td><td>人端力/振动反馈 + 手部运动</td><td>灵巧手遥操作与示范</td><td>haptic retargeting + imitation learning</td><td>提高操作者接触感知与数采质量</td><td>人手—机器人力映射与设备穿戴差异</td><td>触觉手套、遥操作、Fluid Reality</td></tr>
+          <tr><td><a href="https://www.roboticsproceedings.org/rss21/p037.html" target="_blank" rel="noreferrer"><strong>V-HOP ↗</strong></a><br>RSS 2025</td><td>taxel 或视触觉 + RGB</td><td>6D 物体姿态跟踪</td><td>统一 haptic 表征 + Transformer tracker</td><td>跨 gripper、sensor、object 的跟踪泛化</td><td>依赖物体模型/跟踪设定，非端到端策略</td><td>跨本体触觉表示与在线状态估计</td></tr>
+          <tr><td><a href="https://www.roboticsproceedings.org/rss20/p135.html" target="_blank" rel="noreferrer"><strong>Tactile-Driven Non-Prehensile ↗</strong></a><br>RSS 2024</td><td>高分辨率柔顺触觉</td><td>滑动、pivot、工具式操作</td><td>接触模式内可微优化 + 约束控制</td><td>显式处理力、摩擦和接触模式</td><td>依赖建模与模式设定，扩展到复杂场景较难</td><td>补足学习策略之外的接触控制视角</td></tr>
+        </tbody></table></div>
+
+        <div class="section-heading" style="margin-top:70px"><p class="section-index">2025–2026 · PREPRINT RADAR</p><h2>触觉 VLA 前沿追踪</h2><p>以下按当前可核实的 arXiv 公开状态列出，不把预印本包装成顶会录用。它们更适合用来回答“下一步研究会往哪里走”。</p></div>
+        <div class="table-scroll"><table class="shape-table"><thead><tr><th>工作 / 当前状态</th><th>核心设计</th><th>试图解决的痛点</th><th>你应重点追问</th></tr></thead><tbody>
+          <tr><td><a href="https://arxiv.org/abs/2605.07308" target="_blank" rel="noreferrer"><strong>AT-VLA ↗</strong></a><br>arXiv 2026</td><td>接触门控 + Adaptive Cross Attention + 慢视觉语言/快触觉双流</td><td>新模态干扰预训练 VLA；VLA 频率不足以处理快速接触反馈</td><td>门控标签与阈值如何泛化？快流复用旧 VLM 条件时，状态陈旧如何处理？不同触觉格式为何表现不同？</td></tr>
+          <tr><td><a href="https://arxiv.org/abs/2507.09160" target="_blank" rel="noreferrer"><strong>Tactile-VLA ↗</strong></a><br>arXiv 2025</td><td>触觉—语言—动作深度融合 + hybrid position-force controller + 触觉推理</td><td>把 VLM 的物理常识从“知道做什么”落到“用多大力、怎样接触”</td><td>语言生成的力意图如何受安全约束？少量示范激活物理先验的边界在哪里？</td></tr>
+          <tr><td><a href="https://arxiv.org/abs/2507.17294" target="_blank" rel="noreferrer"><strong>VLA-Touch ↗</strong></a><br>arXiv 2025</td><td>高层 tactile-language 语义反馈 + 低层 diffusion action refinement，不微调基础 VLA</td><td>缺少大规模触觉 VLA 数据，直接改动 base VLA 成本高</td><td>高低层反馈冲突时谁优先？低层修正是否会破坏高层动作可行性？</td></tr>
+          <tr><td><a href="https://arxiv.org/abs/2603.15257" target="_blank" rel="noreferrer"><strong>HapticVLA ↗</strong></a><br>arXiv 2026</td><td>安全感知 reward-weighted flow matching + tactile token distillation</td><td>训练时利用触觉，但部署端希望省去昂贵、脆弱的触觉硬件</td><td>视觉/状态预测的“隐式触觉”在新材质、遮挡和突发滑移下是否可靠？何时仍必须保留真传感器？</td></tr>
+        </tbody></table></div>
+        <div class="callout warning"><strong>读触觉 VLA 论文时的统一检查表</strong><p>先确认触觉到底是指尖分布、marker 位移、6D 腕力还是关节力矩；再看它是在 encoder、VLM、action expert 还是底层 controller 中融合；检查视觉与触觉频率、时间戳和 action chunk 是否匹配；最后区分“接触阶段性能提高”与“完整任务从定位到操作都提高”。如果 baseline 被人工放到理想接触初态，只能说明接触控制能力，不能直接证明完整 VLA 泛化。</p></div>
+
+        <div class="section-heading" style="margin-top:70px"><p class="section-index">INTERVIEW SYNTHESIS</p><h2>如何体现你对前沿的关注</h2></div>
+        <div class="interview-card"><strong>建议的 90 秒回答</strong><p>我近期主要沿四条线关注触觉操作。第一是 Sparsh、UniTouch、T3 代表的通用触觉表征，重点解决标签稀缺和跨传感器迁移；第二是 3D-ViTac、Reactive Diffusion Policy 和 ForceVLA 代表的策略融合，分别从三维空间对齐、快慢频率解耦和动作解码 MoE 解决触觉如何真正影响 action；第三是 PP-Tac、Tac-Man 等闭环操作，说明触觉最有价值的阶段是接触后滑移、受力和状态纠错；第四是 MimicTouch、DOGlove 一类数据系统，关注人类示范中的触觉依据、坐标/时间对齐和 embodiment gap。结合自己的工作，我在 QTac 中选择了任务瓶颈路线，把双侧高维触觉解耦成在手数量概率分布，再条件化 Flow Matching 策略；在工程上也做过 PP-Tac 复现、触觉手套数采和触觉推理流验证。下一步我尤其关注 AT-VLA、ForceVLA 这类方法怎样避免新模态破坏预训练能力，以及怎样在 action chunk 内提供真正高频、稳定的触觉闭环。</p></div>
+      </section>
+
       <section class="section reveal" id="resume">
-        <div class="section-heading"><p class="section-index">11 · YOUR EXPERIENCE MAP</p><h2>把你的经历串成一条触觉技术栈</h2><p>你的优势不是只接触过某一种传感器，而是覆盖了调研选型、硬件复现、系统集成、数据处理、模型推理和触觉反馈。</p></div>
+        <div class="section-heading"><p class="section-index">12 · YOUR EXPERIENCE MAP</p><h2>把你的经历串成一条触觉技术栈</h2><p>你的优势不是只接触过某一种传感器，而是覆盖了调研选型、硬件复现、系统集成、数据处理、模型推理和触觉反馈。</p></div>
         <div class="resume-map">
           <article><span>01 · 调研选型</span><strong>商用触觉手套与指套</strong><p>调研、试用并比较多类触觉手套/指套，关注感受区域、信号形式、佩戴约束、同步接口与无本体数采适配性。</p><em>关键词：方案对比、器件选型、原型测试</em></article>
           <article><span>02 · 低成本原型</span><strong>FSR 硅胶触觉指套</strong><p>自制 FSR + 硅胶指套进行简单数采验证，证明接触信号采集、同步和数据接口可行；准确定位为低成本原理验证。</p><em>关键词：压阻、ADC、迟滞/漂移、接触等级</em></article>
@@ -274,7 +430,7 @@
       </section>
 
       <section class="section reveal" id="interview">
-        <div class="section-heading"><p class="section-index">12 · INTERVIEW DRILLS</p><h2>高频追问与回答骨架</h2><p>先按“任务—物理量—传感器—工程代价—验证方式”回答，再展开细节。</p></div>
+        <div class="section-heading"><p class="section-index">13 · INTERVIEW DRILLS</p><h2>高频追问与回答骨架</h2><p>先按“任务—物理量—传感器—工程代价—验证方式”回答，再展开细节。</p></div>
         <div class="card-grid">
           <article class="practice-card"><span class="card-label">QUESTION 01</span><h3>为什么不直接用视觉，非要加触觉？</h3><div class="prompt">说清接触前、接触后和遮挡三件事。</div><button class="reveal-button" data-reveal="tac-answer-1" data-hide-label="隐藏参考回答">查看参考回答</button><div class="solution" id="tac-answer-1"><p>视觉擅长全局定位和接触前规划，但抓取后接触区域被手和物体遮挡，无法可靠知道是否接触、抓了几个、是否发生滑移或夹持力是否合适。触觉直接测量动作产生的接触结果，因此特别适合闭环纠错。代价是传感器磨损、标定、同步和数据融合更复杂。</p></div></article>
           <article class="practice-card"><span class="card-label">QUESTION 02</span><h3>FSR、视触觉和磁触觉怎样选？</h3><div class="prompt">不要只说价格和精度。</div><button class="reveal-button" data-reveal="tac-answer-2" data-hide-label="隐藏参考回答">查看参考回答</button><div class="solution" id="tac-answer-2"><p>如果只需低成本接触/相对压力，我会选 FSR；如果需要形貌、纹理和高空间分辨率，会选视触觉，但接受体积、凝胶和算力成本；如果需要灵巧手大面积覆盖、三轴剪切和可替换软皮肤，会优先磁触觉，同时处理外部磁场和跨皮肤标定。最后还要看控制频率、布线和维护。</p></div></article>
@@ -295,7 +451,7 @@
       </section>
 
       <section class="section reveal" id="sources">
-        <div class="section-heading"><p class="section-index">PRIMARY SOURCES</p><h2>代表传感器与原始资料</h2><p>具体型号和论文细节优先回到官方项目、产品文档和原始论文核对。</p></div>
+        <div class="section-heading"><p class="section-index">14 · PRIMARY SOURCES</p><h2>代表传感器与原始资料</h2><p>具体型号和论文细节优先回到官方项目、产品文档和原始论文核对。</p></div>
         <div class="source-grid">
           <a class="source-card" href="https://github.com/bigai-ai/PP-Tac" target="_blank" rel="noreferrer"><span>VISION</span><strong>PP-Tac / R-Tac</strong><p>120 fps 圆形单通道视触觉开源指南</p></a>
           <a class="source-card" href="https://arxiv.org/abs/2504.16649" target="_blank" rel="noreferrer"><span>PAPER</span><strong>PP-Tac 论文</strong><p>全向触觉、滑移控制与纸张抓取</p></a>
@@ -325,7 +481,7 @@
         </div>
       </section>
 
-      <footer class="footer"><span>Robotic Tactile Interview Guide · 资料核对日期 2026-08-19</span><nav class="footer-links"><a href="index.html">← 总览</a><a href="vla-interview.html">下一模块：VLA →</a></nav></footer>
+      <footer class="footer"><span>Robotic Tactile Interview Guide · 资料核对日期 2026-08-25</span><nav class="footer-links"><a href="index.html">← 总览</a><a href="vla-interview.html">下一模块：VLA →</a></nav></footer>
     </main>
   </div>
   <script src="app.js"></script>

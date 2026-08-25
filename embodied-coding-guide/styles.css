@@ -1330,7 +1330,7 @@ body.focus-mode .page-shell { grid-template-columns: minmax(0,1fr); width: min(1
     white-space: nowrap;
   }
   .mobile-chapter-count b { color: var(--mint-bright); font-weight: 800; }
-  main section[id] { scroll-margin-top: 148px; }
+  main section[id] { scroll-margin-top: 60px; }
   body.focus-mode .mobile-chapter-nav { display: none; }
   .hero { grid-template-columns: 1fr; min-height: auto; padding: 72px 0 40px; }
   .hero-board { min-height: 410px; }
@@ -1358,7 +1358,7 @@ body.focus-mode .page-shell { grid-template-columns: minmax(0,1fr); width: min(1
   .mobile-chapter-label { font-size: 8px; }
   .mobile-chapter-select { font-size: 11px; }
   .mobile-chapter-count { font-size: 9px; }
-  main section[id] { scroll-margin-top: 136px; }
+  main section[id] { scroll-margin-top: 48px; }
   .brand-copy small, .top-button:not(.strong) { display: none; }
   .top-button { padding: 0 11px; }
   .page-shell, .page-shell.no-sidebar { width: calc(100% - 28px); }
