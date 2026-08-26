@@ -289,13 +289,13 @@
         </div>
         <div class="section-heading" style="margin-top:64px"><p class="section-index">TACTILE ON G3</p><h2>触觉推理链路的验证层级</h2></div>
         <div class="version-rail compact-rail">
-          <article><div class="version-dot">L0</div><div><strong>信号可读</strong><p>设备连接、时间戳、通道顺序、单位与零点稳定。</p></div><em>不是模型验证</em></article>
-          <article><div class="version-dot">L1</div><div><strong>模型输入一致</strong><p>shape、dtype、归一化、触觉窗口与训练/参考代码一致。</p></div><em>可做录制回放</em></article>
-          <article><div class="version-dot">L2</div><div><strong>开放环输出合理</strong><p>真实触觉输入能触发模型/门控，动作无 NaN、无异常饱和。</p></div><em>仍未控制机器人</em></article>
-          <article><div class="version-dot">L3</div><div><strong>安全真机闭环</strong><p>低速、软限位、急停、超时和失联保护下执行动作。</p></div><em>验证端到端延迟</em></article>
-          <article><div class="version-dot">L4</div><div><strong>任务与消融评测</strong><p>触觉开/关、不同门控/频率的成功率和失败模式对比。</p></div><em>才可称完整闭环验证</em></article>
+          <article><div class="version-dot done-dot">L0</div><div><strong>结构与信号契约完成</strong><p>依据 checkpoint 与数据元信息恢复缺失模块，纠正 62D 双臂末端/手指布局，并明确 F6 与 Deform 时序输入。</p></div><em>证据：严格加载与 schema</em></article>
+          <article><div class="version-dot done-dot">L1</div><div><strong>模型与协议链路完成</strong><p>离线和 WebSocket 端到端输出均为有限的 [1,50,62] 动作块，归一化与反归一化职责明确。</p></div><em>证据：协议 E2E</em></article>
+          <article><div class="version-dot done-dot">L2</div><div><strong>受控触觉因果验证完成</strong><p>固定 Flow 初始噪声后，门控关闭时触觉不改变动作；门控打开后动作产生可复现差异。真实 MCAP 标定仍待完成。</p></div><em>模型级证据，不等于任务收益</em></article>
+          <article><div class="version-dot">L3</div><div><strong>安全真机闭环待完成</strong><p>仍需运行时前缀缓存/刷新、异步客户端、低速软限位、急停、超时和失联保护。</p></div><em>验证端到端 P95 延迟</em></article>
+          <article><div class="version-dot">L4</div><div><strong>真实任务与消融待完成</strong><p>真实触觉门控标定、触觉打乱/错配、触觉开关及任务成功率和失败模式对比。</p></div><em>完成后才能声称闭环收益</em></article>
         </div>
-        <div class="callout warning"><strong>AT-VLA 在你的项目中是参考模型</strong><p>最稳妥的表达是：你负责现有 G3 系统中的触觉数据接入、解析、模型输入适配和在线推理流程优化，并以 AT-VLA 的触觉门控/快慢流为参考验证链路。若还没有完成 L3/L4，就不要写成“完成 AT-VLA 真机复现”。具体机制见本站 <a href="at-vla.html"><u>AT-VLA 页面</u></a>，异步 action chunk 见 <a href="rtc.html"><u>RTC 页面</u></a>。</p></div>
+        <div class="callout warning"><strong>AT-VLA 是方法参考，ATPI05 才是工程项目</strong><p>最稳妥的表达是：你参考 AT-VLA 的触觉门控思想，在 StarVLA/OpenPI π0.5 上完成触觉侧结构恢复、62D 协议适配、模型/协议级验证与推理优化；当前没有完成任务级真机闭环，因此不要写成“完整复现 AT-VLA”或“触觉提升任务成功率”。官方方法见 <a href="at-vla.html"><u>AT-VLA 页面</u></a>，个人工程证据见 <a href="atpi05-project.html"><u>ATPI05 项目专题</u></a>。</p></div>
         <div class="table-scroll" style="margin-top:16px"><table class="shape-table"><thead><tr><th>真机安全层</th><th>最小机制</th><th>触发后行为</th></tr></thead><tbody>
           <tr><td>输入健康</td><td>相机/触觉/状态超时、NaN、时间戳陈旧、标定版本不符</td><td>拒绝推理或保持安全姿态</td></tr>
           <tr><td>动作约束</td><td>位置/速度/加速度/jerk、关节限位、工作空间和自碰撞</td><td>限幅、投影到安全集或整块拒绝</td></tr>
@@ -380,7 +380,7 @@
           <article class="interview-card"><strong>Q4 · Tracker/Manus 如何控制 Franka 与 Sharpa Hand？</strong><p>腕部使用启动时相对位姿、尺度和坐标变换得到机器人末端目标，再通过带阻尼 IK、关节/速度/碰撞约束生成可执行命令；手指则最小化人手与机器人指尖位置或关键向量误差，并加入关节限位和平滑项。系统还需 clutch、滤波、超时和急停。</p></article>
           <article class="interview-card"><strong>Q5 · 为什么要转成 LeRobot，而不是保留自定义文件？</strong><p>标准 schema 把多模态 observation、action、episode、task、时间戳和统计量统一起来，可直接复用加载、action chunk 采样、可视化、训练和 Hub 分发。但格式化不等于数据正确，仍需维护单位、动作语义、标定版本、同步误差和质检报告。</p></article>
           <article class="interview-card"><strong>Q6 · LaWAM/π<sub>0.5</sub> 跑通说明了什么？</strong><p>主要说明从保存数据到模型输入、动作输出、反归一化、控制接口和真机执行的系统契约闭合，并不自动证明数据质量高或模型能力强。要进一步做固定评测、不同 checkpoint/seed、失败分类和统计显著性，才能比较策略效果。</p></article>
-          <article class="interview-card"><strong>Q7 · 你在 G3 上的贡献和 AT-VLA 原作者工作的边界？</strong><p>我负责现有 G3 系统中的触觉数据接入、解析、模型输入适配和在线推理流程优化；AT-VLA 是用于理解和验证触觉门控/推理链路的参考模型。完整 AT-VLA 的算法贡献、训练数据和论文实验属于原作者；我会按开放环、低速闭环和完整任务评测区分当前进度。</p></article>
+          <article class="interview-card"><strong>Q7 · 你在 G3 上的贡献和 AT-VLA 原作者工作的边界？</strong><p>AT-VLA 的门控、Adaptive Query 和论文实验属于原作者；我的工程对象是 ATPI05，即在 StarVLA/OpenPI π0.5 上参考该思想进行触觉适配。我负责 checkpoint 结构恢复、62D 双臂灵巧手契约、客户端—服务端协议、受控门控测试和模型级缓存优化。已完成的是模型/协议层验证，未完成的是真实触觉分布标定、安全真机闭环和任务收益评测。</p></article>
           <article class="interview-card"><strong>Q8 · 多线程采集如何避免丢帧和数据错位？</strong><p>每个设备独立生产并在采样处打时间戳，进入有界缓冲区；对齐线程按统一时间轴配对/插值，写盘和可视化与 SDK 回调解耦。持续记录队列水位、丢帧、jitter 和设备心跳。写盘跟不上时按数据优先级执行明确的丢帧/降采样策略，而不是无限堆内存。</p></article>
           <article class="interview-card"><strong>Q9 · Rapid-Hand 换舵机最大的风险是什么？</strong><p>机械尺寸能装上不代表动态性能等价。需要比较扭矩—速度曲线、分辨率/回差、通信频率、电流和温升，并适配孔位、协议、零位和 PID。成本降到约 25% 是结果，但应通过阶跃、跟踪误差、连续运行和整手任务证明替代后的可用边界。</p></article>
           <article class="interview-card"><strong>Q10 · 如何判断真机问题来自模型还是系统？</strong><p>把链路分层回放：先保存原始观测，比较训练/部署预处理；再固定输入比较本地与服务输出；然后检查后处理、限幅和 commanded/executed action；最后用端到端 trace 看传感器、网络、模型和执行延迟。每层都有 sequence id、时间戳和版本号，才能定位责任边界。</p></article>
@@ -400,7 +400,8 @@
           <article><span>SYNC</span><h3>ROS2 message_filters</h3><p>ExactTime/ApproximateTime 同步器与时间戳注意事项。</p><a href="https://docs.ros.org/en/ros2_packages/rolling/api/message_filters/message_filters.html" target="_blank" rel="noopener">阅读 ROS2 文档 ↗</a></article>
           <article><span>CALIBRATION</span><h3>OpenCV Calibration</h3><p>相机标定、手眼标定与 AX=XB 相关实现。</p><a href="https://docs.opencv.org/5.0/main_modules/calib.html" target="_blank" rel="noopener">阅读 OpenCV 文档 ↗</a></article>
           <article><span>WORLD ACTION MODEL</span><h3>LaWAM 论文</h3><p>潜在视觉子目标条件化动作生成，而非直接预测像素视频。</p><a href="https://arxiv.org/abs/2606.15768" target="_blank" rel="noopener">阅读 arXiv ↗</a></article>
-          <article><span>TACTILE VLA</span><h3>AT-VLA 论文与代码</h3><p>自适应触觉注入与快慢双流；公开资源边界见本站专题。</p><a href="at-vla.html">打开本站梳理 →</a></article>
+          <article><span>TACTILE VLA · PAPER</span><h3>AT-VLA 论文与代码</h3><p>自适应触觉注入与快慢双流；公开资源边界见本站专题。</p><a href="at-vla.html">打开论文梳理 →</a></article>
+          <article><span>TACTILE VLA · PROJECT</span><h3>ATPI05 工程实践</h3><p>StarVLA/OpenPI π0.5 上的触觉适配、结构恢复、协议验证与推理优化。</p><a href="atpi05-project.html">打开项目专题 →</a></article>
           <article><span>HARDWARE</span><h3>PP-Tac</h3><p>低成本、120 fps、半球形全向接触视觉触觉传感器。</p><a href="https://github.com/bigai-ai/PP-Tac" target="_blank" rel="noopener">打开官方仓库 ↗</a></article>
           <article><span>HARDWARE</span><h3>RAPID Hand</h3><p>紧凑 20-DoF 灵巧手、低延迟多模态感知与遥操作。</p><a href="https://rapid-hand.github.io/" target="_blank" rel="noopener">打开项目主页 ↗</a></article>
           <article><span>HAPTICS</span><h3>Fluid Reality</h3><p>电渗泵阵列驱动的高分辨率穿戴式触觉反馈。</p><a href="https://doi.org/10.1145/3586183.3606771" target="_blank" rel="noopener">打开论文页面 ↗</a></article>

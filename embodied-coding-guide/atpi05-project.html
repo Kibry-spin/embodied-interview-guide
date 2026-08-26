@@ -1,0 +1,391 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="ATPI05 触觉 VLA 项目面试专题：PI0.5 触觉适配、F6/视触觉双模型、快慢流、接触门控、62D 动作契约、Server/Client 部署、触觉缓存、VLM 前缀复用、证据边界与简历表达。">
+  <meta name="theme-color" content="#0f1715">
+  <title>ATPI05 触觉模型部署与推理优化｜简历项目专题</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="scroll-progress"><span id="scroll-progress-bar"></span></div>
+  <header class="topbar">
+    <a class="brand" href="index.html"><span class="brand-mark">AP</span><span class="brand-copy"><strong>ATPI05 Project</strong><small>Tactile VLA · Deployment · Optimization</small></span></a>
+    <nav class="topnav"><a href="index.html">总览</a><a href="at-vla.html">AT-VLA</a><a href="resume-end-to-end.html">项目</a></nav>
+    <div class="top-actions"><button class="top-button" id="focus-toggle" type="button">专注阅读</button><a class="top-button strong" href="#pitch">开始准备 ↓</a></div>
+  </header>
+
+  <div class="page-shell">
+    <aside class="sidebar">
+      <p class="eyebrow">ATPI05 PROJECT PATH</p>
+      <ol class="side-nav">
+        <li><a href="#overview"><span>01</span>项目全景</a></li>
+        <li><a href="#pitch"><span>02</span>90 秒回答</a></li>
+        <li><a href="#boundary"><span>03</span>完成度边界</a></li>
+        <li><a href="#architecture"><span>04</span>模型架构</a></li>
+        <li><a href="#tactile"><span>05</span>两类触觉</a></li>
+        <li><a href="#fast-slow"><span>06</span>快慢系统</a></li>
+        <li><a href="#reconstruction"><span>07</span>模块恢复</a></li>
+        <li><a href="#contract"><span>08</span>数据契约</a></li>
+        <li><a href="#deployment"><span>09</span>服务链路</a></li>
+        <li><a href="#gate"><span>10</span>触觉有效性</a></li>
+        <li><a href="#profiling"><span>11</span>延迟剖析</a></li>
+        <li><a href="#cache"><span>12</span>无损触觉缓存</a></li>
+        <li><a href="#prefix"><span>13</span>前缀 KV 复用</a></li>
+        <li><a href="#evaluation"><span>14</span>验证矩阵</a></li>
+        <li><a href="#resume"><span>15</span>简历包装</a></li>
+        <li><a href="#story"><span>16</span>项目故事</a></li>
+        <li><a href="#debug"><span>17</span>Debug 体系</a></li>
+        <li><a href="#roadmap"><span>18</span>后续路线</a></li>
+        <li><a href="#interview"><span>19</span>高频追问</a></li>
+        <li><a href="#evidence"><span>20</span>证据索引</a></li>
+      </ol>
+      <div class="sidebar-card"><strong>本页过关标准</strong><p>能区分官方 AT-VLA 与 ATPI05 方法迁移；能画出 PaliGemma 前缀、FastStateConditioner、触觉门控和 Flow Action Expert；能解释两项缓存为何一个无损、一个需刷新策略；任何结论都能落到测试方法与当前边界。</p></div>
+    </aside>
+
+    <main>
+      <section class="hero compact atpi-hero reveal visible" id="overview">
+        <div>
+          <p class="kicker">RESUME PROJECT · TACTILE VLA DEPLOYMENT</p>
+          <h1>ATPI05<br><em>把触觉模型<br>变成可验证的系统</em></h1>
+          <p class="hero-lead">项目价值不在于声称“完整复现 AT-VLA”，而在于从不完整 checkpoint 与代码出发，恢复模型结构、对齐触觉与动作契约、打通推理服务，并用因果消融和计算图分析证明链路与优化是否成立。</p>
+          <div class="hero-actions"><a class="primary-button" href="#pitch">先背项目回答 ↓</a><a class="ghost-button" href="#boundary">先看完成度 ↗</a></div>
+          <div class="hero-stats"><div><strong>2</strong><span>F6 / Deform 模型</span></div><div><strong>62D × 50</strong><span>动作块契约</span></div><div><strong>253→157 ms</strong><span>Deform 无损缓存</span></div><div><strong>3:1</strong><span>快慢流设计目标</span></div></div>
+        </div>
+        <div class="hero-board atpi-hero-board">
+          <div class="terminal-head"><span class="terminal-dots"><i></i><i></i><i></i></span><span>atpi05.evidence_pipeline</span></div>
+          <div class="atpi-system-map">
+            <article class="slow"><span>SLOW</span><strong>RGB + Language</strong><small>PaliGemma Prefix · KV</small></article>
+            <b>+</b>
+            <article class="fast"><span>FAST</span><strong>State + Tactile</strong><small>adaRMS · Gated Cross-Attn</small></article>
+            <b>→</b>
+            <article class="expert"><span>FLOW ACTION EXPERT</span><strong>Gemma · 10 denoise steps</strong><small>[B,50,62] absolute targets</small></article>
+          </div>
+          <div class="atpi-proof-strip"><span>结构恢复</span><span>协议对齐</span><span>触觉因果</span><span>延迟优化</span></div>
+          <div class="formula">checkpoint → model → data contract → service → action → evidence</div>
+        </div>
+      </section>
+
+      <section class="section reveal" id="pitch">
+        <div class="section-heading"><p class="section-index">01 · ELEVATOR PITCH</p><h2>90 秒项目回答</h2></div>
+        <div class="interview-card"><strong>推荐版本</strong><p>我在银河自研双臂与 Sharpa 灵巧手平台上参与触觉 VLA 的部署与推理优化，工作对象是两个 ATPI05 checkpoint：一个输入十指 F6 力/力矩历史，另一个输入 Sparsh 编码的视触觉形变图像。ATPI05 不是官方 AT-VLA checkpoint 的完整复现，而是参考其触觉门控思想，在 StarVLA 的 OpenPI PI0.5 实现上做的方法级适配。落地时，现有代码缺少 checkpoint 中的 FastStateConditioner，我根据 6 个权重张量的 shape 反推 LayerNorm—MLP 结构，补齐快状态到 Action Expert adaRMS 的条件通路，并处理 bf16/fp32 混合 dtype，使两个模型都能 strict load。随后我依据训练 parquet 和 modality schema 纠正过时协议，确认 62 维状态/动作是左右 9D EEF 加左右 22D 灵巧手关节，并打通 WebSocket Server、客户端观测打包、归一化、动作反归一化和 GUI 切换。验证上，我不仅检查 shape 和 finite，还固定同一 Flow 初始噪声做触觉 on/off 消融，确认门控打开时触觉会改变动作、门控关闭时融合残差为零。性能上我先 profile，再只缓存去噪步间不变的 tactile tokens、mask 和 gate，保留每步随 x<sub>t</sub> 变化的注入计算，使 Deform 推理从约 253 ms 降至 157 ms，且输出 bit-identical；同时实现了模型侧 VLM 前缀 KV 跨周期复用并验证相同场景无损。当前已完成模型与开放环链路验证，但真实接触任务消融、在线 Deform、Server 级缓存调度和完整真机闭环仍在推进，所以我不会把它描述为论文完整复现或已完成多任务真机部署。</p></div>
+        <div class="memory-line"><strong>五句主线</strong><p>为什么做：验证触觉推理链。最难点：代码、checkpoint、数据协议不一致。怎么解决：结构反推 + 契约对齐 + 分层测试。最有价值结果：因果验证与无损加速。边界：尚无真实任务级闭环结论。</p></div>
+      </section>
+
+      <section class="section reveal" id="boundary">
+        <div class="section-heading split-heading"><div><p class="section-index">02 · EVIDENCE BOUNDARY</p><h2>项目未完成，也可以讲得很强</h2></div><p>关键是把“系统事实、测试事实、合理推断、未来目标”分层，而不是统一写成“已完成”。</p></div>
+        <div class="project-status-grid">
+          <article class="done"><span>DONE · 已实现</span><strong>代码与接口</strong><ul><li>补写 FastStateConditioner 与 ATPI05 条件通路</li><li>混合 dtype 修复</li><li>F6 Server/Client/GUI 接入</li><li>触觉 token cache 与 prefix_cache 模型接口</li></ul></article>
+          <article class="verified"><span>VERIFIED · 已验证</span><strong>模型/开放环证据</strong><ul><li>两个 checkpoint strict load：0 missing/unexpected/shape mismatch</li><li>62D schema、协议、归一化与动作解析</li><li>F6 在线格式 + Deform MCAP 回放</li><li>合成触觉门控/动作因果消融</li><li>RTX 4090 延迟与缓存正确性基准</li></ul></article>
+          <article class="partial"><span>PARTIAL · 部分完成</span><strong>模型侧有结果，部署侧未闭环</strong><ul><li>VLM prefix_cache 已实现与微基准验证</li><li>3:1 摊销有模型级测量</li><li>Deform 可通过录制数据推理</li><li>执行代码路径已复用，但缺少任务级真机证据</li></ul></article>
+          <article class="todo"><span>TODO · 尚未完成</span><strong>不能提前写成成果</strong><ul><li>真实 MCAP 接触分布与 mismatch 验证</li><li>Deform 视触觉在线 SDK</li><li>Server 持有 prefix cache 与刷新策略</li><li>异步 client worker</li><li>安全真机闭环、任务成功率与触觉消融</li></ul></article>
+        </div>
+        <div class="table-scroll" style="margin-top:16px"><table class="shape-table"><thead><tr><th>你可以说</th><th>需要改口的表述</th><th>为什么</th></tr></thead><tbody>
+          <tr><td>“完成两个 checkpoint 的结构恢复与严格加载。”</td><td>“从头训练并完整复现 AT-VLA。”</td><td>项目基于已有 checkpoint；官方训练/评测链路并未完整复现。</td></tr>
+          <tr><td>“打通观测到动作解析的开放环部署链路。”</td><td>“已完成端到端真机闭环。”</td><td>Server/Client 与执行接口可用，不等于机器人已完成任务。</td></tr>
+          <tr><td>“在受控合成输入下验证门控与动作敏感性。”</td><td>“真实任务证明触觉提升成功率。”</td><td>真实接触标定、错配触觉和任务消融尚未完成。</td></tr>
+          <tr><td>“模型侧实现 KV 复用并验证相同场景无损。”</td><td>“线上 3:1 系统已稳定运行。”</td><td>Server 还未维护缓存生命周期，真实场景刷新策略未落地。</td></tr>
+          <tr><td>“Deform 缓存在相同输入下 bit-identical。”</td><td>“所有推理优化都完全无损。”</td><td>跨周期前缀复用在图像变化时存在有界漂移，不属于严格无损。</td></tr>
+        </tbody></table></div>
+      </section>
+
+      <section class="section reveal" id="architecture">
+        <div class="section-heading split-heading"><div><p class="section-index">03 · MODEL POSITIONING</p><h2>AT-VLA 与 ATPI05 不是同一个 checkpoint</h2></div><p>这是面试最容易被抓住的命名问题，必须主动讲清楚。</p></div>
+        <div class="table-scroll"><table class="shape-table"><thead><tr><th>对象</th><th>基础模型</th><th>公开范围</th><th>与你项目的关系</th></tr></thead><tbody>
+          <tr><td><strong>AT-VLA 论文/官方推理代码</strong></td><td>GO-1 / InternVL 路线，仓库中的 legacy <code>pi0</code> 命名不是 Physical Intelligence π<sub>0</sub></td><td>方法和推理快照为主，训练/机器人评测 harness 不完整</td><td>提供接触门控与快慢触觉反应的设计参考</td></tr>
+          <tr><td><strong>ATPI05</strong></td><td>StarVLA 中的真实 OpenPI PI0.5：PaliGemma prefix + Gemma Flow Action Expert</td><td>内部方法级 port 与两个已训练 checkpoint</td><td>你实际恢复、适配、部署和优化的对象</td></tr>
+        </tbody></table></div>
+        <div class="architecture-stack" style="margin-top:16px">
+          <article class="architecture-layer"><span>OBSERVATION</span><div><strong>3 路 RGB + Language</strong><p><code>base_0_rgb / left_wrist_0_rgb / right_wrist_0_rgb</code>，内部 resize-with-pad 到 224×224。</p></div><code>slow input</code></article>
+          <article class="architecture-layer"><span>VLM PREFIX</span><div><strong>PaliGemma · width 2048</strong><p>编码场景和指令，生成供 Action Expert cross-attend 的 <code>past_key_values</code>。</p></div><code>cached KV</code></article>
+          <article class="architecture-layer"><span>FAST CONDITION</span><div><strong>62D state → FastStateConditioner → 1024D</strong><p>与 timestep/action suffix 条件合并，进入 Gemma 的 adaRMS 调制；每个去噪步保留最新状态。</p></div><code>state → adaRMS</code></article>
+          <article class="architecture-layer"><span>TACTILE CONDITION</span><div><strong>F6 history 或 Deform images → Encoder → Gate</strong><p>触觉 token 被 gated cross-attention 注入随 x<sub>t</sub> 变化的 action suffix。</p></div><code>tactile → K/V</code></article>
+          <article class="architecture-layer"><span>ACTION EXPERT</span><div><strong>Gemma · width 1024 · Flow Matching</strong><p>默认 10 步去噪，输出 <code>[B,50,62]</code> action chunk。</p></div><code>H=50, D=62</code></article>
+        </div>
+        <div class="formula large" style="margin-top:16px">action = FlowExpert(x<sub>t</sub>, t | VLM-KV, fast-state, gated-tactile)</div>
+        <div class="callout"><strong>最关键的架构事实</strong><p>VLM 前缀只通过 cross-attention KV 影响 Action Expert，不参与 adaRMS；最新状态由 FastStateConditioner 独立进入 adaRMS。因此“复用慢流前缀”不会屏蔽状态更新，但视觉场景变化仍会让旧 KV 过期。</p></div>
+      </section>
+
+      <section class="section reveal" id="tactile">
+        <div class="section-heading"><p class="section-index">04 · TWO TACTILE MODES</p><h2>同一策略，两个触觉带宽等级</h2></div>
+        <div class="table-scroll"><table class="shape-table"><thead><tr><th>模式</th><th>输入</th><th>编码器</th><th>优势</th><th>主要代价/当前状态</th></tr></thead><tbody>
+          <tr><td><strong>F6 / Wrench</strong></td><td><code>[B,T≤8,60]</code><br>10 指 × (Fx,Fy,Fz,Tx,Ty,Tz)</td><td>WrenchTactileEncoder：标准化、数值 embedding、时间位置编码</td><td>维度低、时序明确、约 160 ms 稳态 Server 推理；客户端可在线构造 8 帧历史</td><td>需要物理单位、零漂、方向、量程与真实门控阈值标定</td></tr>
+          <tr><td><strong>Deform / Image</strong></td><td><code>[B,2,10,240,320,3]</code><br>t−5 与 t 两帧 × 10 传感器</td><td>Sparsh I-JEPA ViT-B/16，width 768、12 blocks、12 heads，压缩为 290 tokens</td><td>保留接触位置、形变纹理与潜在滑移信息，表达力更强</td><td>编码重、原始约 258 ms；目前用 MCAP 回放，在线 SDK 尚未接通</td></tr>
+        </tbody></table></div>
+        <div class="card-grid three" style="margin-top:16px">
+          <article class="info-card"><span>F6 HISTORY</span><h3>为什么是 8 帧</h3><p>单帧只给瞬时力；短历史可描述接触建立、稳定、滑移或释放。首帧不足时回填并用时间顺序保持“旧→新”。</p></article>
+          <article class="info-card"><span>DEFORM TWO FRAMES</span><h3>为什么取 t−5 与 t</h3><p>用稀疏时间差表达形变变化，不必把所有中间帧都送入 ViT；但实际时间跨度取决于传感器 FPS。</p></article>
+          <article class="info-card"><span>NOT INTERCHANGEABLE</span><h3>不能只改字段名</h3><p>两种 checkpoint 的 encoder、token 数、归一化和在线数据源不同，必须由 contract 明确 mode。</p></article>
+        </div>
+      </section>
+
+      <section class="section reveal" id="fast-slow">
+        <div class="section-heading split-heading"><div><p class="section-index">05 · FAST / SLOW SYSTEM</p><h2>3:1 是设计意图，不是当前线上事实</h2></div><p>慢流承担视觉语言语义，快流承担状态和触觉反馈；两者通过 Action Expert 汇合。</p></div>
+        <div class="dual-stream-diagram">
+          <div class="stream-column slow"><span>SLOW · REFRESH</span><strong>RGB + Language → PaliGemma</strong><p>产生 prefix KV；场景或指令变化时应刷新。</p><em>高成本 · 低频语义</em></div>
+          <div class="cache-column"><b>KV</b><span>cross-attn</span><i>→</i><i>→</i><i>→</i></div>
+          <div class="stream-column fast"><span>FAST · EVERY CYCLE</span><strong>State + Tactile → Action Expert</strong><p>最新 state 进 adaRMS，触觉经 Gate/Cross-Attn 注入 suffix。</p><em>高频反馈 · 多步 Flow</em></div>
+        </div>
+        <div class="table-scroll" style="margin-top:16px"><table class="shape-table"><thead><tr><th>组件</th><th>设计目标</th><th>当前完成度</th><th>面试正确表述</th></tr></thead><tbody>
+          <tr><td>FastStateConditioner</td><td>状态高频调制 Action Expert</td><td><strong>已恢复并 strict-load 验证</strong></td><td>“完成快状态到 adaRMS 的模型通路。”</td></tr>
+          <tr><td>去噪内触觉更新</td><td>同一 VLM 上下文下让触觉参与每步去噪</td><td><strong>已实现并缓存优化</strong></td><td>“触觉 encoder 可缓存，suffix 注入必须逐步更新。”</td></tr>
+          <tr><td>跨周期 Prefix KV</td><td>慢流 1 次、快流多次</td><td><strong>模型接口与微基准完成</strong>，Server 未接入</td><td>“实现模型侧原型，部署调度待完成。”</td></tr>
+          <tr><td>真实 3:1 调度</td><td>线程/队列/缓存生命周期与刷新</td><td><strong>未完成</strong></td><td>不能说“线上已经 3:1 稳定运行”。</td></tr>
+          <tr><td>训练延迟鲁棒性</td><td><code>delay_steps∈{0,1,2}</code> 各 1/3</td><td>checkpoint 配置事实</td><td>“模型训练时考虑慢上下文延迟”，不是你的新算法。</td></tr>
+        </tbody></table></div>
+        <div class="callout warning"><strong>缓存安全条件</strong><p>指令变更必须强制失效；相机明显变化、cache 超时、任务状态切换或模型版本变化都应刷新。每份缓存至少绑定 scene/instruction hash、timestamp、version 和 valid flag，并避免读写竞争。</p></div>
+      </section>
+
+      <section class="section reveal" id="reconstruction">
+        <div class="section-heading"><p class="section-index">06 · CHECKPOINT FORENSICS</p><h2>缺少训练代码时，怎样恢复模型结构</h2></div>
+        <div class="step-timeline">
+          <div class="step-row"><span>01</span><strong>从 strict load 错误定位缺失模块</strong><p>checkpoint 出现 6 个 <code>fast_state_conditioner.*</code> unexpected keys，说明权重存在但代码图中没有对应模块。</p></div>
+          <div class="step-row"><span>02</span><strong>按参数名和 shape 反推网络</strong><p><code>input_norm</code> 对应 LayerNorm(62)；<code>network.0</code> 对应 Linear(62,256)；<code>network.2</code> 对应 Linear(256,1024)，中间为无参数 SiLU。</p></div>
+          <div class="step-row"><span>03</span><strong>找到真正的条件注入位置</strong><p>不是随便把 1024D 向量加到 hidden；需在 <code>condition_action_suffix</code> 后，与原 <code>adarms_cond</code> 合并，并同时覆盖训练 forward 和推理 denoise_step。</p></div>
+          <div class="step-row"><span>04</span><strong>处理混合 dtype</strong><p>FastStateConditioner 以自身权重 dtype 计算；OpenPI 部分重新注册的 LayerNorm/adaRMS dense 保持 fp32，因此最终条件升到 fp32 再合并。</p></div>
+          <div class="step-row"><span>05</span><strong>用严格加载证明结构闭合</strong><p>F6 共 842 keys、Deform 共 1013 keys；missing=0、unexpected=0、shape mismatch=0。</p></div>
+        </div>
+        <div class="formula large" style="margin-top:16px">LayerNorm(62) → Linear(62,256) → SiLU → Linear(256,1024)</div>
+        <div class="compare-grid" style="margin-top:16px">
+          <article class="compare-card good"><h3>为什么这是有价值的工程工作</h3><p>不仅让模型“能加载”，还要根据架构语义确定模块位于哪条条件路径、训练与推理是否一致、dtype 怎样穿过混合精度边界，并用完整 key 集验证。</p></article>
+          <article class="compare-card"><h3>为什么不能包装成算法创新</h3><p>FastStateConditioner 已存在于 checkpoint 和配置语义中，你完成的是结构恢复、工程集成和正确性验证，而不是提出该模块。</p></article>
+        </div>
+      </section>
+
+      <section class="section reveal" id="contract">
+        <div class="section-heading split-heading"><div><p class="section-index">07 · DATA CONTRACT</p><h2>62D 动作布局比模型名更重要</h2></div><p>协议文档写错 2 维，模型仍可能返回 finite 数字；真正上机器人时才会以危险动作暴露。</p></div>
+        <div class="atpi-slot-map">
+          <article><span>0:9</span><strong>Left EEF</strong><small>xyz + Rot6D</small></article>
+          <article><span>9:18</span><strong>Right EEF</strong><small>xyz + Rot6D</small></article>
+          <article><span>18:40</span><strong>Left Hand</strong><small>22 joints</small></article>
+          <article><span>40:62</span><strong>Right Hand</strong><small>22 joints</small></article>
+        </div>
+        <div class="table-scroll" style="margin-top:16px"><table class="shape-table"><thead><tr><th>契约项</th><th>确认结果</th><th>验证来源</th><th>典型错误</th></tr></thead><tbody>
+          <tr><td>State / Action</td><td><code>[L_EEF9,R_EEF9,L_HAND22,R_HAND22]</code></td><td>训练 <code>modality.json</code> + parquet 实测</td><td>沿用过时文档的 7D EEF + 24D Hand。</td></tr>
+          <tr><td>EEF Rotation</td><td>Rot6D，旋转矩阵前两行；两组三维向量范数应约为 1</td><td>真实训练样本数值检查</td><td>误当 quaternion 或 axis-angle。</td></tr>
+          <tr><td>Action semantics</td><td>绝对目标，<code>action == action.target</code></td><td>训练数据字段与 client 旧路径对比</td><td>误当 delta EEF 再累加一次。</td></tr>
+          <tr><td>Normalization</td><td>Client 发 raw 62D；Server 以 <code>new_embodiment</code> min-max 归一化，响应已反归一化</td><td>checkpoint statistics + runtime</td><td>Client 重复归一化/反归一化。</td></tr>
+          <tr><td>Action chunk</td><td><code>[B,50,62]</code></td><td>Server 响应与 parser</td><td>把 B 维或 horizon 维切错。</td></tr>
+          <tr><td>Images</td><td>3 路 uint8 HWC RGB</td><td>Server contract</td><td>BGR/RGB、CHW/HWC、左右腕顺序错。</td></tr>
+        </tbody></table></div>
+        <div class="callout"><strong>为什么 flat normalizer 没发现语义错误</strong><p>Server 只逐元素处理 62 个数，并不知道第 6 维是 quaternion、Rot6D 还是手指关节。因此 shape 能对上、数值也 finite，仍可能语义完全错误。解决方法是从训练数据 schema、统计分布、旋转约束和可视化动作共同验证。</p></div>
+      </section>
+
+      <section class="section reveal" id="deployment">
+        <div class="section-heading"><p class="section-index">08 · DEPLOYMENT CHAIN</p><h2>从传感器快照到可执行 Action Chunk</h2></div>
+        <div class="e2e-pipeline">
+          <article><span>01</span><strong>Robot Snapshot</strong><p>3 路 RGB、EEF、手关节、F6/触觉图像</p><em>raw timestamped data</em></article><b>→</b>
+          <article><span>02</span><strong>ATPI05 Adapter</strong><p>拼 62D state，维护 F6 deque，选择 tactile mode</p><em>shape · order · dtype</em></article><b>→</b>
+          <article><span>03</span><strong>WebSocket / MsgPack</strong><p><code>atpi05.v1</code> 二进制 ndarray 协议</p><em>request_id · contract</em></article><b>→</b>
+          <article class="accent"><span>04</span><strong>Server Runtime</strong><p>归一化 → VLM/Flow → 反归一化</p><em>bf16 · batch=1</em></article><b>→</b>
+          <article><span>05</span><strong>Action Parser</strong><p>[50,62] 绝对 EEF/Hand targets</p><em>finite · workspace</em></article><b>→</b>
+          <article><span>06</span><strong>Executor</strong><p>平滑、IK、绝对 EEF 执行、录制</p><em>当前缺任务级闭环证据</em></article>
+        </div>
+        <div class="table-scroll" style="margin-top:16px"><table class="shape-table"><thead><tr><th>组件</th><th>完成内容</th><th>验证</th><th>尚未覆盖</th></tr></thead><tbody>
+          <tr><td><strong>Server</strong></td><td>WebSocket + MessagePack；metadata；F6/Deform 两类 checkpoint；自动 unnorm key</td><td>起服 + smoke client；F6≈160 ms、Deform≈258 ms</td><td>prefix_cache 生命周期与真实并发。</td></tr>
+          <tr><td><strong>Client</strong></td><td>自包含 ATPI05Client；snapshot adapter；F6 8 帧 buffer；复用绝对 EEF 执行路径</td><td>离线协议响应 <code>(1,50,62)</code> finite，EEF 坐标范围合理</td><td>Deform 在线图像 SDK、异步 worker。</td></tr>
+          <tr><td><strong>GUI</strong></td><td>ATPI05 选择、端口切换、强制绝对 EEF；修复 metadata schema 误读</td><td>Server contract 字段正确显示</td><td>任务评测面板与 cache 状态观测。</td></tr>
+          <tr><td><strong>Deform 回放</strong></td><td>从左右灵巧手 MCAP tactile_image topic 组装 <code>[2,10,H,W,3]</code></td><td>Server 正常消费并输出动作</td><td>实时采集、丢帧处理与真机任务。</td></tr>
+        </tbody></table></div>
+        <div class="callout warning"><strong>“端到端”的限定词</strong><p>目前可以说“从观测打包到动作解析的端到端推理链路”或“开放环端到端协议验证”；不要省略限定词直接说“端到端真机完成”，因为机器人任务执行、触觉收益和失败恢复尚未形成实验结果。</p></div>
+      </section>
+
+      <section class="section reveal" id="gate">
+        <div class="section-heading split-heading"><div><p class="section-index">09 · CONTACT GATE</p><h2>怎样证明模型真的读取触觉</h2></div><p>“输入字段存在”和“触觉参与决策”是两个不同命题；后者需要固定随机性做干预实验。</p></div>
+        <div class="gate-flow">
+          <article><span>01</span><strong>Tactile Tokens</strong><p>masked mean → contact logit</p></article><b>→</b>
+          <article><span>02</span><strong>Sigmoid</strong><p>gate probability ∈ (0,1)</p></article><b>→</b>
+          <article class="accent"><span>03</span><strong>Hard Gate 0.6</strong><p>ST estimator：前向二值、反向软梯度</p></article><b>→</b>
+          <article><span>04</span><strong>Gated Residual</strong><p>action + gate × tactile-attn</p></article>
+        </div>
+        <div class="formula large" style="margin-top:16px">y = x + valid · gate · CrossAttn(Q=x, K=T, V=T)</div>
+        <div class="table-scroll" style="margin-top:16px"><table class="shape-table"><thead><tr><th>实验层级</th><th>方法</th><th>当前结果</th><th>能证明什么 / 不能证明什么</th></tr></thead><tbody>
+          <tr><td><strong>Gate response</strong></td><td>扫描单指 F6 force norm，读取 logit/probability</td><td>probe scale 0→20 时单调；约 5 时 probability≈0.71，跨过 0.6</td><td>证明门控不是常量；该约 5 是模型探针尺度，不能直接当作 5 N 物理阈值。</td></tr>
+          <tr><td><strong>F6 on/off</strong></td><td>固定图像、状态、语言和初始噪声；force=10 vs tactile=0</td><td>Gate=1 时相对动作幅度改变约 30–32%；Gate=0 时差为 0</td><td>证明受控输入下“门开→触觉影响动作”；不代表任务性能提升。</td></tr>
+          <tr><td><strong>Deform on/off</strong></td><td>合成强形变 vs 平坦输入</td><td>2/3 seeds 触发 Gate 并改变动作约 17%；1/3 seed 未触发</td><td>证明路径可生效，也暴露合成形变并非稳定代表真实接触。</td></tr>
+          <tr><td><strong>Mismatch</strong></td><td>跨时刻/跨 episode 交换触觉</td><td><strong>尚未完成</strong></td><td>这是证明模型理解触觉内容、而非只响应“有信号”的关键实验。</td></tr>
+          <tr><td><strong>Real contact</strong></td><td>用真实 MCAP 接触帧核对 Gate 与力分布</td><td><strong>尚未完成</strong></td><td>决定真实部署时 Gate 是否会打开及阈值是否错标。</td></tr>
+          <tr><td><strong>Task ablation</strong></td><td>触觉 on/off/shuffle 的真机成功率</td><td><strong>尚未完成</strong></td><td>只有这一层才能支持“触觉提高任务成功率”。</td></tr>
+        </tbody></table></div>
+        <div class="callout warning"><strong>两个阈值不能混为一谈</strong><p><code>contact_force_threshold=1.0</code> 是训练阶段从 raw F/T 生成 BCE 标签的物理阈值；<code>0.6</code> 是推理阶段对 sigmoid gate score 的无量纲阈值。模型探针中约 5 才跨过 0.6，是 learned gate 在该输入尺度下的行为，不应说成“系统把 5 N 定义为接触”。</p></div>
+      </section>
+
+      <section class="section reveal" id="profiling">
+        <div class="section-heading"><p class="section-index">10 · PERFORMANCE PROFILING</p><h2>先测计算图，再决定优化哪一层</h2></div>
+        <div class="table-scroll"><table class="shape-table"><thead><tr><th>测量</th><th>F6</th><th>Deform</th><th>结论</th></tr></thead><tbody>
+          <tr><td>Server 稳态，bf16，steps=10</td><td>≈160 ms</td><td>≈258 ms</td><td>模型计算主导，网络与序列化小于约 15 ms。</td></tr>
+          <tr><td>首帧</td><td>≈813 ms</td><td>≈949 ms</td><td>CUDA kernel / cuDNN 预热，正式控制前必须 warmup。</td></tr>
+          <tr><td>每个额外 denoise step</td><td>约 9 ms</td><td>约 18 ms</td><td>steps 是线性但有损的延迟杠杆。</td></tr>
+          <tr><td>steps 10→5</td><td>174→116 ms</td><td>253→167 ms</td><td>约降 34%，但必须用任务指标确定质量损失。</td></tr>
+          <tr><td>bf16 vs fp32</td><td colspan="2">bf16 快约 1.35–1.84×</td><td>训练与推理均使用 bf16；fp32 主要用于数值排错。</td></tr>
+          <tr><td>Batch 1→4</td><td>吞吐增加，单请求延迟 153→313 ms</td><td>同类规律</td><td>实时机器人固定 batch=1；离线评测才考虑 batch。</td></tr>
+        </tbody></table></div>
+        <div class="metric-grid" style="margin-top:16px">
+          <article><span>VLM PREFIX</span><strong>≈68 ms</strong><p>慢流主要固定成本。</p></article>
+          <article><span>ACTION EXPERT ×10</span><strong>≈77 ms</strong><p>多步 Flow 的主要计算。</p></article>
+          <article><span>SPARSH ×10</span><strong>≈9.7 ms</strong><p>总量不最大，但属于可完全消除的重复。</p></article>
+          <article><span>OTHER</span><strong>≈3 ms</strong><p>suffix embedding、Gate、Injector。</p></article>
+        </div>
+        <div class="callout"><strong>为什么先优化 6% 的 Sparsh 重算</strong><p>优化优先级不只看占比，还看“能否在不改变输出的情况下完全删除”。Action Expert 的 77 ms 直接决定 Flow 求解质量，VLM 的 68 ms 承担视觉语言条件；重复编码同一触觉观察则没有信息收益，是安全的第一目标。</p></div>
+      </section>
+
+      <section class="section reveal" id="cache">
+        <div class="section-heading split-heading"><div><p class="section-index">11 · OPTIMIZATION 01</p><h2>只缓存不随去噪步变化的触觉量</h2></div><p>这是严格无损优化；关键不在“用了 cache”，而在于缓存边界选对了。</p></div>
+        <div class="compare-grid">
+          <article class="compare-card bad"><span>WRONG CACHE</span><h3>缓存 conditioned suffix</h3><p>base suffix 包含 x<sub>t</sub> 与 timestep，每个 Euler/Flow step 都变化。冻结整个注入结果会让动作偏差达到 1.3–1.7，约为初始噪声扰动敏感度的 5 倍。</p><ul><li>速度看起来变快</li><li>数学语义已改变</li><li>误差在积分中累积</li></ul></article>
+          <article class="compare-card good"><span>CORRECT CACHE</span><h3>缓存 tactile tokens / mask / gate</h3><p>它们只依赖当前 observation，在同一次 action chunk 的 N 步去噪中不变；轻量 injector 每步仍读取新鲜 base suffix。</p><ul><li>F6/Deform max error = 0</li><li>Deform 250.9→156.9 ms</li><li>训练路径不受影响</li></ul></article>
+        </div>
+        <div class="ditflow-spine" style="margin-top:16px">
+          <article><span>ONCE</span><strong>TactileEncoder(obs)</strong><small>tokens, mask, gate</small></article><b>→ cache</b>
+          <article class="accent"><span>EVERY STEP</span><strong>Suffix(x<sub>t</sub>,t,state)</strong><small>must refresh</small></article><b>+</b>
+          <article><span>EVERY STEP</span><strong>Injector(Q=suffix,K/V=tactile)</strong><small>cheap & correct</small></article><b>→</b>
+          <article><span>OUTPUT</span><strong>bit-identical</strong><small>−37.5% latency</small></article>
+        </div>
+        <div class="interview-card" style="margin-top:16px"><strong>一句能体现深度的话</strong><p>“生成模型做缓存不能只按张量 shape 判断，而要按依赖图判断。只要张量依赖 x<sub>t</sub> 或 t，就属于 solver state，跨步复用会改变数值积分；只有 observation-only 的编码结果可在同一次去噪循环中无损缓存。”</p></div>
+      </section>
+
+      <section class="section reveal" id="prefix">
+        <div class="section-heading split-heading"><div><p class="section-index">12 · OPTIMIZATION 02</p><h2>跨控制周期复用 VLM Prefix KV</h2></div><p>相同输入严格无损；相邻真实场景属于可控近似，必须有失效策略。</p></div>
+        <div class="table-scroll"><table class="shape-table"><thead><tr><th>测试条件</th><th>结果</th><th>性质</th><th>工程结论</th></tr></thead><tbody>
+          <tr><td>完全相同图像/语言，状态变化走 fast conditioner</td><td>fresh vs reuse max diff = 0</td><td><strong>模型级无损</strong></td><td>证明状态不需要通过 VLM prefix 更新。</td></tr>
+          <tr><td>状态运动 + 微小图像噪声</td><td>动作漂移约 5.6e−2～1.3e−1</td><td><strong>有界近似</strong></td><td>视觉变化被旧 KV 忽略，需按变化程度刷新。</td></tr>
+          <tr><td>快周期延迟</td><td>158.2→101.4 ms</td><td>−35.9%</td><td>跳过约 68 ms 前缀计算。</td></tr>
+          <tr><td>1 slow + 3 fast 摊销</td><td>约 115.6 vs 158.2 ms/cycle</td><td>−27%</td><td>是模型级 benchmark，不是当前 Server 线上指标。</td></tr>
+        </tbody></table></div>
+        <div class="selection-checklist atvla-checklist" style="margin-top:16px">
+          <article><span>01</span><strong>Instruction change</strong><p>任务文本变化立即清缓存。</p></article>
+          <article><span>02</span><strong>Fixed cadence</strong><p>先实现每 3 个 fast cycle 刷一次的确定性策略。</p></article>
+          <article><span>03</span><strong>Scene change</strong><p>相机差分/embedding 相似度超过阈值提前刷新。</p></article>
+          <article><span>04</span><strong>Version binding</strong><p>缓存绑定模型、预处理和归一化版本。</p></article>
+          <article><span>05</span><strong>Timeout</strong><p>KV 超时回退 fresh prefix，不继续盲用。</p></article>
+          <article><span>06</span><strong>Concurrency</strong><p>双缓冲或原子替换，避免读到半更新 KV。</p></article>
+        </div>
+        <div class="callout warning"><strong>当前缺口</strong><p><code>predict_action(..., prefix_cache={})</code> 已在模型侧实现，但 Server runtime 尚未持有和传递 cache；因此简历应写“实现并验证模型侧前缀复用原型”，完成 runtime、刷新策略和 P95 测试后才能升级为“部署 3:1 快慢异步系统”。</p></div>
+      </section>
+
+      <section class="section reveal" id="evaluation">
+        <div class="section-heading"><p class="section-index">13 · VERIFICATION MATRIX</p><h2>每一种 PASS 到底证明什么</h2></div>
+        <div class="table-scroll"><table class="shape-table"><thead><tr><th>测试</th><th>结果</th><th>证明范围</th><th>不能外推</th></tr></thead><tbody>
+          <tr><td>Strict checkpoint load</td><td>F6 842 / Deform 1013 keys 全匹配</td><td>模型结构与权重 schema 闭合</td><td>模型任务能力正确。</td></tr>
+          <tr><td>Dataset/schema audit</td><td>62D Sharpa layout + Rot6D 约束</td><td>state/action 语义与训练数据一致</td><td>真实控制坐标和 TCP 已完全正确。</td></tr>
+          <tr><td>Client→Server→Parser</td><td><code>(1,50,62)</code> finite；绝对 EEF 范围合理</td><td>协议、序列化、归一化和解析通过</td><td>Action 能完成任务。</td></tr>
+          <tr><td>Deform MCAP replay</td><td>两帧十传感器输入可消费并出动作</td><td>离线视触觉数据链可用</td><td>在线采集频率与掉帧鲁棒。</td></tr>
+          <tr><td>Gate + on/off</td><td>门开时动作改变，门关时差为零</td><td>受控输入下模型使用触觉支路</td><td>真实触觉提高成功率。</td></tr>
+          <tr><td>Tactile cache equivalence</td><td>max error 0，Deform −37.5%</td><td>同观测同模型输入下严格等价</td><td>跨请求/跨观察可复用。</td></tr>
+          <tr><td>Prefix reuse microbench</td><td>相同场景 0 差；扰动下有界漂移</td><td>快状态与慢视觉条件解耦成立</td><td>刷新策略已适合真实动态场景。</td></tr>
+          <tr><td>真机任务</td><td><strong>未完成</strong></td><td>—</td><td>成功率、触觉收益、恢复行为和安全闭环。</td></tr>
+        </tbody></table></div>
+        <div class="memory-line"><strong>面试方法论</strong><p>每讲一个数字，立刻补一句“测试输入是什么、固定了什么、指标是什么、它证明到哪一层”。这样项目未完全完成也不会显得虚，反而体现实验设计严谨。</p></div>
+      </section>
+
+      <section class="section reveal" id="resume">
+        <div class="section-heading split-heading"><div><p class="section-index">14 · RESUME PACKAGING</p><h2>建议把项目写成三条，而不是一句“大而全”</h2></div><p>项目标题突出“触觉链路与推理优化”，不写“完整复现”或“多任务真机部署”。</p></div>
+        <div class="resume-copy-card">
+          <span>推荐项目标题</span>
+          <h3>触觉 VLA 模型部署与推理优化（PI0.5 + Sharpa Hand）</h3>
+          <ul>
+            <li><strong>模型适配：</strong>面向双臂灵巧手触觉推理，基于 StarVLA/PI0.5 适配 F6 力觉与 Sparsh 视触觉双模型；依据 checkpoint 权重结构补齐 FastStateConditioner，修复混合精度条件通路，实现两个 checkpoint 的严格加载。</li>
+            <li><strong>链路验证：</strong>对齐 62 维双臂 EEF/灵巧手状态—动作契约，完成触觉历史、MCAP 形变图像、WebSocket Server、客户端观测适配与动作反归一化链路；通过固定噪声触觉消融验证接触门控与动作输出的因果关系。</li>
+            <li><strong>推理优化：</strong>基于计算图 profiling 识别 Flow 去噪循环中的重复触觉编码，设计 observation-only token 无损缓存，使 Deform 推理延迟由约 253 ms 降至 157 ms（输出 bit-identical）；实现 VLM prefix KV 跨周期复用原型，3:1 模型级摊销约降低 27%。</li>
+          </ul>
+        </div>
+        <div class="callout warning"><strong>简历脚注/面试主动边界</strong><p>“目前已完成模型、协议、开放环与模型级优化验证；真实触觉数据标定、Server 异步调度及任务级真机闭环仍在推进。”简历篇幅紧可以不直接写这句，但面试讲项目时必须主动交代。</p></div>
+        <div class="compare-grid" style="margin-top:16px">
+          <article class="compare-card good"><span>GOOD VERBS</span><h3>适配、恢复、对齐、验证、优化</h3><p>这些动词与实际证据匹配，而且能自然引出 checkpoint forensic、数据契约、因果消融和 profiling。</p></article>
+          <article class="compare-card bad"><span>AVOID</span><h3>提出、完整复现、真机验证提升</h3><p>门控和快慢系统不是你的算法；尚无完整论文复现、真实任务成功率或触觉收益对照。</p></article>
+        </div>
+      </section>
+
+      <section class="section reveal" id="story">
+        <div class="section-heading"><p class="section-index">15 · STAR STORY</p><h2>两分钟回答必须有冲突和判断</h2></div>
+        <div class="story-grid">
+          <article><span>S · SITUATION</span><strong>已有 checkpoint，但不能直接部署</strong><p>模型代码、权重、旧协议和新平台观测不一致；触觉有 F6 与 Deform 两种模式，且项目缺少完整训练源代码。</p></article>
+          <article><span>T · TASK</span><strong>把 checkpoint 变成可信的推理链路</strong><p>不仅要“能出动作”，还要证明结构、数据语义、触觉影响和性能优化各自正确。</p></article>
+          <article><span>A1 · ACTION</span><strong>结构恢复</strong><p>从权重名称/shape 反推 FastStateConditioner，定位 adaRMS 合并点，修复 bf16/fp32 边界并严格加载。</p></article>
+          <article><span>A2 · ACTION</span><strong>契约对齐</strong><p>以 parquet/modality schema 推翻过时协议，建立 62D action contract，打通 Server/Client/GUI 和 Deform 回放。</p></article>
+          <article><span>A3 · ACTION</span><strong>因果与性能验证</strong><p>固定初始噪声做 gate/on-off 消融；逐模块 profile 后划分 observation-only 与 solver-dependent 缓存边界。</p></article>
+          <article><span>R · RESULT</span><strong>开放环闭合 + 无损加速</strong><p>两个 checkpoint 严格加载；协议链通过；受控输入下触觉门控影响动作；Deform 253→157 ms bit-identical；前缀复用原型模型级验证。</p></article>
+          <article class="wide"><span>REFLECTION</span><strong>没有把模型级 PASS 当成任务成功</strong><p>下一阶段优先用真实 MCAP 做门控标定与 mismatch，随后接入 Server cache 调度和在线 Deform，最后才进入带安全约束的真机任务消融。</p></article>
+        </div>
+      </section>
+
+      <section class="section reveal" id="debug">
+        <div class="section-heading split-heading"><div><p class="section-index">16 · DEBUG SYSTEM</p><h2>面试官问“遇到什么问题”时这样答</h2></div><p>不要只罗列报错；要说明症状、根因、验证方法和防回归机制。</p></div>
+        <div class="table-scroll"><table class="shape-table"><thead><tr><th>症状</th><th>根因</th><th>如何定位</th><th>修复与防回归</th></tr></thead><tbody>
+          <tr><td><code>Unexpected fast_state_conditioner keys</code></td><td>checkpoint 有模块，当前代码图缺失</td><td>列出 state_dict key/shape，与构造图逐层对齐</td><td>反推模块并覆盖 train/infer 两条路径；strict load 作为回归测试。</td></tr>
+          <tr><td>bf16 LayerNorm / dense mixed dtype</td><td>部分 OpenPI 重注册参数保持 fp32</td><td>打印每个条件张量与权重 dtype，定位首个不匹配算子</td><td>模块按自身 dtype 计算，adaRMS 条件合并前统一到 dense 权重 dtype。</td></tr>
+          <tr><td>协议文档 62D 但语义错</td><td>旧文档 7+7+24+24，与训练数据 9+9+22+22 不一致</td><td>查 modality.json、parquet 切片、Rot6D 范数与输出分布</td><td>以训练数据为 source of truth，增加 schema/version 与语义断言。</td></tr>
+          <tr><td>GUI Server metadata 全是 “?”</td><td>复用 LaWAM schema 解析 ATPI05 contract</td><td>抓原始 metadata 对比字段名</td><td>ATPI05 使用独立 client/contract parser，避免 namespace/schema 混用。</td></tr>
+          <tr><td>缓存后速度快但动作偏差 1.3–1.7</td><td>错误缓存了依赖 x<sub>t</sub>/t 的 conditioned suffix</td><td>固定 observation/noise，逐层比较 cache/no-cache 最大误差</td><td>只缓存 observation-only tokens/mask/gate；等价性测试要求 max error=0。</td></tr>
+          <tr><td>Gate 训练标签漏掉多指接触</td><td>旧实现只切前 3 维，相当于只看第 0 指</td><td>构造“拇指弱、食指强”的混合 batch 检查标签</td><td>reshape [B,T,10,6] 后跨 10 指取 force norm max；加入单测。</td></tr>
+          <tr><td>Deform eval 首次报 bf16/float 错</td><td>训练 loop autocast，但 periodic predict_action 无 autocast</td><td>比较 train forward 与 eval call stack</td><td>TactileImageEncoder CUDA 内部 autocast，CPU 对齐参数 dtype，并加 inference test。</td></tr>
+        </tbody></table></div>
+      </section>
+
+      <section class="section reveal" id="roadmap">
+        <div class="section-heading"><p class="section-index">17 · COMPLETION ROADMAP</p><h2>下一步按证据价值排序</h2></div>
+        <div class="version-rail compact-rail">
+          <article><div class="version-dot done-dot">P0</div><div><strong>真实触觉门控标定</strong><p>从 MCAP 提取非接触、初接触、稳定接触与滑移帧，比较 raw force、normalized input、gate probability；确认 learned gate 在真实分布中能打开。</p></div><em>解锁：真实数据有效性</em></article>
+          <article><div class="version-dot">P1</div><div><strong>触觉 mismatch / shuffle</strong><p>固定视觉、state 和 Flow noise，交换时刻/episode 的触觉，报告动作差、Gate 与任务相关方向变化。</p></div><em>解锁：触觉内容判别性</em></article>
+          <article><div class="version-dot">P2</div><div><strong>Server prefix cache</strong><p>runtime 持有 KV，先实现确定性 3:1；指令变化/超时强制失效，记录 hit rate、P50/P95 和漂移。</p></div><em>解锁：线上快慢系统</em></article>
+          <article><div class="version-dot">P3</div><div><strong>Deform 在线输入</strong><p>接入 10 传感器图像 SDK，处理时间戳、t−5 索引、掉帧、左右顺序和带宽。</p></div><em>解锁：双模式在线对比</em></article>
+          <article><div class="version-dot">P4</div><div><strong>低速安全真机</strong><p>加入 workspace/速度/jerk/力阈值、watchdog、急停和动作队列；先执行短 horizon 小幅动作。</p></div><em>解锁：闭环系统证据</em></article>
+          <article><div class="version-dot">P5</div><div><strong>任务级消融</strong><p>F6/Deform/无触觉/shuffle，固定任务、示范、seed 与控制参数，报告成功率、阶段完成、恢复次数、接触峰值和延迟。</p></div><em>解锁：触觉任务收益</em></article>
+        </div>
+        <div class="callout"><strong>最快提升简历含金量的不是再写代码</strong><p>优先完成 P0、P1 和 P2：真实门控曲线、错配触觉对照、Server P95/缓存命中率。它们成本低于完整真机评测，却能把“受控合成验证”升级成“真实数据验证”，把“模型原型”升级成“部署系统”。</p></div>
+      </section>
+
+      <section class="section reveal" id="interview">
+        <div class="section-heading"><p class="section-index">18 · INTERVIEW Q&A</p><h2>项目追问与回答骨架</h2></div>
+        <div class="qa-grid">
+          <div class="interview-card"><strong>Q1：ATPI05 是你提出的吗？</strong><p>不是。我参考 AT-VLA 的触觉门控思想，在团队的 StarVLA/OpenPI PI0.5 分支上做模型恢复、平台适配、部署链路与推理优化。我的贡献在工程实现、正确性验证和计算图优化。</p></div>
+          <div class="interview-card"><strong>Q2：为什么叫 method-level port？</strong><p>官方 AT-VLA 不基于 Physical Intelligence PI0.5，且没有公开完整训练/机器人评测。ATPI05 复用方法思想，但基础模型、动作维度和 checkpoint 都不同，不声称 checkpoint-compatible 复现。</p></div>
+          <div class="interview-card"><strong>Q3：为什么能从 6 个权重恢复模块？</strong><p>参数名给出层级，shape 给出输入/输出维：LayerNorm 62、Linear 62→256、Linear 256→1024；两层 Linear 之间需要无参非线性。更关键的是从调用图确认它应合并到 adaRMS，而非直接加到 hidden。</p></div>
+          <div class="interview-card"><strong>Q4：Strict load 通过证明了什么？</strong><p>证明代码结构与 checkpoint 参数 schema 一致；不证明 forward 语义、数据契约或任务效果，因此还需要 dtype、协议、消融和回放测试。</p></div>
+          <div class="interview-card"><strong>Q5：为什么 62D 不看旧协议？</strong><p>协议可能过时，训练数据才是模型监督的真实来源。我对照 modality.json 与 parquet，检查 Rot6D 数值约束，并确认 normalizer 只按 flat 维度工作，最终确定 9+9+22+22。</p></div>
+          <div class="interview-card"><strong>Q6：绝对动作与 delta 动作弄错会怎样？</strong><p>若把 absolute target 再累加到当前 pose，会产生巨大漂移；反过来把 delta 当 absolute 会跳向零附近。必须由训练字段、统计范围和执行器接口共同确认。</p></div>
+          <div class="interview-card"><strong>Q7：触觉门控为何需要 BCE？</strong><p>仅靠动作 loss，Gate 可能学成始终开/关的捷径。BCE 提供明确接触监督；总损失用较小 0.01 权重，避免门控分类压过 Flow action learning。</p></div>
+          <div class="interview-card"><strong>Q8：为什么用 hard gate + straight-through？</strong><p>推理希望非接触时残差严格为零，避免噪声污染；训练仍需要 sigmoid 的软梯度，因此前向二值、反向沿 soft probability 传播。</p></div>
+          <div class="interview-card"><strong>Q9：30% 动作变化是不是说明触觉更好？</strong><p>不是，只说明门打开后触觉分支对输出有因果影响。方向是否正确、任务是否改善，需要真实数据 mismatch 和真机触觉 on/off 成功率。</p></div>
+          <div class="interview-card"><strong>Q10：Deform 为什么一个 seed 没触发 Gate？</strong><p>合成“强形变”不一定落在训练分布；这恰好说明合成探针只能验证通路，不能替代真实接触标定，也不能说 Gate 对所有形变都鲁棒。</p></div>
+          <div class="interview-card"><strong>Q11：缓存 tactile tokens 为什么无损？</strong><p>在同一次 Flow 采样中 observation 不变，encoder output、mask 和 gate 只依赖 observation；每步变化的是 x<sub>t</sub>、t 与由此得到的 suffix query，所以这些必须重算。</p></div>
+          <div class="interview-card"><strong>Q12：prefix KV 为什么不是总能复用？</strong><p>相同图像/语言时严格等价；真实相机连续变化时旧 KV 丢失新视觉信息。状态更新仍在，但物体移动、遮挡或任务切换会使缓存失效，因此必须有刷新策略。</p></div>
+          <div class="interview-card"><strong>Q13：为什么不直接减少 denoise steps？</strong><p>减少 steps 很有效但可能降低动作质量，属于有损杠杆；先删除严格冗余可获得无损收益，再用任务成功率选择最小可用 steps。</p></div>
+          <div class="interview-card"><strong>Q14：为什么不优化网络？</strong><p>Server 与直连差异小于约 15 ms，模型前向是主要瓶颈。先用 profiling 证明瓶颈，再投入计算图和采样优化。</p></div>
+          <div class="interview-card"><strong>Q15：3:1 现在完成了吗？</strong><p>模型侧 prefix cache 和快状态通路已完成并验证，Server 的跨请求 cache、刷新和异步 worker 尚未接入。因此目前是快慢架构的模型级原型，不是完整线上 3:1 系统。</p></div>
+          <div class="interview-card"><strong>Q16：项目最大的工程收获？</strong><p>机器人模型部署的正确性不来自一次 forward，而来自模型 schema、数据语义、归一化、随机采样、服务协议和执行接口逐层闭合；优化也必须先区分静态观测依赖与动态 solver state。</p></div>
+        </div>
+      </section>
+
+      <section class="section reveal">
+        <div class="section-heading"><p class="section-index">19 · ACTIVE RECALL</p><h2>快速自测</h2></div>
+        <div class="quiz-list">
+          <div class="quiz-item" data-answer="2"><strong>1. 当前项目最准确的定位是？</strong><div class="quiz-options"><button>官方 AT-VLA 完整复现</button><button>已完成多任务真机部署</button><button>PI0.5 触觉适配的模型恢复、开放环链路与推理优化</button><button>提出新的触觉基础模型</button></div><p class="quiz-note">答案：方法级 port 的工程适配与验证。</p></div>
+          <div class="quiz-item" data-answer="1"><strong>2. 62D 的正确布局是？</strong><div class="quiz-options"><button>7+7+24+24</button><button>9+9+22+22</button><button>31+31</button><button>14 EEF + 48 tactile</button></div><p class="quiz-note">答案：左右 9D EEF + 左右 22D hand。</p></div>
+          <div class="quiz-item" data-answer="3"><strong>3. 哪些量可以在同一次去噪循环中无损缓存？</strong><div class="quiz-options"><button>完整 conditioned suffix</button><button>x_t</button><button>timestep embedding</button><button>tactile tokens、mask 与 gate</button></div><p class="quiz-note">答案：只缓存 observation-only 的量。</p></div>
+          <div class="quiz-item" data-answer="0"><strong>4. 触觉 on/off 动作改变 30% 能证明什么？</strong><div class="quiz-options"><button>受控输入下触觉分支因果影响动作</button><button>真机成功率提升 30%</button><button>Gate 阈值等于 5 N</button><button>Deform 优于 F6</button></div><p class="quiz-note">答案：只证明动作敏感性，不能外推任务收益。</p></div>
+        </div>
+      </section>
+
+      <section class="section reveal" id="evidence">
+        <div class="section-heading"><p class="section-index">20 · PROJECT EVIDENCE</p><h2>面试前应该能定位到这些材料</h2></div>
+        <div class="source-grid">
+          <article class="source-card"><span>SUMMARY</span><strong>ATPI05_project_summary.md</strong><p>项目主线、门控验证、优化结果、限制与交付物。</p></article>
+          <article class="source-card"><span>OPTIMIZATION</span><strong>ATPI05_inference_optimization.md</strong><p>steps、precision、batch、网络开销与两项结构性优化。</p></article>
+          <article class="source-card"><span>ARCHITECTURE</span><strong>ATPI05_fast_slow_system.md</strong><p>快慢通路、adaRMS、prefix KV、当前实现和部署缺口。</p></article>
+          <article class="source-card"><span>DEPLOYMENT</span><strong>ATPI05_deployment_guide.md</strong><p>Server/Client/GUI、协议、62D 布局、环境与排错。</p></article>
+          <article class="source-card"><span>HANDOFF</span><strong>ATPI05_HANDOFF.md</strong><p>方法级 port 边界、训练数据准备、Gate 标签、测试要求与历史状态。</p></article>
+          <a class="source-card" href="at-vla.html"><span>PAPER GUIDE</span><strong>AT-VLA 论文专题</strong><p>官方论文方法、公开代码与 ATPI05 的来源关系。</p></a>
+          <a class="source-card" href="pi-series.html"><span>BASE MODEL</span><strong>π 系列专题</strong><p>PI0.5 的 VLM + Flow Action Expert 背景。</p></a>
+          <a class="source-card" href="rtc.html"><span>RUNTIME</span><strong>RTC 专题</strong><p>异步 action chunk、队列与实时衔接。</p></a>
+        </div>
+        <div class="callout warning"><strong>文档冲突如何解释</strong><p>HANDOFF 记录的是较早阶段的 CPU/训练交接状态，后续 deployment、optimization 与 project summary 已补充 RTX 4090 checkpoint、Server 和缓存基准。面试引用结果时以时间更晚、测试条件更具体的报告为准，同时保留 HANDOFF 作为方法来源与早期验证边界记录。</p></div>
+      </section>
+
+      <footer class="footer"><span>ATPI05 · Tactile VLA Deployment & Inference Optimization</span><nav class="footer-links"><a href="at-vla.html">← AT-VLA 论文</a><a href="resume-end-to-end.html">项目总览 →</a><a href="index.html">返回主页</a></nav></footer>
+    </main>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>

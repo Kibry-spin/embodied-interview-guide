@@ -26,7 +26,7 @@
     },
     {
       label: "VLA",
-      pages: ["vla-interview.html", "wam.html", "pi-series.html", "qwen-robotmanip.html", "wall-oss.html", "at-vla.html"],
+      pages: ["vla-interview.html", "wam.html", "pi-series.html", "qwen-robotmanip.html", "wall-oss.html", "at-vla.html", "atpi05-project.html"],
       links: [
       ["vla-interview.html", "VLA 总览", "架构、智元面经、评测与部署"],
         ["wam.html", "WAM", "未来世界建模、LaWAM 与 VLA 对比"],
@@ -34,6 +34,7 @@
         ["qwen-robotmanip.html", "Qwen-RobotManip", "Alignment、跨本体与 38k 小时数据"],
         ["wall-oss.html", "WALL", "Gradient Bridge 与跨本体"],
         ["at-vla.html", "AT-VLA", "触觉门控与快慢双流"],
+        ["atpi05-project.html", "ATPI05 项目", "触觉部署、门控验证与无损缓存"],
       ],
     },
     {
@@ -134,10 +135,16 @@
       ["resume-end-to-end.html", "项目表达", "把硬件、数据和模型组织成简历证据。"],
     ],
     "at-vla.html": [
+      ["atpi05-project.html", "工程实践", "把论文机制落到 StarVLA/OpenPI、62D 双臂灵巧手协议与推理优化。"],
       ["tactile-interview.html", "输入基础", "回到触觉信号、标定与时序同步。"],
       ["vla-interview.html", "VLA 骨架", "明确图像、语言、本体与动作的公共框架。"],
       ["rtc.html", "快慢系统", "比较双流反应与异步动作生成的边界。"],
-      ["index.html#ditflow", "参考实现", "用更小的 DiTFlow 验证触觉条件链路。"],
+    ],
+    "atpi05-project.html": [
+      ["at-vla.html", "论文来源", "区分官方 AT-VLA 方法与 ATPI05 的工程移植、验证边界。"],
+      ["pi-series.html", "模型底座", "补全 OpenPI π0.5 的 VLM—Action Expert 与 Flow Matching 主线。"],
+      ["rtc.html", "运行时升级", "把模型级前缀复用继续落到异步队列、刷新策略与安全执行。"],
+      ["resume-end-to-end.html", "简历主线", "把结构恢复、数据契约、验证和局限组织成项目证据。"],
     ],
     "rtc.html": [
       ["act.html", "动作分块起点", "先理解同步 Action Chunk 与时序集成。"],

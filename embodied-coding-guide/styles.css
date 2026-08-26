@@ -1587,3 +1587,135 @@ body.focus-mode .page-shell { grid-template-columns: minmax(0,1fr); width: min(1
   .qrm-slot-map { grid-template-columns: 1fr; }
   .qrm-slot-map article { min-height: auto; }
 }
+
+/* ATPI05 · evidence-led tactile VLA project */
+.atpi-hero h1 { font-size: clamp(43px, 5vw, 72px); }
+.atpi-hero h1 em { color: #b9f4dc; }
+.atpi-hero-board { justify-content: space-between; }
+.atpi-system-map {
+  display: grid;
+  grid-template-columns: minmax(0,1fr) auto minmax(0,1fr) auto minmax(0,1fr);
+  align-items: stretch;
+  gap: 9px;
+  margin-top: 28px;
+}
+.atpi-system-map article {
+  min-width: 0;
+  padding: 16px 13px;
+  border: 1px solid rgba(132,232,194,.24);
+  border-radius: 11px;
+  background: linear-gradient(145deg, rgba(18,44,36,.86), rgba(11,25,22,.78));
+}
+.atpi-system-map > b { align-self: center; color: var(--mint); font: 700 15px/1 var(--mono); }
+.atpi-system-map span,
+.atpi-system-map strong,
+.atpi-system-map small { display: block; }
+.atpi-system-map span { color: var(--mint); font: 700 8px/1.25 var(--mono); letter-spacing: .1em; }
+.atpi-system-map strong { margin: 11px 0 6px; color: var(--text); font-size: 13px; line-height: 1.35; }
+.atpi-system-map small { color: var(--muted); font-size: 10px; line-height: 1.55; }
+.atpi-proof-strip {
+  display: grid;
+  grid-template-columns: repeat(4,minmax(0,1fr));
+  gap: 7px;
+  margin-top: 13px;
+}
+.atpi-proof-strip span {
+  padding: 9px 7px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: #b9f4dc;
+  background: rgba(255,255,255,.025);
+  font: 700 9px/1.3 var(--mono);
+  text-align: center;
+}
+.project-status-grid {
+  display: grid;
+  grid-template-columns: repeat(4,minmax(0,1fr));
+  gap: 10px;
+}
+.project-status-grid article {
+  min-width: 0;
+  min-height: 185px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-top: 3px solid #7f8c8d;
+  border-radius: 12px;
+  background: rgba(255,255,255,.025);
+}
+.project-status-grid article.done { border-top-color: #58d6a3; background: linear-gradient(150deg,rgba(36,99,77,.24),rgba(255,255,255,.02)); }
+.project-status-grid article.verified { border-top-color: #79b8ff; background: linear-gradient(150deg,rgba(38,77,117,.24),rgba(255,255,255,.02)); }
+.project-status-grid article.partial { border-top-color: #e9bd62; background: linear-gradient(150deg,rgba(108,78,27,.24),rgba(255,255,255,.02)); }
+.project-status-grid article.todo { border-top-color: #d97c7c; background: linear-gradient(150deg,rgba(103,43,43,.22),rgba(255,255,255,.02)); }
+.project-status-grid span,
+.project-status-grid strong { display: block; }
+.project-status-grid span { color: var(--mint); font: 700 8px/1.2 var(--mono); letter-spacing: .1em; }
+.project-status-grid strong { margin: 12px 0 8px; color: var(--text); font-size: 14px; }
+.project-status-grid p { margin: 0; color: var(--muted); font-size: 11px; line-height: 1.75; }
+.atpi-slot-map {
+  display: grid;
+  grid-template-columns: 9fr 9fr 22fr 22fr;
+  gap: 4px;
+  padding: 4px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(255,255,255,.025);
+}
+.atpi-slot-map article {
+  min-width: 0;
+  min-height: 102px;
+  padding: 16px 13px;
+  border-radius: 8px;
+  background: linear-gradient(145deg, rgba(25,67,54,.7), rgba(14,38,32,.72));
+}
+.atpi-slot-map article:nth-child(2) { background: linear-gradient(145deg,rgba(27,58,65,.7),rgba(14,33,38,.72)); }
+.atpi-slot-map article:nth-child(n+3) { background: rgba(255,255,255,.035); }
+.atpi-slot-map span,
+.atpi-slot-map strong,
+.atpi-slot-map small { display: block; }
+.atpi-slot-map span { color: var(--mint); font: 700 9px/1.2 var(--mono); letter-spacing: .08em; }
+.atpi-slot-map strong { margin: 12px 0 7px; color: var(--text); font-size: 12px; line-height: 1.45; overflow-wrap: anywhere; }
+.atpi-slot-map small { color: var(--muted); font-size: 10px; line-height: 1.5; }
+.resume-copy-card {
+  padding: 22px;
+  border: 1px solid rgba(132,232,194,.25);
+  border-radius: 13px;
+  background: linear-gradient(145deg,rgba(20,53,43,.58),rgba(12,28,24,.72));
+}
+.resume-copy-card > p { margin: 0 0 12px; color: var(--text); line-height: 1.85; }
+.resume-copy-card > p:last-child { margin-bottom: 0; }
+.story-grid {
+  display: grid;
+  grid-template-columns: repeat(4,minmax(0,1fr));
+  gap: 10px;
+}
+.story-grid article {
+  min-width: 0;
+  min-height: 170px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(255,255,255,.025);
+}
+.story-grid span,
+.story-grid strong { display: block; }
+.story-grid span { color: var(--mint); font: 700 9px/1 var(--mono); letter-spacing: .1em; }
+.story-grid strong { margin: 12px 0 8px; color: var(--text); font-size: 13px; }
+.story-grid p { margin: 0; color: var(--muted); font-size: 11px; line-height: 1.72; }
+.version-dot.done-dot { border-color: #58d6a3; color: #b9f4dc; background: rgba(50,121,91,.28); }
+
+@media (max-width: 980px) {
+  .project-status-grid, .story-grid { grid-template-columns: 1fr 1fr; }
+}
+
+@media (max-width: 760px) {
+  .atpi-hero h1 { font-size: clamp(35px, 10vw, 43px); }
+  .atpi-system-map { grid-template-columns: 1fr; margin-top: 28px; }
+  .atpi-system-map > b { justify-self: center; transform: rotate(90deg); }
+  .atpi-proof-strip { grid-template-columns: 1fr 1fr; }
+  .project-status-grid, .story-grid { grid-template-columns: 1fr; }
+  .project-status-grid article, .story-grid article { min-height: auto; }
+  .atpi-slot-map { grid-template-columns: 1fr; }
+  .atpi-slot-map article { min-height: auto; }
+  .resume-copy-card { padding: 17px; }
+}

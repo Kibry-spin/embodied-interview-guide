@@ -35,7 +35,7 @@
         <li><a href="#resume"><span>13</span>简历与面试表达</a></li>
         <li><a href="#interview"><span>14</span>高频追问</a></li>
       </ol>
-      <div class="sidebar-card"><strong>本页过关标准</strong><p>能用“新模态干扰 + 反馈延迟”解释动机；能画出 Gate、Query 切换和 3:1 双流；能从 deploy.py 追到动作输出；能清楚说明自己目前只在验证触觉推理链路。</p></div>
+      <div class="sidebar-card"><strong>本页过关标准</strong><p>能用“新模态干扰 + 反馈延迟”解释动机；能画出 Gate、Query 切换和 3:1 双流；能从 deploy.py 追到动作输出；能区分官方 AT-VLA、ATPI05 方法移植与尚未完成的真机任务闭环。</p></div>
     </aside>
 
     <main>
@@ -62,7 +62,7 @@
 
       <section class="section reveal">
         <div class="section-heading"><p class="section-index">01 · ELEVATOR PITCH</p><h2>先背这一分钟</h2></div>
-        <div class="interview-card"><strong>60 秒回答</strong><p>AT-VLA 面向拉拉链、擦拭、旋盖等接触丰富任务，解决两个问题：第一，预训练 VLA 很少见过触觉，直接追加触觉 token 可能扰乱原有视觉定位；第二，大型 VLM 推理较慢，无法及时利用高频接触反馈。它在 GO-1 的 VLM 加动作专家架构上加入轻量触觉编码器和 Tactile Gate：无接触时保持原有 state query，接触时切换为 tactile query；同时缓存低频视觉语言特征，让触觉快速流在同一 action chunk 时域内多次更新动作。论文用动作损失与接触门控损失联合训练，并在推理时采用 3:1 的快慢流频率比。需要注意，当前开源仓库主要是开放环推理代码，完整训练、真机闭环、数据和权重没有公开，因此我目前把它作为触觉推理链路的参考模型，而不是声称已完成完整复现。</p></div>
+        <div class="interview-card"><strong>60 秒回答</strong><p>AT-VLA 面向拉拉链、擦拭、旋盖等接触丰富任务，解决两个问题：第一，预训练 VLA 很少见过触觉，直接追加触觉 token 可能扰乱原有视觉定位；第二，大型 VLM 推理较慢，无法及时利用高频接触反馈。它在 GO-1 的 VLM 加动作专家架构上加入轻量触觉编码器和 Tactile Gate：无接触时保持原有 state query，接触时切换为 tactile query；同时缓存低频视觉语言特征，让触觉快速流在同一 action chunk 时域内多次更新动作。论文用动作损失与接触门控损失联合训练，并在推理时采用 3:1 的快慢流频率比。我的 ATPI05 工作不是官方 checkpoint 复现，而是参考该方法，在 StarVLA/OpenPI π0.5 上完成的触觉适配工程：已完成 checkpoint 结构恢复、62D 双臂灵巧手协议、开放环协议验证、受控门控因果测试与模型级缓存优化；真实触觉标定和任务级真机闭环仍在推进。</p></div>
         <div class="memory-line"><strong>记忆主线</strong><p>为什么加：接触反馈；为什么不能直接加：干扰预训练；何时加：Gate 判断接触；加在哪里：Action Expert 的 Query；如何加快：慢 VLM 缓存 + 快触觉更新。</p></div>
       </section>
 
@@ -72,9 +72,9 @@
           <tr><td><strong>论文方法</strong></td><td>Adaptive Tactile Injection、Adaptive Cross-Attention、Tactile Reaction Dual-Stream、动作损失 + 门控损失</td><td>这些机制是你提出的</td><td>“我研读并以 AT-VLA 为参考，理解其触觉门控和快慢流设计。”</td></tr>
           <tr><td><strong>公开代码</strong></td><td>模型结构、三类触觉编码分支、开放环 deploy、动作扩散采样与部分训练 forward</td><td>仓库已经提供可一键复现实验的完整工程</td><td>“我沿公开推理路径完成代码级梳理，并定位了设备适配入口与缺失组件。”</td></tr>
           <tr><td><strong>公开资源</strong></td><td>当前仓库仅一份推理导向初始提交，checkpoint 和 test_example 目录为空占位</td><td>已经拿到官方权重、训练数据或真实机器人控制代码</td><td>“完整复现受公开权重、数据和闭环控制代码缺失限制。”</td></tr>
-          <tr><td><strong>你的当前工作</strong></td><td>G3 平台触觉数据采集、接口与推理链路适配；AT-VLA 用于参考验证</td><td>你开发了 G3 整套数采系统，或已完成 AT-VLA 端到端部署</td><td>“我负责触觉侧的数据规范、接入和推理流验证，闭环实验仍在推进。”</td></tr>
+          <tr><td><strong>ATPI05 工程实践</strong></td><td>参考 AT-VLA 的触觉门控思想，在 StarVLA/OpenPI π0.5 上完成方法级移植；严格恢复 F6/Deform checkpoint，打通 62D 双臂灵巧手协议与开放环推理，并验证门控对动作的受控影响</td><td>完成官方 AT-VLA checkpoint 复现、开发整套 G3 数采系统，或证明真实任务成功率提升</td><td>“我完成的是触觉侧结构恢复、数据契约、推理链路与模型级优化；真实触觉分布标定和安全闭环仍在推进。”</td></tr>
         </tbody></table></div>
-        <div class="callout warning"><strong>当前最准确的项目状态</strong><p>属于“源码分析 + 触觉接口适配 + 开放环验证准备/推进中”，不是“训练复现完成”，也不是“真机闭环部署完成”。等实际跑通权重、输出动作并完成安全闭环后，再升级简历措辞。</p></div>
+        <div class="callout warning"><strong>当前最准确的项目状态</strong><p>已超过“只看源码/只做接口”的阶段：两个训练 checkpoint 已严格加载，离线与 WebSocket 协议链路已跑通，受控输入下验证了触觉门控能够改变动作，且完成无损触觉缓存和模型级前缀复用实验。但它仍不是官方 AT-VLA 完整复现，也没有真实任务闭环成功率与触觉消融结论。完整证据、数字与问答见 <a href="atpi05-project.html"><u>ATPI05 项目专题</u></a>。</p></div>
       </section>
 
       <section class="section reveal" id="motivation">
@@ -284,8 +284,8 @@
       <section class="section reveal" id="resume">
         <div class="section-heading"><p class="section-index">13 · RESUME & STORY</p><h2>按当前完成度包装，而不是按论文包装</h2></div>
         <div class="compare-grid">
-          <article class="compare-card good"><span>NOW · RECOMMENDED</span><h3>当前可以写</h3><p><strong>触觉推理链路验证：</strong>负责银河自研 G3 平台的触觉数据接入与推理接口适配，参考 AT-VLA 梳理 6D 触觉编码、门控注入与快慢流推理路径，完成触觉输入规范、关键张量及开放环验证方案设计；端到端真机闭环仍在推进。</p></article>
-          <article class="compare-card bad"><span>AVOID</span><h3>当前不要写</h3><p>“复现 AT-VLA 并在 G3 上完成多任务部署优化”“实现 0.04 s 闭环”“成功率达到论文水平”“开发完整 G3 数据采集系统”。这些表述都需要权重、任务实验、延迟测量和个人工作证据。</p></article>
+          <article class="compare-card good"><span>NOW · RECOMMENDED</span><h3>当前可以写</h3><p><strong>触觉 VLA 推理适配：</strong>面向银河自研双臂与 Sharpa 灵巧手平台，参考 AT-VLA 将 F6/视触觉双分支接入 StarVLA/OpenPI π0.5；完成 checkpoint 结构恢复、62D 状态/动作契约、开放环协议验证及门控因果测试，并通过无损缓存降低推理延迟；真实任务闭环仍在推进。</p></article>
+          <article class="compare-card bad"><span>AVOID</span><h3>当前不要写</h3><p>“完整复现 AT-VLA 并在 G3 上完成多任务部署”“实现论文 0.04 s 闭环”“触觉显著提高任务成功率”“开发完整 G3 数据采集系统”。现有证据支持模型与协议层验证，不支持这些任务级结论。</p></article>
         </div>
         <div class="section-heading" style="margin-top:62px"><p class="section-index">UPGRADE AFTER MILESTONE</p><h2>完成后再逐级升级表述</h2></div>
         <div class="resume-map atvla-resume-map">
@@ -295,7 +295,7 @@
           <article><span>LEVEL 04 · 真机</span><strong>安全闭环验证</strong><p>“在 G3 接触任务中完成触觉条件动作调整与闭环验证，并开展触觉缺失及延迟消融。”</p><em>证据：任务定义、试验次数、成功率、失败案例</em></article>
         </div>
         <div class="section-heading" style="margin-top:62px"><p class="section-index">TWO-MINUTE ANSWER</p><h2>两分钟项目回答</h2></div>
-        <div class="interview-card"><strong>当前版本</strong><p>我在 G3 平台上主要负责触觉侧的数据与推理链路，AT-VLA 是我用于验证这条链路的参考模型。它解决的是预训练 VLA 引入新触觉模态时可能破坏视觉定位，以及大模型推理速度难以响应高频接触反馈的问题。方法上，它先用轻量编码器得到触觉 token，通过接触门控决定是否注入；无接触时尽量保持原有 state query，接触时切换为 tactile query。同时将视觉语言推理作为慢流缓存，触觉和动作专家作为快流更新。我的工作重点是梳理公开源码的输入接口和关键张量，并把 G3 触觉信号统一到模型需要的低维表示，包括单位、坐标、左右手语义和时间戳，再设计开放环与消融验证。由于官方目前没有公开完整训练脚本、真实机器人 harness、数据和权重，我不会把它表述为完整复现；当前阶段是触觉推理接口适配与验证，后续目标是完成权重开放环、快慢流调度和安全真机闭环。</p></div>
+        <div class="interview-card"><strong>当前版本</strong><p>我在银河自研双臂与 Sharpa 灵巧手平台上主要负责触觉侧的数据与推理链路，AT-VLA 是方法参考，真正的工程对象是 ATPI05。官方 AT-VLA 基于 GO-1 路线，我没有把它冒充成 Physical Intelligence 的 π0；我参考其接触门控和快慢流思想，将 F6 与视触觉分支适配到 StarVLA/OpenPI π0.5。工程中先依据 checkpoint 反推并补齐缺失的 FastStateConditioner，使 F6 和 Deform 权重都能严格加载；再以 62D 双臂末端与手指状态/动作契约打通客户端、服务端和反归一化。验证上，我用固定 Flow 初始噪声做门控开关与触觉强度测试，证明在受控输入下触觉路径会因果地改变动作；性能上只缓存与观测相关的 tactile token，保持每个去噪步的注入器重算，在输出逐元素一致的前提下降低了 Deform 延迟。当前还缺真实触觉分布下的门控标定、打乱消融和安全真机闭环，因此我把结果限定为模型/协议级验证，不宣称任务成功率提升。</p></div>
       </section>
 
       <section class="section reveal">
@@ -306,7 +306,7 @@
           <tr><td>融合策略</td><td>Gate 决定何时切换 Action Expert Query</td><td>CountNet 全程提供在手数量概率作为条件</td><td>都是“先提炼触觉语义，再进入动作策略”</td></tr>
           <tr><td>动作生成</td><td>GO-1 的 diffusion-based DiT Action Expert</td><td>DiTFlow / Flow Matching 连续动作生成</td><td>不要把两种损失和 scheduler 混为一谈</td></tr>
           <tr><td>闭环方式</td><td>慢 VLM + 高频触觉快流</td><td>依据数量反馈动态调整与迭代重抓</td><td>触觉都不是离线识别终点，而是动作结果反馈</td></tr>
-          <tr><td>你的贡献</td><td>参考模型的触觉数据/推理接口适配，尚未完成</td><td>第一作者，主导任务、算法、系统、训练与真机实验</td><td>回答时必须明确贡献层级不同</td></tr>
+          <tr><td>你的贡献</td><td>参考论文完成 ATPI05 方法级移植的结构恢复、62D 数据契约、协议验证、受控门控测试与推理优化；任务闭环未完成</td><td>第一作者，主导任务、算法、系统、训练与真机实验</td><td>回答时必须明确贡献层级不同</td></tr>
         </tbody></table></div>
       </section>
 
@@ -318,7 +318,7 @@
           <article class="practice-card"><span class="card-label">QUESTION 03</span><h3>快慢双流如何保证条件不过期？</h3><div class="prompt">不要只回答“缓存 KV”。</div><button class="reveal-button" data-reveal="at-answer-3" data-hide-label="隐藏参考回答">查看参考回答</button><div class="solution" id="at-answer-3"><p>slow stream 的视觉语言输出只在 action chunk horizon 内复用；每份 cache 应记录 observation timestamp、版本号和有效期。fast stream 每次读取最新触觉与状态，同时检查 cache 是否仍对应当前任务和场景；如果相机变化、任务切换、缓存超时或 Gate 关闭，应触发慢流更新或回退。真实系统还要防止并发读写时拿到不完整 KV。</p></div></article>
           <article class="practice-card"><span class="card-label">QUESTION 04</span><h3>为什么 6D force 比触觉图像表现更好？</h3><div class="prompt">限定在论文设置中。</div><button class="reveal-button" data-reveal="at-answer-4" data-hide-label="隐藏参考回答">查看参考回答</button><div class="solution" id="at-answer-4"><p>在 AT-VLA 的数据规模和注入方式下，6D force 是紧凑、任务相关的接触表征，token 少、编码快，也较少扰动预训练表示；触觉图像需要额外 ViT 并产生更多 token。论文结果只说明这套设置下 force 6D 最好，不意味着高维触觉普遍更差，高维信号可以先经过任务相关瓶颈再融合。</p></div></article>
           <article class="practice-card"><span class="card-label">QUESTION 05</span><h3>AT-VLA 没有触觉时为什么还能运行？</h3><div class="prompt">回答机制，不要说“模型脑补触觉”就结束。</div><button class="reveal-button" data-reveal="at-answer-5" data-hide-label="隐藏参考回答">查看参考回答</button><div class="solution" id="at-answer-5"><p>Gate 关闭时 Query 和输入行为尽量退化到原始 VLA，因此不会强依赖触觉 token；训练中模型仍保留预训练视觉语言能力，并可能从视觉与状态中学到与接触相关的相关性。论文显示无触觉时非接触任务保持基线水平，但接触丰富任务仍明显受益于真实触觉，不能把鲁棒性理解为触觉可有可无。</p></div></article>
-          <article class="practice-card"><span class="card-label">QUESTION 06</span><h3>你目前到底完成了什么？</h3><div class="prompt">用证据和边界回答。</div><button class="reveal-button" data-reveal="at-answer-6" data-hide-label="隐藏参考回答">查看参考回答</button><div class="solution" id="at-answer-6"><p>我负责 G3 平台触觉侧的数据接入和推理接口适配，已经完成 AT-VLA 论文—代码路径梳理，并围绕 6D 输入、坐标/单位/时间统一、门控观测和开放环消融设计推进验证。官方未发布完整训练、真机代码、数据和权重，所以我不声称完整复现；后续里程碑是获得兼容权重后跑通开放环，再实现 3:1 缓存调度和安全闭环。</p></div></article>
+          <article class="practice-card"><span class="card-label">QUESTION 06</span><h3>你目前到底完成了什么？</h3><div class="prompt">用证据和边界回答。</div><button class="reveal-button" data-reveal="at-answer-6" data-hide-label="隐藏参考回答">查看参考回答</button><div class="solution" id="at-answer-6"><p>我完成的是 ATPI05 的模型/协议级工程验证，而不是官方 AT-VLA 的任务复现：补齐 checkpoint 中缺失的 62→256→1024 状态条件器，F6 842 个键和 Deform 1013 个键均严格加载；按真实数据元信息纠正 62D 双臂末端与手指布局，打通客户端—服务端—动作解析；用固定初始噪声验证门控关闭时动作差异为零、开启后触觉会改变动作；并完成逐元素一致的触觉缓存优化。真实 MCAP 门控标定、在线 Deform、运行时 3:1 调度和安全真机闭环仍未完成。</p></div></article>
         </div>
         <div class="quiz-list" style="margin-top:18px">
           <article class="quiz-item" data-answer="2"><strong>1. AT-VLA 在接触阶段主要切换 Action Expert 的哪一项？</strong><div class="quiz-options"><button>语言 instruction</button><button>VLM 层数</button><button>Query 条件</button><button>相机分辨率</button></div><p class="quiz-note">K/V 保持视觉语言条件，Query 从 state 切向 tactile。</p></article>
